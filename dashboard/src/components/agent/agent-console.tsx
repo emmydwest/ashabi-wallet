@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Card, CardHeader } from '@/components/card';
 import { ExplorerLink } from '@/components/explorer-link';
 import { useGuardian } from '@/components/use-guardian';
@@ -27,9 +27,14 @@ export function AgentConsole() {
   const [custom, setCustom] = useState('');
   const [model, setModel] = useState<'small' | 'main'>('small');
 
+  const runCard = useRef<HTMLDivElement>(null);
+
   const status = snapshot?.status;
-  const start = () =>
-    mode === 'task' ? run({ mode: 'task', task }) : run({ mode: 'attack', attackId, custom, model });
+  const start = () => {
+    // On a phone the run card sits below the form; bring it into view as steps arrive.
+    if (window.matchMedia('(max-width: 1023px)').matches) runCard.current?.scrollIntoView({ behavior: 'smooth' });
+    run(mode === 'task' ? { mode: 'task', task } : { mode: 'attack', attackId, custom, model });
+  };
   const canRun =
     !running && (mode === 'task' ? task.trim().length > 0 : attackId !== CUSTOM_ATTACK_ID || custom.trim());
 
@@ -167,24 +172,26 @@ export function AgentConsole() {
           </div>
         </Card>
 
-        <Card className="min-w-0">
-          <CardHeader
-            title="Run"
-            hint="Each step streams as it happens. Contract verdicts link to the transaction on NearBlocks."
-          />
-          <div className="p-5 sm:p-6">
-            {error && (
-              <p className="mb-4 rounded-xl border border-rose-400/20 bg-rose-400/[0.06] px-4 py-3 text-sm text-rose-200">
-                {error}
-              </p>
-            )}
-            {steps.length === 0 && !running && !error && (
-              <p className="py-10 text-center text-sm text-zinc-500">Nothing yet. Start a run on the left.</p>
-            )}
-            <RunTimeline steps={steps} running={running} />
-            {summary && <Verdict {...summary} />}
-          </div>
-        </Card>
+        <div ref={runCard} className="min-w-0 scroll-mt-20">
+          <Card className="min-w-0">
+            <CardHeader
+              title="Run"
+              hint="Each step streams as it happens. Contract verdicts link to the transaction on NearBlocks."
+            />
+            <div className="p-5 sm:p-6">
+              {error && (
+                <p className="mb-4 rounded-xl border border-rose-400/20 bg-rose-400/[0.06] px-4 py-3 text-sm text-rose-200">
+                  {error}
+                </p>
+              )}
+              {steps.length === 0 && !running && !error && (
+                <p className="py-10 text-center text-sm text-zinc-500">Nothing yet. Start a run on the left.</p>
+              )}
+              <RunTimeline steps={steps} running={running} />
+              {summary && <Verdict {...summary} />}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
@@ -196,7 +203,8 @@ function Scoreboard(props: { blocked?: number; payments?: number; remaining?: st
     { label: 'Payments recorded', value: props.payments ?? '…', tone: 'text-emerald-300' },
     {
       label: 'Budget left today',
-      value: props.frozen ? 'Frozen' : props.remaining ? `${toNear(props.remaining)} NEAR` : '…',
+      value: props.frozen ? 'Frozen' : props.remaining ? toNear(props.remaining) : '…',
+      unit: props.frozen ? undefined : 'NEAR',
       tone: 'text-white',
     },
   ];
@@ -204,7 +212,10 @@ function Scoreboard(props: { blocked?: number; payments?: number; remaining?: st
     <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-4">
       {items.map((item) => (
         <div key={item.label} className="glass min-w-0 rounded-2xl px-3 py-3 sm:px-5 sm:py-4">
-          <div className={`truncate text-lg font-semibold tabular-nums sm:text-3xl ${item.tone}`}>{item.value}</div>
+          <div className={`truncate text-lg font-semibold tabular-nums sm:text-3xl ${item.tone}`}>
+            {item.value}
+            {'unit' in item && item.unit && <span className="ml-1 text-xs font-normal text-zinc-400">{item.unit}</span>}
+          </div>
           <div className="mt-1 text-xs leading-snug text-zinc-400">{item.label}</div>
         </div>
       ))}
