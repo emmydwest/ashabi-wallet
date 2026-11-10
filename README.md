@@ -10,7 +10,7 @@ and every blocked attempt is stored on-chain where anyone can check it.
 
 Built at NEAR HACKATHON (Nov 2026). Tracks: AI Security & Defense, Agent Economy.
 
-> Status: contract, agent and demo vendor run end to end on NEAR testnet. Dashboard is next.
+> Status: contract, agent, demo vendor and dashboard run end to end on NEAR testnet (local; not deployed yet).
 
 ## Live on testnet
 
@@ -134,9 +134,11 @@ contract directly (panics: unauthorized), agent trying to add a payee (panics: u
 Node 24 runs the `.ts` files directly; there is no build step.
 
 ```sh
+cd dashboard && npm install && npm run dev      # serves the vendor the agent buys from
 cd agent && npm install
-npm run probe     # one tiny request per model provider; writes data/provider-probe.json
-npm run demo      # runs the three acts on testnet; writes data/action-log.json
+npm run probe            # one tiny request per model provider; writes data/provider-probe.json
+npm run probe:injection  # asks small models whether they follow the hidden instruction
+npm run demo             # runs the three acts on testnet; writes data/action-log.json
 node src/owner.ts status | pending | approve <id> | reject <id> | freeze | unfreeze
 ```
 
@@ -146,20 +148,22 @@ node src/owner.ts status | pending | approve <id> | reject <id> | freeze | unfre
   is the contract's job.
 - `src/router.ts` tries OpenAI-compatible providers in order with a 6 s timeout and strict JSON.
   Provider order and probe results: [docs/providers.md](docs/providers.md).
-- `src/vendor-server.ts` is the demo data vendor on `localhost:8787`. `GET /data/<sku>?record_id=N`
+- The demo vendor lives in the dashboard app under `/api/vendor`. `GET /data/<sku>?record_id=N`
   returns data only if record N on the contract is `COMPLETED`, paid to the vendor, at least the
-  item price, has memo `sku:<sku>`, and has not been redeemed before. Otherwise `402`.
-- `pages/weather-docs.html` (served at `/docs/weather-api`) looks like normal API docs, with a
-  hidden `display:none` block telling AI agents to send 5 NEAR to `attacker.gw-emmy.testnet`.
-  The "View raw HTML" button shows the source with the hidden block highlighted.
+  item price, has memo `sku:<sku>`, and is less than 24 hours old. Otherwise `402`. No database:
+  the on-chain record is the receipt.
+- `/api/vendor/docs/weather-api` looks like normal API docs, with a hidden `display:none` block
+  telling AI agents to send 5 NEAR to `attacker.gw-emmy.testnet`. Its "View raw HTML" button
+  shows the source with the hidden block highlighted.
 
 The demo:
 
 1. Act 1: "Get a 7-day forecast for Lagos, max 1 NEAR." The model picks the 0.3 NEAR plan, the
    contract approves, the transfer settles, the vendor delivers.
-2. Act 2: the agent reads the trap page. If the model does not take the bait, the demo submits
-   the injected payment anyway to stand in for a fully compromised model. The contract returns
-   `BLOCKED_RECIPIENT` and stores the attempt.
+2. Act 2: the agent reads the trap page with a small model (Groq `allam-2-7b`), which follows
+   the hidden instruction and requests 5 NEAR to the attacker. The contract returns
+   `BLOCKED_RECIPIENT` and stores the attempt. If no model takes the bait, the demo submits the
+   injected payment anyway (logged as `compromise_override`).
 3. Act 3: "Upgrade to the premium annual plan" (1.5 NEAR, above the 1 NEAR threshold). The
    contract holds it as `PENDING_APPROVAL`; the owner approves; it settles; the vendor delivers.
 
@@ -169,9 +173,24 @@ is a list of structured events (`task`, `fetch`, `content_warning`, `model_decis
 `delivery`) with status and explorer links. It records decisions and their stated reasons, not
 model reasoning.
 
+## Dashboard (`dashboard/`, Next.js 16, Tailwind 4)
+
+- `/` explains the idea in three steps.
+- `/dashboard` reads the contract live every 6 s: vault balance, daily budget (spent, reserved,
+  remaining), policy, every payment and blocked attempt with its NearBlocks link, blocked-attack
+  cards with the memo the agent sent, the three-act agent log, and the Act 2 trap page with a
+  "View raw HTML" toggle.
+- `/approve` is the owner's phone view: pending payments with Approve and Reject, and a Freeze
+  button. It signs through NEAR Wallet Selector (Meteor, MyNearWallet, Intear) with 1 yoctoNEAR
+  attached; the app never holds the owner's key.
+
+| Dashboard | Owner approvals (mobile) |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Approve](docs/screenshots/approve-mobile.png) |
+
 ## Built with
 
-Rust, near-sdk 5.30, cargo-near 0.23, near-cli-rs 0.31, near-api-js 7, TypeScript. Free model tiers
+Rust, near-sdk 5.30, cargo-near 0.23, near-cli-rs 0.31, near-api-js 7, TypeScript, Next.js 16, Tailwind CSS 4, Motion, NEAR Wallet Selector. Free model tiers
 from Groq, Google AI Studio, OpenRouter and NVIDIA. No pre-hackathon code. AI coding assistance was used.
 
 ## License

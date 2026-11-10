@@ -11,3 +11,7 @@ neardev/
 *_TOKEN
 credentials*.json
 data/redeemed.json
+.next/
+next-env.d.ts
+*.tsbuildinfo
+.vercel
