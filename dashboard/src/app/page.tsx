@@ -30,17 +30,17 @@ const COMPARISON = [
 export default function Home() {
   return (
     <main className="mx-auto max-w-7xl px-5 pb-28 sm:px-8">
-      <section className="grid items-center gap-14 pb-20 pt-16 lg:grid-cols-[1.1fr_1fr] lg:pt-24">
-        <div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-zinc-300">
-            <span className="size-1.5 rounded-full bg-emerald-400" />
+      <section className="grid grid-cols-1 items-center gap-14 pb-20 pt-12 lg:grid-cols-[1.1fr_1fr] lg:pt-24">
+        <div className="min-w-0">
+          <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs leading-snug text-zinc-200">
+            <span className="size-1.5 shrink-0 rounded-full bg-emerald-400" />
             Built at NEAR HACKATHON · AI Security &amp; Agent Economy
           </span>
-          <h1 className="mt-6 text-[2.75rem] font-semibold leading-[1.04] tracking-[-0.035em] text-white sm:text-6xl lg:text-[4.25rem]">
+          <h1 className="mt-6 text-[2.4rem] font-semibold leading-[1.06] tracking-[-0.03em] text-balance text-white sm:text-6xl lg:text-[4.25rem]">
             Give AI the freedom to act.
             <span className="text-gradient block">Never the freedom to overspend.</span>
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-400">
+          <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-zinc-300 sm:text-lg">
             Guardian Wallet lets an AI agent pay for things on NEAR without ever holding the money. A smart contract
             enforces your spending rules, so even a fully compromised agent cannot spend outside them.
           </p>
@@ -74,7 +74,7 @@ export default function Home() {
             <article key={step.n} className="glass group rounded-2xl p-6 transition hover:border-white/15">
               <span className="font-mono text-sm text-emerald-300/80">{step.n}</span>
               <h3 className="mt-6 text-xl font-semibold tracking-tight text-white">{step.title}</h3>
-              <p className="mt-2 leading-relaxed text-zinc-400">{step.body}</p>
+              <p className="mt-2 leading-relaxed text-zinc-300">{step.body}</p>
             </article>
           ))}
         </div>
@@ -87,15 +87,32 @@ export default function Home() {
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
               Prompts can be argued with. Code can&apos;t.
             </h2>
-            <p className="mt-4 leading-relaxed text-zinc-400">
+            <p className="mt-4 leading-relaxed text-zinc-300">
               Most agent safety lives in the system prompt or in a second model acting as a judge. Both can be
               jailbroken. Guardian Wallet moves the rules to where the money is.
             </p>
           </div>
-          <div className="glass overflow-hidden rounded-2xl">
+          <ul className="space-y-3 sm:hidden">
+            {COMPARISON.map(([label, prompt, guardian]) => (
+              <li key={label} className="glass rounded-2xl p-4">
+                <div className="text-sm font-medium text-white">{label}</div>
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-zinc-400">Prompt guardrails</div>
+                    <div className="mt-1 text-zinc-300">{prompt}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-emerald-300">Guardian Wallet</div>
+                    <div className="mt-1 text-white">{guardian}</div>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="glass hidden overflow-hidden rounded-2xl sm:block">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-white/[0.06] text-zinc-500">
+                <tr className="border-b border-white/[0.06] text-zinc-400">
                   <th className="px-5 py-3 font-normal" />
                   <th className="px-5 py-3 font-normal">Prompt guardrails</th>
                   <th className="px-5 py-3 font-medium text-emerald-300">Guardian Wallet</th>
@@ -104,8 +121,8 @@ export default function Home() {
               <tbody>
                 {COMPARISON.map(([label, prompt, guardian]) => (
                   <tr key={label} className="border-b border-white/[0.04] last:border-0">
-                    <td className="px-5 py-4 text-zinc-400">{label}</td>
-                    <td className="px-5 py-4 text-zinc-500">{prompt}</td>
+                    <td className="px-5 py-4 text-zinc-300">{label}</td>
+                    <td className="px-5 py-4 text-zinc-400">{prompt}</td>
                     <td className="px-5 py-4 text-white">{guardian}</td>
                   </tr>
                 ))}
@@ -123,27 +140,27 @@ export default function Home() {
         <h2 className="relative text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Watch it stop a real attack on testnet.
         </h2>
-        <p className="relative mx-auto mt-3 max-w-xl text-zinc-400">
+        <p className="relative mx-auto mt-3 max-w-xl text-zinc-300">
           The dashboard reads the contract live: balances, the budget, every payment and every blocked attempt, each
           linked to its transaction.
         </p>
-        <div className="relative mt-8 flex justify-center gap-3">
+        <div className="relative mt-8 flex flex-wrap justify-center gap-3">
           <Link
             href="/dashboard"
-            className="rounded-full bg-white px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-emerald-100"
+            className="whitespace-nowrap rounded-full bg-white px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-emerald-100"
           >
             Open dashboard
           </Link>
           <Link
             href="/approve"
-            className="rounded-full border border-white/12 px-5 py-2.5 text-sm text-zinc-200 transition hover:border-white/25"
+            className="whitespace-nowrap rounded-full border border-white/15 px-5 py-2.5 text-sm text-zinc-100 transition hover:border-white/25"
           >
             Owner approvals
           </Link>
         </div>
       </section>
 
-      <footer className="mt-16 flex flex-wrap items-center justify-between gap-4 text-sm text-zinc-500">
+      <footer className="mt-16 flex flex-wrap items-center justify-between gap-4 text-sm text-zinc-400">
         <span>Guardian Wallet · NEAR testnet</span>
         <span className="font-mono text-xs">{CONTRACT_ID}</span>
       </footer>

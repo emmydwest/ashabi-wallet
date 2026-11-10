@@ -38,6 +38,9 @@ function dotColor(event: LogEvent) {
   return 'bg-zinc-500';
 }
 
+// The demo ran against a local vendor; show its routes, which are the same on the live site.
+const withoutLocalOrigin = (text: string) => text.replace(/https?:\/\/localhost:\d+/g, '');
+
 function modelLabel(event: LogEvent) {
   const detail = event.detail as { provider?: string; model?: string } | undefined;
   return detail?.provider ? `${detail.provider} · ${detail.model}` : null;
@@ -53,9 +56,9 @@ export function AgentTimeline({ log }: { log: ActionLog }) {
       <div className="grid gap-4 p-5 sm:p-6 lg:grid-cols-3">
         {ACTS.map((act) => (
           <div key={act.act} className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
-            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-emerald-300/80">{act.name}</div>
+            <div className="font-mono text-xs uppercase tracking-[0.16em] text-emerald-300/80">{act.name}</div>
             <h3 className="mt-1 text-base font-semibold text-white">{act.title}</h3>
-            <p className="text-sm text-zinc-500">{act.summary}</p>
+            <p className="text-sm text-zinc-400">{act.summary}</p>
             <ol className="mt-4 space-y-0">
               {log.events
                 .filter((e) => e.act === act.act)
@@ -67,15 +70,15 @@ export function AgentTimeline({ log }: { log: ActionLog }) {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                        <span className="font-mono text-xs uppercase tracking-wider text-zinc-400">
                           {TYPE_LABEL[event.type] ?? event.type}
                         </span>
-                        {event.tx_hash && <ExplorerLink txHash={event.tx_hash} />}
+                        {event.tx_hash && <ExplorerLink txHash={event.tx_hash} label="View tx" variant="pill" />}
                       </div>
-                      <p className="mt-0.5 text-[13px] leading-snug text-zinc-200">{event.title}</p>
-                      {modelLabel(event) && (
-                        <p className="mt-1 font-mono text-[11px] text-zinc-500">{modelLabel(event)}</p>
-                      )}
+                      <p className="mt-0.5 break-words text-sm leading-snug text-zinc-100">
+                        {withoutLocalOrigin(event.title)}
+                      </p>
+                      {modelLabel(event) && <p className="mt-1 font-mono text-xs text-zinc-400">{modelLabel(event)}</p>}
                       {event.status && event.type !== 'setup' && (
                         <div className="mt-1.5">
                           <StatusChip status={event.status} />

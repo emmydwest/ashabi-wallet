@@ -25,7 +25,7 @@ export function StatusChip({ status }: { status: string }) {
   const tone = TONES[STATUS_TONE[status] ?? 'muted'];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium tracking-wide ${tone}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 font-mono text-xs font-medium tracking-wide ${tone}`}
     >
       <span className="size-1.5 rounded-full bg-current" />
       {status.replaceAll('_', ' ')}

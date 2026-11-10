@@ -34,7 +34,7 @@ export function DashboardView({ log }: { log: ActionLog }) {
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-emerald-300/80">Live from the contract</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Guardian dashboard</h1>
         </div>
-        <p className="font-mono text-xs text-zinc-500">
+        <p className="font-mono text-xs text-zinc-400">
           {error ? (
             <span className="text-rose-300">RPC error: {error}</span>
           ) : snapshot ? (

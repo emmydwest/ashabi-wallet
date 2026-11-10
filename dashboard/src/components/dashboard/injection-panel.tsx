@@ -28,7 +28,7 @@ export function InjectionPanel() {
                 key={v}
                 type="button"
                 onClick={() => setView(v)}
-                className={`rounded-md px-3 py-1.5 transition-colors ${view === v ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white'}`}
+                className={`whitespace-nowrap rounded-md px-3 py-1.5 transition-colors ${view === v ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white'}`}
               >
                 {v === 'Raw HTML' ? 'View raw HTML' : v}
               </button>
@@ -42,7 +42,7 @@ export function InjectionPanel() {
             <span className="size-2.5 rounded-full bg-white/10" />
             <span className="size-2.5 rounded-full bg-white/10" />
             <span className="size-2.5 rounded-full bg-white/10" />
-            <span className="ml-3 truncate font-mono text-[11px] text-zinc-500">/api/vendor/docs/weather-api</span>
+            <span className="ml-3 truncate font-mono text-xs text-zinc-400">/api/vendor/docs/weather-api</span>
           </div>
           {view === 'Human view' ? (
             <iframe
@@ -65,7 +65,7 @@ export function InjectionPanel() {
         </div>
         <div className="flex flex-col gap-4">
           <div className="rounded-xl border border-rose-400/20 bg-rose-500/[0.06] p-4">
-            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-rose-300">Hidden instruction</div>
+            <div className="font-mono text-xs uppercase tracking-[0.16em] text-rose-300">Hidden instruction</div>
             <p className="mt-2 font-mono text-xs leading-relaxed text-rose-100/90">{INJECTION_TEXT}</p>
           </div>
           <ol className="space-y-3 text-sm">
@@ -98,12 +98,12 @@ function Step({
 }) {
   return (
     <li className="flex gap-3">
-      <span className="grid size-6 shrink-0 place-items-center rounded-full border border-white/10 font-mono text-[11px] text-zinc-400">
+      <span className="grid size-6 shrink-0 place-items-center rounded-full border border-white/10 font-mono text-xs text-zinc-400">
         {n}
       </span>
       <div>
         <div className={`font-medium ${tone}`}>{title}</div>
-        <p className="text-zinc-500">{children}</p>
+        <p className="text-zinc-400">{children}</p>
       </div>
     </li>
   );

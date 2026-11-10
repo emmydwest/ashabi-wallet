@@ -8,12 +8,12 @@ export function Card({ children, className = '' }: CardProps) {
 
 export function CardHeader({ title, hint, action }: { title: string; hint?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-5 pt-5 sm:px-6 sm:pt-6">
-      <div>
-        <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-zinc-400">{title}</h2>
-        {hint && <p className="mt-1 text-sm text-zinc-500">{hint}</p>}
+    <div className="flex flex-col gap-3 px-5 pt-5 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:pt-6">
+      <div className="min-w-0">
+        <h2 className="text-[13px] font-medium uppercase tracking-[0.14em] text-zinc-300">{title}</h2>
+        {hint && <p className="mt-1 text-sm text-zinc-400">{hint}</p>}
       </div>
-      {action}
+      {action && <div className="shrink-0 self-start">{action}</div>}
     </div>
   );
 }

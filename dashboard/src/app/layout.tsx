@@ -12,12 +12,16 @@ export const metadata: Metadata = {
     'Give AI the freedom to act. Never the freedom to overspend. On-chain spending policy for AI agents on NEAR.',
 };
 
-export const viewport: Viewport = { themeColor: '#06070b' };
+export const viewport: Viewport = { themeColor: '#06070b', colorScheme: 'dark', viewportFit: 'cover' };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="relative min-h-full">
+    <html
+      lang="en"
+      style={{ colorScheme: 'dark' }}
+      className={`${geistSans.variable} ${geistMono.variable} h-full bg-ink antialiased`}
+    >
+      <body className="relative min-h-full overflow-x-hidden bg-ink">
         <div aria-hidden className="backdrop pointer-events-none fixed inset-0 -z-10" />
         <div aria-hidden className="grid-lines pointer-events-none fixed inset-x-0 top-0 -z-10 h-[40rem]" />
         <SiteHeader />

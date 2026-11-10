@@ -54,14 +54,21 @@ export function ApproveView() {
     <main className="mx-auto w-full max-w-md px-4 pb-16 pt-6">
       <div className="glass flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
         <div className="min-w-0">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">Signed in as</div>
-          <div className="truncate font-mono text-sm text-white">{accountId ?? 'Not connected'}</div>
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-zinc-400">
+            Signed in as
+            {isOwner && (
+              <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 normal-case tracking-normal text-emerald-300">
+                owner
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 truncate font-mono text-[15px] text-white">{accountId ?? 'Not connected'}</div>
         </div>
         {accountId ? (
           <button
             type="button"
             onClick={signOut}
-            className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-zinc-300"
+            className="shrink-0 rounded-full border border-white/15 px-3.5 py-1.5 text-sm text-zinc-100"
           >
             Sign out
           </button>
@@ -72,7 +79,7 @@ export function ApproveView() {
               signIn().catch((e: Error) => setNotice({ tone: 'error', text: `Could not connect: ${e.message}` }))
             }
             disabled={!ready}
-            className="rounded-full bg-white px-4 py-2 text-sm font-medium text-ink disabled:opacity-50"
+            className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-medium text-ink disabled:opacity-50"
           >
             Connect wallet
           </button>
@@ -80,7 +87,7 @@ export function ApproveView() {
       </div>
 
       {!accountId && (
-        <p className="mt-3 px-1 text-sm text-zinc-500">
+        <p className="mt-3 px-1 text-sm text-zinc-400">
           Connect the owner wallet to approve payments or freeze spending. Each action is confirmed in your wallet.
         </p>
       )}
@@ -135,7 +142,7 @@ export function ApproveView() {
 
       <div className="mt-8 flex items-baseline justify-between">
         <h1 className="text-lg font-semibold tracking-tight text-white">Waiting for you</h1>
-        <span className="font-mono text-xs text-zinc-500">
+        <span className="font-mono text-xs text-zinc-400">
           {snapshot ? `${snapshot.pending.length} pending` : 'loading…'}
         </span>
       </div>
@@ -144,7 +151,7 @@ export function ApproveView() {
         {snapshot && snapshot.pending.length === 0 && (
           <div className="glass rounded-2xl px-5 py-10 text-center">
             <div className="text-white">Nothing needs your approval</div>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-zinc-400">
               Payments above {toNear(snapshot.status.approval_threshold)} NEAR will show up here.
             </p>
           </div>
@@ -207,15 +214,13 @@ function PendingCard({ record, walletLink, busy, disabled, onApprove, onReject }
           </div>
           <div className="mt-1 font-mono text-xs text-zinc-400">to {record.receiver_id}</div>
         </div>
-        <span className="rounded-full bg-amber-400/10 px-2.5 py-1 font-mono text-[11px] text-amber-300">
-          #{record.id}
-        </span>
+        <span className="rounded-full bg-amber-400/10 px-2.5 py-1 font-mono text-xs text-amber-300">#{record.id}</span>
       </div>
       <div className="mt-4 rounded-xl bg-black/25 px-3.5 py-3 text-sm">
-        <div className="font-mono text-xs text-zinc-500">{sku}</div>
+        <div className="font-mono text-xs text-zinc-400">{sku}</div>
         {reason.length > 0 && <p className="mt-1 text-zinc-200">{reason.join(' | ')}</p>}
       </div>
-      <div className="mt-2 text-xs text-zinc-500">Requested by the agent {timeAgo(nsToDate(record.created_at))}</div>
+      <div className="mt-2 text-xs text-zinc-400">Requested by the agent {timeAgo(nsToDate(record.created_at))}</div>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <button
           type="button"
@@ -237,9 +242,15 @@ function PendingCard({ record, walletLink, busy, disabled, onApprove, onReject }
       {walletLink && (
         <a
           href={walletLink}
-          className="mt-3 block rounded-xl border border-white/10 py-3 text-center text-sm text-zinc-300 transition hover:bg-white/5"
+          className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-sky-300/20 bg-sky-300/[0.06] px-4 py-3 text-sm transition hover:bg-sky-300/10"
         >
-          Wallet popup not opening? Approve in MyNearWallet
+          <span>
+            <span className="block font-medium text-sky-100">Approve in MyNearWallet</span>
+            <span className="block text-xs text-sky-200/70">If the wallet popup does not open</span>
+          </span>
+          <span aria-hidden className="text-sky-200">
+            →
+          </span>
         </a>
       )}
     </motion.article>
@@ -249,7 +260,7 @@ function PendingCard({ record, walletLink, busy, disabled, onApprove, onReject }
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="glass rounded-xl px-4 py-3">
-      <dt className="text-xs text-zinc-500">{label}</dt>
+      <dt className="text-xs text-zinc-400">{label}</dt>
       <dd className="tabular mt-0.5 font-mono text-white">{value}</dd>
     </div>
   );

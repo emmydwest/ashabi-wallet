@@ -31,13 +31,18 @@ async function requestPaymentTxns(): Promise<ExplorerTxn[]> {
   return txCache.hashes;
 }
 
-// Every successful request_payment creates exactly one payment record or one
-// blocked attempt, so sorting both sides by time pairs each item with its tx.
+// Every successful request_payment creates one payment record or one blocked attempt, stamped
+// with the time its receipt ran: the tx's own block or one shortly after. Walk both lists in time
+// order and pair each item with the latest tx at or before it.
 function attachTxHashes(items: FeedItem[], txns: ExplorerTxn[]) {
   const ordered = [...txns].sort((a, b) => Number(BigInt(a.block_timestamp) - BigInt(b.block_timestamp)));
   const chronological = [...items].sort((a, b) => a.at - b.at);
-  if (ordered.length !== chronological.length) return;
-  chronological.forEach((item, i) => (item.txHash = ordered[i].transaction_hash));
+  let next = 0;
+  for (const item of chronological) {
+    let match: ExplorerTxn | undefined;
+    while (next < ordered.length && Number(ordered[next].block_timestamp) <= item.at) match = ordered[next++];
+    if (match && item.at - Number(match.block_timestamp) < 30e9) item.txHash = match.transaction_hash;
+  }
 }
 
 export async function loadSnapshot(): Promise<GuardianSnapshot> {

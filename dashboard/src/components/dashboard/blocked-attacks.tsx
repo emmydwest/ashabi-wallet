@@ -16,30 +16,32 @@ export function BlockedAttacks({ feed }: { feed: FeedItem[] }) {
     <Card className="overflow-hidden">
       <CardHeader title="Blocked attacks" hint="Payments to unapproved accounts. Stored on-chain, funds untouched." />
       <div className="space-y-3 p-5 sm:p-6">
-        {attacks.length === 0 && <p className="text-sm text-zinc-500">No attacks recorded yet.</p>}
+        {attacks.length === 0 && <p className="text-sm text-zinc-400">No attacks recorded yet.</p>}
         {attacks.map(({ key, at, txHash, attempt }) => (
           <article
             key={key}
             className="relative overflow-hidden rounded-xl border border-rose-400/15 bg-gradient-to-br from-rose-500/[0.08] via-transparent to-transparent p-4"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="grid size-8 place-items-center rounded-lg bg-rose-400/15 text-rose-300">
-                  <ShieldX />
+            <div className="flex items-center gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rose-400/15 text-rose-300">
+                <ShieldX />
+              </span>
+              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                <span className="tabular whitespace-nowrap font-mono text-[15px] font-medium text-white">
+                  {toNear(attempt.amount)} NEAR
                 </span>
-                <div>
-                  <div className="tabular font-mono text-sm text-white">{toNear(attempt.amount)} NEAR</div>
-                  <div className="font-mono text-xs text-rose-200/80">{attempt.receiver_id}</div>
-                </div>
+                <StatusChip status={attempt.status} />
               </div>
-              <StatusChip status={attempt.status} />
+            </div>
+            <div className="mt-2 text-sm text-zinc-400">
+              to <span className="break-all font-mono text-rose-200">{attempt.receiver_id}</span>
             </div>
             <blockquote className="mt-3 border-l-2 border-rose-400/40 pl-3 font-mono text-xs leading-relaxed text-zinc-300">
               {attempt.memo || 'no memo'}
             </blockquote>
-            <div className="mt-3 flex items-center justify-between text-[11px] text-zinc-500">
+            <div className="mt-3 flex items-center justify-between text-xs text-zinc-400">
               <span>{timeAgo(nsToDate(at))} · funds not transferred</span>
-              <ExplorerLink txHash={txHash} />
+              <ExplorerLink txHash={txHash} label={txHash ? 'View tx' : 'Contract'} variant="pill" />
             </div>
           </article>
         ))}

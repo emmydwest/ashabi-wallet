@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Card, CardHeader } from '@/components/card';
 import { ExplorerLink } from '@/components/explorer-link';
 import { StatusChip } from '@/components/status-chip';
-import { shortAccount, timeAgo } from '@/lib/format';
+import { timeAgo } from '@/lib/format';
 import { nsToDate, toNear } from '@/lib/near';
 import type { FeedItem } from '@/lib/types';
 
@@ -40,7 +40,7 @@ export function PaymentFeed({ feed }: { feed: FeedItem[] }) {
                 key={f}
                 type="button"
                 onClick={() => setFilter(f)}
-                className={`rounded-md px-2.5 py-1 transition-colors ${filter === f ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white'}`}
+                className={`whitespace-nowrap rounded-md px-3 py-1.5 transition-colors ${filter === f ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white'}`}
               >
                 {f}
               </button>
@@ -60,10 +60,10 @@ export function PaymentFeed({ feed }: { feed: FeedItem[] }) {
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="grid grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-3.5 transition-colors hover:bg-white/[0.02] sm:px-6"
+                className="flex gap-3.5 px-5 py-4 transition-colors hover:bg-white/[0.02] sm:px-6"
               >
                 <span
-                  className={`grid size-9 place-items-center rounded-xl border ${
+                  className={`mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl border ${
                     blocked
                       ? 'border-rose-400/20 bg-rose-400/10 text-rose-300'
                       : 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
@@ -71,21 +71,26 @@ export function PaymentFeed({ feed }: { feed: FeedItem[] }) {
                 >
                   {blocked ? <ShieldX /> : <ArrowUpRight />}
                 </span>
-                <div className="min-w-0">
-                  <div className="flex items-baseline gap-2 text-sm">
-                    <span className="tabular font-mono font-medium text-white">{toNear(row.amount)} NEAR</span>
-                    <span className="text-zinc-500">to</span>
-                    <span className={`truncate font-mono ${blocked ? 'text-rose-200' : 'text-zinc-200'}`}>
-                      {shortAccount(row.receiver)}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                    <span className="tabular whitespace-nowrap font-mono text-[15px] font-medium text-white">
+                      {toNear(row.amount)} NEAR
+                    </span>
+                    <StatusChip status={row.status} />
+                  </div>
+                  <div className="mt-1 text-sm text-zinc-400">
+                    to{' '}
+                    <span className={`break-all font-mono ${blocked ? 'text-rose-200' : 'text-zinc-200'}`}>
+                      {row.receiver}
                     </span>
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-zinc-500">{row.memo || 'no memo'}</p>
-                </div>
-                <div className="flex flex-col items-end gap-1.5">
-                  <StatusChip status={row.status} />
-                  <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-                    <span>{timeAgo(nsToDate(item.at))}</span>
-                    <ExplorerLink txHash={item.txHash} />
+                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-400">{row.memo || 'no memo'}</p>
+                  <div className="mt-2.5 flex items-center justify-between gap-3 text-xs text-zinc-400">
+                    <span>
+                      {timeAgo(nsToDate(item.at))}
+                      {blocked && ' · funds not moved'}
+                    </span>
+                    <ExplorerLink txHash={item.txHash} label={item.txHash ? 'View tx' : 'Contract'} variant="pill" />
                   </div>
                 </div>
               </motion.li>

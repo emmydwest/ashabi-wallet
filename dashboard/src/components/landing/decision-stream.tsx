@@ -51,7 +51,7 @@ export function DecisionStream() {
             <span className="size-1.5 rounded-full bg-emerald-400" />
             guardian.gw-emmy.testnet
           </div>
-          <span className="font-mono text-[11px] text-zinc-500">request_payment</span>
+          <span className="font-mono text-xs text-zinc-400">request_payment</span>
         </div>
         <ul className="flex h-[348px] flex-col gap-2.5 overflow-hidden p-4">
           <AnimatePresence initial={false}>
@@ -69,13 +69,13 @@ export function DecisionStream() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="font-mono text-sm">
                       <span className="text-white">{r.amount} NEAR</span>
-                      <span className="text-zinc-500"> → </span>
+                      <span className="text-zinc-400"> → </span>
                       <span className={r.to === 'attacker' ? 'text-rose-300' : 'text-zinc-300'}>{r.to}</span>
                     </div>
                     <StatusChip status={r.status} />
                   </div>
                   <div className="mt-1.5 flex items-center justify-between gap-3 text-xs">
-                    <span className="truncate font-mono text-zinc-500">{r.memo}</span>
+                    <span className="truncate font-mono text-zinc-400">{r.memo}</span>
                     <span className="shrink-0 text-zinc-400">{r.why}</span>
                   </div>
                 </motion.li>

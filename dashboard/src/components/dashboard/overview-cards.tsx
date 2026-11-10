@@ -20,7 +20,7 @@ export function BalanceCard({ snapshot }: { snapshot: GuardianSnapshot }) {
             </span>
             <span className="text-lg text-zinc-400">NEAR</span>
           </div>
-          <p className="mt-2 text-sm text-zinc-500">
+          <p className="mt-2 text-sm text-zinc-400">
             Spendable, held by the contract. The agent never holds these funds.
           </p>
         </div>
@@ -36,9 +36,9 @@ export function BalanceCard({ snapshot }: { snapshot: GuardianSnapshot }) {
 
 function Stat({ label, value, tone = 'text-white' }: { label: string; value: number; tone?: string }) {
   return (
-    <div className="px-4 py-3">
+    <div className="min-w-0 px-3 py-3 sm:px-4">
       <div className={`tabular font-mono text-xl font-semibold ${tone}`}>{value}</div>
-      <div className="text-xs text-zinc-500">{label}</div>
+      <div className="text-xs text-zinc-400">{label}</div>
     </div>
   );
 }
@@ -63,9 +63,9 @@ export function PolicyCard({ snapshot }: { snapshot: GuardianSnapshot }) {
         hint="Enforced by the contract on every request."
         action={
           status.frozen ? (
-            <span className="rounded-full bg-rose-500/15 px-2.5 py-1 font-mono text-[11px] text-rose-300">FROZEN</span>
+            <span className="rounded-full bg-rose-500/15 px-2.5 py-1 font-mono text-xs text-rose-300">FROZEN</span>
           ) : (
-            <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 font-mono text-[11px] text-emerald-300">
+            <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 font-mono text-xs text-emerald-300">
               ACTIVE
             </span>
           )
@@ -76,7 +76,7 @@ export function PolicyCard({ snapshot }: { snapshot: GuardianSnapshot }) {
         <Row label="Daily limit">{toNear(status.daily_limit)} NEAR</Row>
         <Row label="Agent">
           <span title={AGENT_ID}>{shortAccount(status.agent_id)}</span>
-          <span className="ml-2 rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-400">request_payment only</span>
+          <span className="ml-2 rounded bg-white/5 px-1.5 py-0.5 text-xs text-zinc-400">request_payment only</span>
         </Row>
         <div>
           <dt className="text-zinc-400">Approved payees</dt>
