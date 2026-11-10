@@ -183,8 +183,12 @@ model reasoning.
   remaining), policy, every payment and blocked attempt with its NearBlocks link, blocked-attack
   cards with the memo the agent sent, the three-act agent log, and the Act 2 trap page with a
   "View raw HTML" toggle.
-- `/approve` is the owner's phone view: pending payments with Approve and Reject, and a Freeze
-  button. It signs through NEAR Wallet Selector (Meteor, MyNearWallet, Intear) with 1 yoctoNEAR
+- `/agent` lets anyone run the agent for real. Give it a task and it reads the vendor catalog,
+  asks a free model what to buy, and sends `request_payment` with its limited key; settlement and
+  the delivered data stream in. Attack mode poisons the vendor page with a preset or your own
+  injection and shows whether the model fell for it and what the contract did, with the tx link.
+- `/approve` is the owner's phone view: pending payments with Approve and Reject, a Freeze
+  button, and the rules (daily limit, approved payees). It signs through NEAR Wallet Selector (Meteor, MyNearWallet, Intear) with 1 yoctoNEAR
   attached; the app never holds the owner's key.
 
 | Dashboard | Owner approvals (mobile) |
