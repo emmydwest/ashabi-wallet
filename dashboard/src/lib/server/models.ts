@@ -54,7 +54,8 @@ async function complete(p: Provider, system: string, user: string): Promise<unkn
     body: JSON.stringify({
       model: p.model,
       temperature: 0,
-      max_tokens: 600,
+      // Reasoning models spend part of this budget thinking before they answer.
+      max_tokens: 1500,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: `${system}\nReply with one JSON object only.` },
@@ -65,6 +66,7 @@ async function complete(p: Provider, system: string, user: string): Promise<unkn
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text: string = (await res.json()).choices?.[0]?.message?.content ?? '';
+  if (!text.includes('{')) throw new Error('empty reply');
   // Some models wrap the object in a markdown fence despite json mode.
   return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
 }
