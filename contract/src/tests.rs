@@ -31,7 +31,7 @@ fn ctx(caller: AccountId, deposit: u128, ts: u64) -> VMContextBuilder {
     b
 }
 
-const T0: u64 = 1_700_000_000_000_000_000; // arbitrary ns timestamp
+const T0: u64 = 1_700_000_000_000_000_000;
 
 fn setup() -> GuardianWallet {
     testing_env!(ctx(owner(), 0, T0).build());
@@ -126,7 +126,6 @@ fn budget_counts_pending_reservations() {
             .status,
         RequestStatus::BlockedBudget
     );
-    // reject releases reservation
     as_owner(T0);
     c.reject_payment(0);
     assert_eq!(c.get_wallet_status().reserved.0, 0);
@@ -169,7 +168,6 @@ fn above_threshold_pending_then_owner_approves_then_completes() {
     let s = c.get_wallet_status();
     assert_eq!((s.reserved.0, s.spent_today.0), (0, 2 * NEAR));
     assert!(c.get_payment(0).unwrap().approved_by_owner);
-    // callback success
     testing_env!(
         ctx(contract_id(), 0, T0 + 2).build(),
         near_sdk::test_vm_config(),

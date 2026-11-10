@@ -1,11 +1,6 @@
-//! Guardian Wallet — an on-chain spending policy for AI agents.
-//!
-//! The contract custodies the funds. The AI agent can only *request* payments;
-//! every request is checked against owner-set policy (freeze, payee allowlist,
-//! daily budget incl. reservations, approval threshold, replay protection).
-//! Policy violations never panic: they return a status, are persisted in state
-//! and emitted as NEP-297 events, so blocked attacks stay visible on-chain.
-//! Only authorization failures (wrong caller) panic.
+//! Guardian Wallet: the agent can only request payments; this contract holds the
+//! funds and decides. Policy violations return a status instead of panicking,
+//! because a panic would roll back the record of the blocked attempt.
 
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
@@ -18,10 +13,9 @@ use near_sdk::{
 pub const NANOS_PER_DAY: u64 = 86_400 * 1_000_000_000;
 pub const MAX_REQUEST_ID_LEN: usize = 64;
 pub const MAX_MEMO_LEN: usize = 256;
-/// Max blocked attempts kept with full details (ring buffer); total count is unbounded.
 /// Caps the storage a compromised agent can burn by spamming bad requests.
 pub const MAX_STORED_BLOCKED: u32 = 500;
-/// Balance kept back on top of storage staking so the contract can never be drained.
+/// Kept back on top of storage staking.
 pub const SAFETY_RESERVE: NearToken = NearToken::from_millinear(100);
 const GAS_FOR_CALLBACK: Gas = Gas::from_tgas(10);
 const EVENT_STANDARD: &str = "guardian_wallet";
@@ -37,7 +31,6 @@ enum StorageKey {
     UsedRequestIds,
 }
 
-/// Outcome of `request_payment`.
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -51,19 +44,14 @@ pub enum RequestStatus {
     Duplicate,
 }
 
-/// Lifecycle of a payment record.
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum PaymentStatus {
-    /// Waiting for the owner.
     PendingApproval,
-    /// Transfer promise scheduled, callback not yet received.
     Transferring,
     Completed,
-    /// Transfer failed; budget refunded.
     Failed,
-    /// Owner rejected the pending payment; reservation released.
     Rejected,
 }
 
@@ -78,7 +66,7 @@ pub struct PaymentRecord {
     pub status: PaymentStatus,
     pub created_at: u64,
     pub updated_at: u64,
-    /// Day index (block_timestamp / 1 day) whose budget this payment is charged to.
+    /// UTC day index whose budget this payment is charged to.
     pub budget_day: u64,
     pub approved_by_owner: bool,
 }
@@ -135,7 +123,7 @@ pub struct GuardianWallet {
     spent_today: u128,
     /// Day index that `spent_today` belongs to.
     current_day: u64,
-    /// Sum of pending-approval amounts (counted against the budget).
+    /// Pending-approval amounts, counted against the budget.
     reserved: u128,
     frozen: bool,
     approved_payees: IterableSet<AccountId>,
@@ -200,7 +188,6 @@ impl GuardianWallet {
         c
     }
 
-    /// Accept plain deposits (anyone can top up the guardian).
     #[payable]
     pub fn deposit(&mut self) {
         emit(
@@ -209,11 +196,7 @@ impl GuardianWallet {
         );
     }
 
-    // ------------------------------------------------------------------ agent
-
-    /// The only spending entry point for the AI agent. Never panics on policy
-    /// violations; only panics if the caller is not the registered agent or the
-    /// arguments are malformed.
+    /// Panics only for a wrong caller or malformed arguments.
     pub fn request_payment(
         &mut self,
         request_id: String,
@@ -234,7 +217,6 @@ impl GuardianWallet {
         require!(memo.len() <= MAX_MEMO_LEN, "memo too long (max 256 bytes)");
         self.roll_day();
 
-        // 1. Replay protection. A duplicate is logged but does not consume the id again.
         if self.used_request_ids.contains(&request_id) {
             return self.block(
                 request_id,
@@ -247,7 +229,6 @@ impl GuardianWallet {
         }
         self.used_request_ids.insert(request_id.clone());
 
-        // 2. Emergency freeze.
         if self.frozen {
             return self.block(
                 request_id,
@@ -258,7 +239,6 @@ impl GuardianWallet {
                 "wallet is frozen by owner".into(),
             );
         }
-        // 3. Payee allowlist.
         if !self.approved_payees.contains(&receiver_id) {
             return self.block(
                 request_id,
@@ -272,7 +252,6 @@ impl GuardianWallet {
                 ),
             );
         }
-        // 4. Daily budget (spent + reserved for pending + this request).
         let committed = self.spent_today + self.reserved;
         if committed
             .checked_add(amount.0)
@@ -291,7 +270,6 @@ impl GuardianWallet {
                 ),
             );
         }
-        // 5. Funds actually held (minus storage + safety reserve + pending reservations).
         if amount.0 > self.available_balance().saturating_sub(self.reserved) {
             return self.block(
                 request_id,
@@ -359,9 +337,7 @@ impl GuardianWallet {
         }
     }
 
-    // ------------------------------------------------------------------ owner
-
-    /// Owner approves a pending payment. Budget was already reserved at request time.
+    /// The budget was already reserved when the agent made the request.
     #[payable]
     pub fn approve_payment(&mut self, record_id: u64) {
         self.assert_owner();
@@ -475,7 +451,6 @@ impl GuardianWallet {
         );
     }
 
-    /// Rotate the agent key/account (e.g. after a compromise).
     #[payable]
     pub fn set_agent(&mut self, agent_id: AccountId) {
         self.assert_owner();
@@ -484,7 +459,6 @@ impl GuardianWallet {
         emit("agent_changed", json!({ "agent_id": agent_id }));
     }
 
-    /// Owner pulls funds out; not subject to agent policy.
     #[payable]
     pub fn withdraw(&mut self, amount: U128) -> Promise {
         self.assert_owner();
@@ -495,8 +469,6 @@ impl GuardianWallet {
         emit("withdraw", json!({ "to": self.owner_id, "amount": amount }));
         Promise::new(self.owner_id.clone()).transfer(NearToken::from_yoctonear(amount.0))
     }
-
-    // ------------------------------------------------------------------ callback
 
     #[private]
     pub fn on_transfer_complete(&mut self, record_id: u64) -> bool {
@@ -534,8 +506,6 @@ impl GuardianWallet {
         ok
     }
 
-    // ------------------------------------------------------------------ views
-
     pub fn get_wallet_status(&self) -> WalletStatus {
         let today = day_of(env::block_timestamp());
         let spent = if today == self.current_day {
@@ -562,7 +532,7 @@ impl GuardianWallet {
         }
     }
 
-    /// Payment records, newest first. `from_index` counts from the newest.
+    /// Newest first; `from_index` counts from the newest.
     pub fn get_payment_history(
         &self,
         from_index: Option<u32>,
@@ -578,7 +548,7 @@ impl GuardianWallet {
             .collect()
     }
 
-    /// Blocked attempts, newest first (last MAX_STORED_BLOCKED kept).
+    /// Newest first; only the last MAX_STORED_BLOCKED are kept.
     pub fn get_blocked_attempts(
         &self,
         from_index: Option<u32>,
@@ -608,8 +578,6 @@ impl GuardianWallet {
     pub fn is_request_id_used(&self, request_id: String) -> bool {
         self.used_request_ids.contains(&request_id)
     }
-
-    // ------------------------------------------------------------------ internal
 
     fn assert_owner(&self) {
         require!(
