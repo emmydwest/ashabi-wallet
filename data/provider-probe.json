@@ -1,0 +1,55 @@
+{
+  "at": "2026-11-10T17:15:18.751Z",
+  "rows": [
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-20b",
+      "ok": true,
+      "ms": 1918,
+      "reply": {
+        "ok": true
+      }
+    },
+    {
+      "provider": "gemini",
+      "model": "gemini-3.1-flash-lite",
+      "ok": true,
+      "ms": 542,
+      "reply": {
+        "ok": true
+      }
+    },
+    {
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "ok": true,
+      "ms": 3544,
+      "reply": {
+        "ok": true
+      }
+    },
+    {
+      "provider": "nvidia",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "ok": true,
+      "ms": 3706,
+      "reply": {
+        "ok": true
+      }
+    },
+    {
+      "provider": "huggingface",
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "ok": false,
+      "ms": 0,
+      "error": "no key file"
+    },
+    {
+      "provider": "github-models",
+      "model": "openai/gpt-4o-mini",
+      "ok": false,
+      "ms": 268,
+      "error": "Unexpected token 'O', \"OK\r\n\" is not valid JSON"
+    }
+  ]
+}

@@ -10,7 +10,7 @@ and every blocked attempt is stored on-chain where anyone can check it.
 
 Built at NEAR HACKATHON (Nov 2026). Tracks: AI Security & Defense, Agent Economy.
 
-> Status: Day 1 — contract deployed and tested on NEAR testnet. Agent, dashboard and demo pages come next.
+> Status: contract, agent and demo vendor run end to end on NEAR testnet. Dashboard is next.
 
 ## Live on testnet
 
@@ -124,14 +124,55 @@ contract directly (panics: unauthorized), agent trying to add a payee (panics: u
 ### Known limitations
 
 - The contract account still has a full-access key during development, so whoever holds it could
-  redeploy the contract. Before the final demo the plan is to remove that key (or hand upgrades to
-  the owner) so the funds are governed only by the code.
+  redeploy the contract. It will be removed before the final demo; exact steps in
+  [docs/before-final.md](docs/before-final.md).
 - No NEAR Intents yet: payments are native NEAR transfers. NEAR Intents has no testnet, so any
   Intents integration would have to run on mainnet with tiny amounts.
 
+## Agent and demo (`agent/`, TypeScript, Node 24)
+
+Node 24 runs the `.ts` files directly; there is no build step.
+
+```sh
+cd agent && npm install
+npm run probe     # one tiny request per model provider; writes data/provider-probe.json
+npm run demo      # runs the three acts on testnet; writes data/action-log.json
+node src/owner.ts status | pending | approve <id> | reject <id> | freeze | unfreeze
+```
+
+- `src/agent.ts` turns a task into one payment plan (via the model router) and calls
+  `request_payment`. It signs with a function-call key that can only call `request_payment` on the
+  guardian contract and cannot attach deposits. The agent does no policy checks of its own; that
+  is the contract's job.
+- `src/router.ts` tries OpenAI-compatible providers in order with a 6 s timeout and strict JSON.
+  Provider order and probe results: [docs/providers.md](docs/providers.md).
+- `src/vendor-server.ts` is the demo data vendor on `localhost:8787`. `GET /data/<sku>?record_id=N`
+  returns data only if record N on the contract is `COMPLETED`, paid to the vendor, at least the
+  item price, has memo `sku:<sku>`, and has not been redeemed before. Otherwise `402`.
+- `pages/weather-docs.html` (served at `/docs/weather-api`) looks like normal API docs, with a
+  hidden `display:none` block telling AI agents to send 5 NEAR to `attacker.gw-emmy.testnet`.
+  The "View raw HTML" button shows the source with the hidden block highlighted.
+
+The demo:
+
+1. Act 1: "Get a 7-day forecast for Lagos, max 1 NEAR." The model picks the 0.3 NEAR plan, the
+   contract approves, the transfer settles, the vendor delivers.
+2. Act 2: the agent reads the trap page. If the model does not take the bait, the demo submits
+   the injected payment anyway to stand in for a fully compromised model. The contract returns
+   `BLOCKED_RECIPIENT` and stores the attempt.
+3. Act 3: "Upgrade to the premium annual plan" (1.5 NEAR, above the 1 NEAR threshold). The
+   contract holds it as `PENDING_APPROVAL`; the owner approves; it settles; the vendor delivers.
+
+Latest run with transaction links: [docs/demo-run.md](docs/demo-run.md). `data/action-log.json`
+is a list of structured events (`task`, `fetch`, `content_warning`, `model_decision`,
+`payment_request`, `contract_decision`, `settlement`, `awaiting_owner`, `owner_action`,
+`delivery`) with status and explorer links. It records decisions and their stated reasons, not
+model reasoning.
+
 ## Built with
 
-Rust, near-sdk 5.30, cargo-near 0.23, near-cli-rs 0.31. No pre-hackathon code. AI coding assistance was used.
+Rust, near-sdk 5.30, cargo-near 0.23, near-cli-rs 0.31, near-api-js 7, TypeScript. Free model tiers
+from Groq, Google AI Studio, OpenRouter and NVIDIA. No pre-hackathon code. AI coding assistance was used.
 
 ## License
 

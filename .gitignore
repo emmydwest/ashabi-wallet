@@ -5,3 +5,9 @@ node_modules/
 *.pem
 .near-credentials/
 neardev/
+.secrets/
+*.key
+*_API_KEY
+*_TOKEN
+credentials*.json
+data/redeemed.json
