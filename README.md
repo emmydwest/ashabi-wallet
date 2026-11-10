@@ -17,7 +17,7 @@ Built at NEAR HACKATHON (Nov 2026). Tracks: AI Security & Defense, Agent Economy
 | Role | Account |
 |---|---|
 | Guardian contract | [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) |
-| Owner (sets policy, approves) | `gw-emmy-owner.testnet` |
+| Owner (sets policy, approves) | `realfile1618.testnet` (Meteor wallet; was `gw-emmy-owner.testnet` until the [handover](https://testnet.nearblocks.io/txns/GS3WYYApFdR1HeqEd31HxRg1BQuFYdaokE3a9RC2hwbE)) |
 | AI agent (can only request) | `gw-emmy-agent.testnet` |
 | Approved payee (demo API vendor) | `api-vendor.gw-emmy.testnet` |
 | Attacker (not approved) | `attacker.gw-emmy.testnet` |
@@ -74,6 +74,7 @@ resets at the first call of a new day. Pending reservations carry over until app
 | `add_payee(account_id)` / `remove_payee(account_id)` | owner, 1 yocto | |
 | `freeze()` / `unfreeze()` | owner, 1 yocto | emergency stop |
 | `set_agent(agent_id)` | owner, 1 yocto | rotate a compromised agent |
+| `set_owner(new_owner)` | owner, 1 yocto | hand ownership to another wallet; must differ from the agent |
 | `withdraw(amount)` | owner, 1 yocto | owner takes funds back |
 | `deposit()` | anyone, payable | top up (plain transfers also work) |
 | `get_wallet_status()` | view | limits, spent, reserved, remaining, balance, payees, counts |
@@ -140,6 +141,8 @@ npm run probe            # one tiny request per model provider; writes data/prov
 npm run probe:injection  # asks small models whether they follow the hidden instruction
 npm run demo             # runs the three acts on testnet; writes data/action-log.json
 node src/owner.ts status | pending | approve <id> | reject <id> | freeze | unfreeze
+# owner commands sign with the owner's key from ~/.near-credentials; the live owner is a
+# Meteor wallet, so in practice they go through /approve instead
 ```
 
 - `src/agent.ts` turns a task into one payment plan (via the model router) and calls

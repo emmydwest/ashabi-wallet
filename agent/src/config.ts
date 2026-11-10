@@ -3,7 +3,7 @@ export const CFG = {
   rpc: process.env.NEAR_RPC ?? 'https://rpc.testnet.near.org',
   explorer: 'https://testnet.nearblocks.io',
   contract: process.env.GUARDIAN_CONTRACT ?? 'guardian.gw-emmy.testnet',
-  owner: process.env.GUARDIAN_OWNER ?? 'gw-emmy-owner.testnet',
+  owner: process.env.GUARDIAN_OWNER ?? 'realfile1618.testnet',
   agent: process.env.GUARDIAN_AGENT ?? 'gw-emmy-agent.testnet',
   // Function-call key limited to request_payment on the guardian contract.
   agentPublicKey: process.env.GUARDIAN_AGENT_PUBKEY ?? 'ed25519:uQGVJnq7rQY2ixMqVcFtePsVFKucFYnUKMLupfq5Z3Z',

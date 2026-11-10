@@ -460,6 +460,17 @@ impl GuardianWallet {
     }
 
     #[payable]
+    pub fn set_owner(&mut self, new_owner: AccountId) {
+        self.assert_owner();
+        require!(new_owner != self.agent_id, "owner and agent must differ");
+        let previous = std::mem::replace(&mut self.owner_id, new_owner.clone());
+        emit(
+            "owner_changed",
+            json!({ "previous_owner": previous, "new_owner": new_owner }),
+        );
+    }
+
+    #[payable]
     pub fn withdraw(&mut self, amount: U128) -> Promise {
         self.assert_owner();
         require!(

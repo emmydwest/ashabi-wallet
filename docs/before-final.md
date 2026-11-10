@@ -40,3 +40,12 @@ near account delete-keys gw-emmy-agent.testnet \
 
 Top up the function-call allowance first if needed (add a new key with a larger allowance), since
 it cannot be raised once the full-access key is gone.
+
+## Ownership
+
+Ownership moved from `gw-emmy-owner.testnet` to Emmy's Meteor wallet `realfile1618.testnet`
+([tx](https://testnet.nearblocks.io/txns/GS3WYYApFdR1HeqEd31HxRg1BQuFYdaokE3a9RC2hwbE)). The box no
+longer holds an owner key, so `npm run demo` and `scripts/testnet-scenarios.sh` can no longer do
+their owner steps (top up headroom, approve, unfreeze) on their own. Before re-running them, either
+do those steps from `/approve`, or call `set_owner` from the Meteor wallet to hand ownership back to
+`gw-emmy-owner.testnet` for the run.

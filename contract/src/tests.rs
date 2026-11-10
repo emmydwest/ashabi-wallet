@@ -318,3 +318,50 @@ fn owner_admin_methods() {
         (9 * NEAR, 2 * NEAR)
     );
 }
+
+#[test]
+fn owner_can_hand_over_ownership() {
+    let mut c = setup();
+    let new_owner: AccountId = "emmy.testnet".parse().unwrap();
+    as_owner(T0);
+    c.set_owner(new_owner.clone());
+    assert_eq!(c.get_wallet_status().owner_id, new_owner);
+    assert_eq!(events("owner_changed"), 1);
+
+    testing_env!(ctx(new_owner, 1, T0).build());
+    c.freeze();
+    assert!(c.get_wallet_status().frozen);
+}
+
+#[test]
+#[should_panic(expected = "owner only")]
+fn previous_owner_loses_access() {
+    let mut c = setup();
+    as_owner(T0);
+    c.set_owner("emmy.testnet".parse().unwrap());
+    c.freeze();
+}
+
+#[test]
+#[should_panic(expected = "owner only")]
+fn agent_cannot_take_ownership() {
+    let mut c = setup();
+    testing_env!(ctx(agent(), 1, T0).build());
+    c.set_owner(agent());
+}
+
+#[test]
+#[should_panic(expected = "owner and agent must differ")]
+fn owner_cannot_be_the_agent() {
+    let mut c = setup();
+    as_owner(T0);
+    c.set_owner(agent());
+}
+
+#[test]
+#[should_panic(expected = "1 yoctoNEAR")]
+fn set_owner_needs_one_yocto() {
+    let mut c = setup();
+    testing_env!(ctx(owner(), 0, T0).build());
+    c.set_owner("emmy.testnet".parse().unwrap());
+}

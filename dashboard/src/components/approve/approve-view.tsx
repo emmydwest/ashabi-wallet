@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { ExplorerLink } from '@/components/explorer-link';
 import { useGuardian } from '@/components/use-guardian';
-import { OWNER_ID } from '@/lib/config';
 import { timeAgo } from '@/lib/format';
 import { nsToDate, toNear } from '@/lib/near';
 import type { PaymentRecord } from '@/lib/types';
@@ -17,7 +16,9 @@ export function ApproveView() {
   const { accountId, ready, signIn, signOut, callOwnerMethod } = useWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const isOwner = accountId === OWNER_ID;
+  // The contract is the source of truth: ownership can move with set_owner.
+  const ownerId = snapshot?.status.owner_id;
+  const isOwner = Boolean(accountId) && accountId === ownerId;
   const frozen = snapshot?.status.frozen ?? false;
 
   async function run(key: string, method: string, args: Record<string, unknown>, success: string) {
@@ -67,10 +68,10 @@ export function ApproveView() {
         </p>
       )}
 
-      {accountId && !isOwner && (
+      {accountId && ownerId && !isOwner && (
         <p className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           This wallet is not the owner. The contract will reject its actions. Owner:{' '}
-          <span className="font-mono">{OWNER_ID}</span>
+          <span className="font-mono">{ownerId}</span>
         </p>
       )}
 
