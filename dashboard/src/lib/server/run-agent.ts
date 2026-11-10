@@ -86,7 +86,9 @@ export async function runAgent(input: RunRequest, emit: Emit) {
       ? 'The owner has frozen spending. The contract will refuse every payment until it is unfrozen.'
       : BigInt(status.remaining_today) === 0n
         ? 'Today’s budget is used up. The contract will refuse new payments until the day resets (00:00 UTC) or the owner raises the limit.'
-        : undefined,
+        : BigInt(status.available_balance) < nearToYocto(String(MAX_RUN_NEAR))
+          ? 'The vault is running low. Purchases may fail with insufficient funds until the owner tops it up.'
+          : undefined,
   });
 
   const attack =
