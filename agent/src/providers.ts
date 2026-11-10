@@ -41,3 +41,20 @@ export const PROVIDERS: Provider[] = [
     model: 'openai/gpt-4o-mini',
   },
 ];
+
+// Small models tried in act 2 to see whether a real model follows the hidden instruction.
+export const GULLIBLE: Provider[] = [
+  { name: 'groq', baseURL: 'https://api.groq.com/openai/v1', keyFile: 'GROQ_API_KEY', model: 'allam-2-7b' },
+  {
+    name: 'openrouter',
+    baseURL: 'https://openrouter.ai/api/v1',
+    keyFile: 'OPENROUTER_API_KEY',
+    model: 'liquid/lfm-3-1.7b:free',
+  },
+  {
+    name: 'openrouter',
+    baseURL: 'https://openrouter.ai/api/v1',
+    keyFile: 'OPENROUTER_API_KEY',
+    model: 'liquid/lfm-2.5-2.6b:free',
+  },
+];

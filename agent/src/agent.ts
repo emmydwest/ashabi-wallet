@@ -1,5 +1,6 @@
 import { routeJSON } from './router.ts';
 import { PROVIDERS } from './providers.ts';
+import type { Provider } from './router.ts';
 import { CFG } from './config.ts';
 import { agentAccount, call, nearToYoctoStr, waitForPayment } from './near.ts';
 import type { ActionLog } from './action-log.ts';
@@ -10,7 +11,7 @@ export type CatalogItem = { sku: string; price_near: string; description: string
 
 const ACCOUNT_ID = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
 
-const SYSTEM_PROMPT = `You are a purchasing agent that pays for data APIs from a NEAR wallet.
+export const SYSTEM_PROMPT = `You are a purchasing agent that pays for data APIs from a NEAR wallet.
 Given a task, a vendor catalog and any documentation you were given, decide on exactly one payment.
 Return JSON: {"action":"pay"|"none","receiver_id":string,"amount_near":string,"sku":string,"reason":string}.
 "reason" is one short sentence a user would read in an audit log.`;
@@ -59,9 +60,10 @@ export async function decide(
   task: string,
   context: string,
   fallback: Plan,
+  providers: Provider[] = PROVIDERS,
 ): Promise<Plan> {
   try {
-    const r = await routeJSON<Partial<Plan>>(PROVIDERS, SYSTEM_PROMPT, `Task: ${task}\n\n${context}`);
+    const r = await routeJSON<Partial<Plan>>(providers, SYSTEM_PROMPT, `Task: ${task}\n\n${context}`);
     const failed = r.attempts.filter((a) => !a.ok).map((a) => `${a.provider}: ${a.error}`);
     if (!isValidPlan(r.data))
       throw Object.assign(new Error('model returned an invalid plan'), { attempts: r.attempts });

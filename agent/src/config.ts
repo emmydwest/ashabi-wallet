@@ -9,7 +9,7 @@ export const CFG = {
   agentPublicKey: process.env.GUARDIAN_AGENT_PUBKEY ?? 'ed25519:uQGVJnq7rQY2ixMqVcFtePsVFKucFYnUKMLupfq5Z3Z',
   vendor: process.env.GUARDIAN_VENDOR ?? 'api-vendor.gw-emmy.testnet',
   attacker: 'attacker.gw-emmy.testnet',
-  vendorUrl: process.env.VENDOR_URL ?? 'http://localhost:8787',
+  vendorUrl: process.env.VENDOR_URL ?? 'http://localhost:3000/api/vendor',
   credentialsDir: process.env.NEAR_CREDENTIALS_DIR ?? `${process.env.HOME}/.near-credentials`,
 };
 export const txUrl = (h: string) => `${CFG.explorer}/txns/${h}`;

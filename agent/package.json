@@ -6,9 +6,9 @@
   "license": "MIT",
   "scripts": {
     "probe": "node src/probe.ts",
-    "vendor": "node src/vendor-server.ts",
+    "probe:injection": "node src/probe-injection.ts",
     "demo": "node src/demo.ts",
-    "approve": "node src/owner.ts approve",
+    "owner": "node src/owner.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
