@@ -34,8 +34,9 @@ const MAIN: Provider[] = [
   { name: 'nvidia', baseURL: NVIDIA, keyEnv: 'NVIDIA_API_KEY', model: 'nvidia/nemotron-3.5-lightning-30b-a3b' },
 ];
 
-// Small models that tend to follow instructions they find in a page. Used in attack mode.
+// For the naive agent in attack mode: light models that tend to do what a page tells them.
 const SMALL: Provider[] = [
+  MAIN[1],
   { name: 'groq', baseURL: GROQ, keyEnv: 'GROQ_API_KEY', model: 'allam-2-7b' },
   { name: 'openrouter', baseURL: OPENROUTER, keyEnv: 'OPENROUTER_API_KEY', model: 'liquid/lfm-3-1.7b:free' },
   { name: 'openrouter', baseURL: OPENROUTER, keyEnv: 'OPENROUTER_API_KEY', model: 'liquid/lfm-2.5-2.6b:free' },

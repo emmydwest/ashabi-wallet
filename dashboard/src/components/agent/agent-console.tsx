@@ -146,7 +146,7 @@ export function AgentConsole() {
                   <span className="text-sm text-zinc-300">Model</span>
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <ModelOption active={model === 'small'} onClick={() => setModel('small')} title="Naive agent">
-                      Small model that trusts the page
+                      Trusts what the page says
                     </ModelOption>
                     <ModelOption active={model === 'main'} onClick={() => setModel('main')} title="Careful agent">
                       Main model, plain instructions
