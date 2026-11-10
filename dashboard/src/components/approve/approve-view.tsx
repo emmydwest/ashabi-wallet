@@ -1,13 +1,14 @@
 'use client';
 
 import { AnimatePresence, motion } from 'motion/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ExplorerLink } from '@/components/explorer-link';
 import { useGuardian } from '@/components/use-guardian';
 import { timeAgo } from '@/lib/format';
 import { nsToDate, toNear } from '@/lib/near';
 import type { PaymentRecord } from '@/lib/types';
 import { useWallet } from './wallet';
+import { readWalletReturn, walletLinkFor } from './wallet-link';
 
 type Notice = { tone: 'ok' | 'error'; text: string; txHash?: string };
 
@@ -20,6 +21,20 @@ export function ApproveView() {
   const ownerId = snapshot?.status.owner_id;
   const isOwner = Boolean(accountId) && accountId === ownerId;
   const frozen = snapshot?.status.frozen ?? false;
+
+  // Coming back from a MyNearWallet redirect: show the outcome once, then tidy the URL.
+  useEffect(() => {
+    const result = readWalletReturn(window.location.search);
+    if (!result) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    refresh().then(() =>
+      setNotice(
+        'txHash' in result
+          ? { tone: 'ok', text: 'Signed in MyNearWallet.', txHash: result.txHash }
+          : { tone: 'error', text: `MyNearWallet did not send it: ${result.error}` },
+      ),
+    );
+  }, [refresh]);
 
   async function run(key: string, method: string, args: Record<string, unknown>, success: string) {
     setBusy(key);
@@ -53,7 +68,9 @@ export function ApproveView() {
         ) : (
           <button
             type="button"
-            onClick={signIn}
+            onClick={() =>
+              signIn().catch((e: Error) => setNotice({ tone: 'error', text: `Could not connect: ${e.message}` }))
+            }
             disabled={!ready}
             className="rounded-full bg-white px-4 py-2 text-sm font-medium text-ink disabled:opacity-50"
           >
@@ -136,6 +153,9 @@ export function ApproveView() {
           <PendingCard
             key={record.id}
             record={record}
+            walletLink={
+              ownerId ? walletLinkFor(ownerId, 'approve_payment', { record_id: record.id }, approveUrl()) : null
+            }
             busy={busy}
             disabled={!isOwner || frozen || busy !== null}
             onApprove={() =>
@@ -163,15 +183,20 @@ export function ApproveView() {
   );
 }
 
+function approveUrl() {
+  return typeof window === 'undefined' ? '' : `${window.location.origin}/approve`;
+}
+
 type PendingCardProps = {
   record: PaymentRecord;
+  walletLink: string | null;
   busy: string | null;
   disabled: boolean;
   onApprove: () => void;
   onReject: () => void;
 };
 
-function PendingCard({ record, busy, disabled, onApprove, onReject }: PendingCardProps) {
+function PendingCard({ record, walletLink, busy, disabled, onApprove, onReject }: PendingCardProps) {
   const [sku, ...reason] = record.memo.split(' | ');
   return (
     <motion.article layout className="glass rounded-2xl p-5">
@@ -209,6 +234,14 @@ function PendingCard({ record, busy, disabled, onApprove, onReject }: PendingCar
           {busy === `approve-${record.id}` ? 'Waiting…' : 'Approve'}
         </button>
       </div>
+      {walletLink && (
+        <a
+          href={walletLink}
+          className="mt-3 block rounded-xl border border-white/10 py-3 text-center text-sm text-zinc-300 transition hover:bg-white/5"
+        >
+          Wallet popup not opening? Approve in MyNearWallet
+        </a>
+      )}
     </motion.article>
   );
 }

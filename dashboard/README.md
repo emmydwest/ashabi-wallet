@@ -23,3 +23,9 @@ npm run build
 The vendor keeps no database: the payment record on the contract is the receipt, checked on every
 request. The dashboard holds no keys. Owner actions are signed in the owner's wallet with 1
 yoctoNEAR attached, which the contract requires.
+
+Signing on a phone:
+
+- Inside the Meteor app's browser, `/approve` connects through Meteor's in-app bridge (no popups).
+- Anywhere else, each pending payment also has an "Approve in MyNearWallet" link: a full-page
+  redirect to `testnet.mynearwallet.com/sign` that returns to `/approve` with the tx hash.

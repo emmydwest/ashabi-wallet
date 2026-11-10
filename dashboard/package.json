@@ -11,10 +11,12 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\""
   },
   "dependencies": {
+    "@near-js/crypto": "^2.5.1",
     "@near-js/transactions": "^2.5.1",
     "@near-wallet-selector/core": "^10.1.4",
     "@near-wallet-selector/intear-wallet": "^10.1.4",
     "@near-wallet-selector/meteor-wallet": "^10.1.4",
+    "@near-wallet-selector/meteor-wallet-app": "^10.1.4",
     "@near-wallet-selector/modal-ui": "^10.1.4",
     "@near-wallet-selector/my-near-wallet": "^10.1.4",
     "motion": "^14.12.0",

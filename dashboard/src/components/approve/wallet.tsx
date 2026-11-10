@@ -10,7 +10,7 @@ import { CONTRACT_ID, NETWORK } from '@/lib/config';
 type WalletState = {
   accountId: string | null;
   ready: boolean;
-  signIn: () => void;
+  signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   callOwnerMethod: (method: string, args?: Record<string, unknown>) => Promise<string | undefined>;
 };
@@ -20,20 +20,26 @@ const WalletContext = createContext<WalletState | null>(null);
 const GAS = 50_000_000_000_000n;
 const ONE_YOCTO = 1n;
 
+// Meteor's in-app browser has no popups; it talks to dApps over postMessage instead.
+function inMeteorApp() {
+  const w = window as Window & { ReactNativeWebView?: unknown; __is_running_in_meteor_wallet_app__?: boolean };
+  return Boolean(w.__is_running_in_meteor_wallet_app__ || w.ReactNativeWebView || window.top !== window);
+}
+
 async function createSelector() {
-  const [{ setupWalletSelector }, { setupModal }, { setupMeteorWallet }, { setupMyNearWallet }, { setupIntearWallet }] =
-    await Promise.all([
-      import('@near-wallet-selector/core'),
-      import('@near-wallet-selector/modal-ui'),
-      import('@near-wallet-selector/meteor-wallet'),
-      import('@near-wallet-selector/my-near-wallet'),
-      import('@near-wallet-selector/intear-wallet'),
-    ]);
-  const selector = await setupWalletSelector({
-    network: NETWORK,
-    modules: [setupMeteorWallet(), setupMyNearWallet(), setupIntearWallet()],
-  });
-  const modal = setupModal(selector, {
+  const [core, modalUi, meteor, meteorApp, myNearWallet, intear] = await Promise.all([
+    import('@near-wallet-selector/core'),
+    import('@near-wallet-selector/modal-ui'),
+    import('@near-wallet-selector/meteor-wallet'),
+    import('@near-wallet-selector/meteor-wallet-app'),
+    import('@near-wallet-selector/my-near-wallet'),
+    import('@near-wallet-selector/intear-wallet'),
+  ]);
+  const modules = inMeteorApp()
+    ? [meteorApp.setupMeteorWalletApp({ contractId: CONTRACT_ID })]
+    : [meteor.setupMeteorWallet(), myNearWallet.setupMyNearWallet(), intear.setupIntearWallet()];
+  const selector = await core.setupWalletSelector({ network: NETWORK, modules });
+  const modal = modalUi.setupModal(selector, {
     theme: 'dark',
     contractId: CONTRACT_ID,
     description: 'Sign in as the Guardian Wallet owner.',
@@ -67,6 +73,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [selector]);
 
   // Owner methods require exactly 1 yoctoNEAR, which forces a full wallet confirmation.
+  // The modal hides instant-link wallets, so inside the Meteor app we sign in directly.
+  const signIn = useCallback(async () => {
+    if (!selector) return;
+    if (!inMeteorApp()) {
+      modal?.show();
+      return;
+    }
+    const wallet = await selector.wallet('meteor-wallet-app');
+    await wallet.signIn({ contractId: CONTRACT_ID, accounts: [] });
+  }, [selector, modal]);
+
   const callOwnerMethod = useCallback(
     async (method: string, args: Record<string, unknown> = {}) => {
       if (!selector) throw new Error('Wallet is still loading');
@@ -75,15 +92,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         receiverId: CONTRACT_ID,
         actions: [actionCreators.functionCall(method, args, GAS, ONE_YOCTO)],
       });
-      return outcome ? outcome.transaction.hash : undefined;
+      return outcome?.transaction?.hash;
     },
     [selector],
   );
 
   return (
-    <WalletContext.Provider
-      value={{ accountId, ready: Boolean(selector), signIn: () => modal?.show(), signOut, callOwnerMethod }}
-    >
+    <WalletContext.Provider value={{ accountId, ready: Boolean(selector), signIn, signOut, callOwnerMethod }}>
       {children}
     </WalletContext.Provider>
   );
