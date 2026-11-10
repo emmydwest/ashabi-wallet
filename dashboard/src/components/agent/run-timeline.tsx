@@ -67,6 +67,9 @@ export function RunTimeline({ steps, running }: { steps: Step[]; running: boolea
             </div>
             <p className="mt-0.5 break-words text-sm leading-snug text-zinc-100">{step.title}</p>
             {step.model && <p className="mt-1 font-mono text-xs text-sky-300/90">{step.model}</p>}
+            {step.skipped && (
+              <p className="mt-1 whitespace-pre-line font-mono text-xs text-zinc-500">Skipped: {step.skipped}</p>
+            )}
             {step.body && (
               <p
                 className={`mt-1.5 whitespace-pre-line break-words text-sm leading-relaxed ${

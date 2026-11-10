@@ -7,6 +7,7 @@ import { useGuardian } from '@/components/use-guardian';
 import { timeAgo } from '@/lib/format';
 import { nsToDate, toNear } from '@/lib/near';
 import type { PaymentRecord } from '@/lib/types';
+import { OwnerControls } from './owner-controls';
 import { useWallet } from './wallet';
 import { readWalletReturn, walletLinkFor } from './wallet-link';
 
@@ -186,6 +187,8 @@ export function ApproveView() {
           <Fact label="Vault" value={`${toNear(snapshot.status.available_balance)} NEAR`} />
         </dl>
       )}
+
+      {snapshot && <OwnerControls status={snapshot.status} isOwner={isOwner} busy={busy} run={run} />}
     </main>
   );
 }

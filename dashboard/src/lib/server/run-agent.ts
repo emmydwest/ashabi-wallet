@@ -140,6 +140,7 @@ export async function runAgent(input: RunRequest, emit: Emit) {
       type: 'step',
       kind: 'model',
       model: modelName,
+      skipped: summarize(reply.attempts.filter((a) => !a.ok)) || undefined,
       title:
         plan.action === 'pay'
           ? `Decided to pay ${plan.amount_near} NEAR to ${plan.receiver_id}`

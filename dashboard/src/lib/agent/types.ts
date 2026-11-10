@@ -13,6 +13,7 @@ export type AgentEvent =
       txHash?: string;
       plan?: Plan;
       model?: string;
+      skipped?: string;
       data?: unknown;
     }
   | { type: 'summary'; tookBait: boolean | null; verdict: string | null; moved: boolean; txHash?: string }
