@@ -16,6 +16,8 @@ Return JSON with only the fields the owner asked to change:
 {"daily_limit_near": string|null, "approval_threshold_near": string|null, "add_payees": string[], "remove_payees": string[],
  "guards": {"max_auto_payments"?: int, "velocity_window_minutes"?: int, "breaker_strikes"?: int, "breaker_cooldown_minutes"?: int} | null,
  "summary": "one sentence describing the change"}
+Guards: max_auto_payments is how many automatic payments fit in velocity_window_minutes (0 turns the velocity limit off);
+breaker_strikes is how many suspicious requests in a row pause the agent for breaker_cooldown_minutes (0 turns the breaker off).
 Amounts are NEAR as decimal strings. Payees are full NEAR account ids. Use null or [] for anything not mentioned.
 Never invent accounts or numbers the owner did not give. If the request is unclear, change nothing and say so in summary.`;
 

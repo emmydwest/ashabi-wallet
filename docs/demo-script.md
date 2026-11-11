@@ -4,7 +4,8 @@ Record on a phone (or a narrow browser window) at https://guardian-wallet.vercel
 Before recording: open `/approve` in the owner's Meteor wallet and sign in, and check the
 `/agent` page says nothing about a kill-switch. If it does, tap "Reset the circuit breaker" on
 `/approve` first, or wait out the countdown. Also check "Budget left today" is at least 2 NEAR (it resets at
-1:00 AM Lagos), or the premium purchase will be blocked on budget instead of going to the owner.
+1:00 AM Lagos). Otherwise the 402 purchase (0.05 NEAR) still works, but the premium purchase gets
+blocked on budget instead of going to the owner.
 
 Spoken lines are in quotes. Taps are in **bold**.
 
@@ -23,43 +24,52 @@ Screen: the landing page `/`, then scroll slowly.
 
 **Tap "Try the live agent".**
 
-## 0:45 – 1:30 · A normal purchase
+## 0:45 – 1:30 · A normal purchase, paid over HTTP 402
 
 Screen: `/agent`, "Real jobs" tab.
 
-> "This is a real agent on NEAR testnet, running on free models. Its job: buy a seven-day weather
-> forecast for Lagos."
+> "This is a real agent on NEAR testnet, running on free models. Its job: get the weather in
+> Lagos right now."
 
-**Tap the chip "Get me a 7-day weather forecast for Lagos, cheapest option.", then "Run the agent".**
+**Tap the chip "What is the weather in Lagos right now?", then "Run the agent".**
 
-> "It reads the vendor's catalog, picks the 0.3 NEAR plan, and sends a payment request with its
-> own key. That key can call one method on one contract, nothing else."
+Wait for the amber "402 Payment Required" badge.
 
-Wait for the green verdict and the forecast.
+> "The vendor's API says 402, payment required: five hundredths of a NEAR, to this account, with
+> a one-time nonce. The agent asks the guardian to pay, with its own key. That key can call one
+> method on one contract, nothing else."
 
-> "The contract checks the payee is approved and the amount is inside the budget, pays the
-> vendor, and the vendor delivers the data. Here's the transaction on NearBlocks."
+Wait for "Paid on-chain", "Receipt verified" and "Unlocked".
 
-**Tap the tx link**, show it for a second, go back.
+> "The contract approves it and pays the vendor. The agent retries with the transaction hash,
+> and the vendor checks that transaction on-chain itself: right payer, right amount, its own
+> nonce, never used before. Then it unlocks the data. Try the same receipt again: 409."
 
-## 1:30 – 2:15 · The hijack
+**Tap "Verify intent".** Wait for the green "Verified".
 
-Screen: top of `/agent`.
+> "And the memo carries a hash of why the agent paid. My browser just recomputed it and matched
+> it against the chain."
 
-> "Now the part that matters. Let's say the agent has already been tricked. I'm skipping the
-> tricking step, so this is a simulated compromise, but everything after it is real."
+## 1:30 – 2:15 · The injection, then the hijack
 
-**Tap "Watch a hijacked agent try to rob the wallet".**
+Screen: `/agent`, **tap "Attacks"**, **tap "Poisoned webpage"**.
 
-Wait for the amber line "Agent compromised: trying to send 2 NEAR to attacker.gw-emmy.testnet".
+> "Here's what a poisoned page looks like to you: clean."
 
-> "The agent has obeyed an injected instruction and is sending two NEAR to the attacker, using
-> the same key it used a minute ago."
+**Tap "Reveal hidden injection".**
 
-Wait for the green "Contract blocked: unapproved payee".
+> "And here's what the agent reads: a hidden line telling it to pay the attacker."
 
-> "And the contract says no. The attacker isn't on my payee list, so no money moves. The attempt,
-> the memo the agent wrote, and the reason are stored on-chain."
+Scroll to the top. **Tap "Watch a hijacked agent try to rob the wallet".**
+
+> "Let's say the agent fell for it. I'm skipping the tricking step, so this compromise is
+> simulated, but everything after it is real."
+
+Wait for the amber line "Agent compromised: trying to send 2 NEAR to attacker.gw-emmy.testnet",
+then the green "Contract blocked: unapproved payee".
+
+> "Two NEAR to the attacker, with the same key that just paid the vendor. The contract says no.
+> The attacker isn't on my payee list, so no money moves, and the attempt is stored on-chain."
 
 **Tap the NearBlocks link** on the verdict.
 

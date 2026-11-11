@@ -22,6 +22,8 @@ Every row is a real transaction from the live demo.
 | What happened | Status | Transaction |
 |---|---|---|
 | Agent buys a 0.3 NEAR forecast from the approved vendor | `APPROVED`, settled | [EUnUDq8N…](https://testnet.nearblocks.io/txns/EUnUDq8NLvfdenULi2X2Q6XFc99ruA8xrDbEmSnmHMvN) |
+| Agent hits a 402, pays 0.05 NEAR with the vendor's nonce, retries with the receipt, gets the data | `APPROVED`, receipt verified | [9mJuqaKE…](https://testnet.nearblocks.io/txns/9mJuqaKETPvgvc5ZdUagJPmp2jopZx7YAQCtAZZ1d491) |
+| Naive agent follows a hidden `display:none` instruction; memo carries its intent hash | `BLOCKED_RECIPIENT` | [F3ycvuJC…](https://testnet.nearblocks.io/txns/F3ycvuJCmQomwbM6AiiLhBrcb2CzvBJ7MpCEG6WA7N54) |
 | Hijacked agent sends 2 NEAR to the attacker | `BLOCKED_RECIPIENT` | [AVTza2m9…](https://testnet.nearblocks.io/txns/AVTza2m9fpq6KWvUkUpu7Y2dAfoWqRYys4VA64aaLftb) |
 | Poisoned docs trick the model into paying a look-alike vendor | `BLOCKED_RECIPIENT` | [GMHSVLSG…](https://testnet.nearblocks.io/txns/GMHSVLSGh8wEGAs7pmeMNWh4HLjpmd8QCLRJobVKXkcR) |
 | Agent splits a 1.5 NEAR purchase into small pieces | `BLOCKED_VELOCITY` | [E1WH3RiM…](https://testnet.nearblocks.io/txns/E1WH3RiMuBSb8tGR6ZbSa5My4to3ap38yCp66jJ2mocm) |
@@ -43,7 +45,8 @@ near contract call-function as-read-only guardian.gw-emmy.testnet get_blocked_at
 flowchart LR
   user([Anyone on /agent]) --> api[Next.js route<br/>server only]
   api --> llm[Free models<br/>Groq · Gemini · OpenRouter · NVIDIA]
-  api -->|reads| vendor[Demo vendor<br/>catalog + docs page]
+  api -->|GET, 402, retry with receipt| vendor[Demo vendor<br/>catalog, docs, paid API]
+  vendor -->|checks the receipt tx| rpc[(Testnet RPC)]
   vendor -. hidden prompt injection .-> llm
   api -->|request_payment<br/>function-call key| guardian{guardian.gw-emmy.testnet}
   guardian -->|APPROVED| payee[api-vendor.gw-emmy.testnet]
@@ -55,6 +58,33 @@ flowchart LR
 
 The model decides *what* to buy. The contract decides *whether money moves*. Nothing between
 them is trusted.
+
+### Paying for an API over HTTP 402
+
+The vendor's paid endpoint, `GET /api/vendor/<sku>` (`/api/vendor/weather` for the basic plan),
+answers an unpaid request with `402 Payment Required` and a price, payee and single-use nonce.
+The agent pays through the guardian with `sku:<sku> | nonce:<nonce>` in the memo, then retries
+with `X-NEAR-Receipt-Tx: <hash>`. Before it returns any data, the vendor fetches that
+transaction from a testnet RPC and checks four things:
+
+- the agent signed it and sent it to the guardian contract as a single `request_payment`,
+- it pays the exact price to the vendor, for this SKU, with a nonce this vendor issued and
+  that hasn't expired (HMAC-signed, 15 minutes),
+- the guardian returned `APPROVED` and the transfer receipt to the vendor succeeded,
+- neither the receipt nor the nonce has been used before (a second try gets `409`).
+
+There's no database: the chain is the payment record, and used receipts are kept in Vercel's
+runtime cache. Every paid run on `/agent` replays its own receipt at the end to show the `409`.
+Payments above the approval threshold skip the 402 loop and wait for the owner as before.
+
+### Intent hashes
+
+Every `request_payment` the console sends carries `intent:<16 hex>` in its memo. That's the
+first 16 hex characters of the SHA-256 of the run's intent log (task, model, the model's reasoning, SKU,
+amount, payee, installments, timestamp, as sorted-key JSON). The full log comes back with the
+run and is kept for 7 days at `/api/intent/<id>`. "Verify intent" on `/agent` recomputes the hash
+in the browser and compares it with the memo it reads straight from a testnet RPC. "Tamper" changes the
+amount in the log so you can watch the check fail.
 
 ## Security guarantees
 
@@ -73,6 +103,11 @@ What holds even if the agent, its model and its server are fully compromised:
   1 yoctoNEAR attached, which only a full-access key (the owner's wallet) can send.
 - **Evidence survives.** Policy violations don't panic, so the blocked attempt, the memo the agent
   wrote and the reason are stored and emitted as NEP-297 events.
+- **AI never changes the rules.** The policy writer on `/approve` only proposes. Its output
+  is checked against hard bounds (daily limit 0.01–100 NEAR, threshold ≤ daily limit, testnet
+  account ids only, never the guardian, agent or owner, guard values in range), shown as a diff
+  against on-chain policy, and each row needs its own owner signature. Adding an account the
+  contract has blocked before comes with a warning.
 - **No secrets in the browser.** Model keys and the agent key live in Vercel server-only env vars;
   the owner signs in their own wallet and the app never sees that key.
 
@@ -315,13 +350,17 @@ model reasoning.
   remaining), policy, every payment and blocked attempt with its NearBlocks link, blocked-attack
   cards with the memo the agent sent, the three-act agent log, and the Act 2 trap page with a
   "View raw HTML" toggle.
-- `/agent` lets anyone run the agent for real. The hijack button at the top skips the tricking
+- `/agent` lets anyone run the agent for real. Attack presets come with a preview of the
+  poisoned docs page, invoice or tool result, and "Reveal hidden injection" lights up the text
+  only the agent reads; in the stream, the model step that followed it is outlined in red. The hijack button at the top skips the tricking
   step (the compromise is simulated and labelled as such) and has the agent send 2 NEAR to the
   attacker with its real key, so the block is a real transaction every time.
   Otherwise give it a task and it reads the vendor catalog,
   asks a free model what to buy, and sends `request_payment` with its limited key; settlement and
   the delivered data stream in. Attack mode poisons the vendor page with a preset or your own
   injection and shows whether the model fell for it and what the contract did, with the tx link.
+- `/approve` also has the policy writer: plain English in, a checked diff out, one wallet
+  signature per change.
 - `/approve` is the owner's phone view: pending payments with Approve and Reject, a Freeze
   button, and the rules (daily limit, approved payees). It signs through NEAR Wallet Selector (Meteor, MyNearWallet, Intear) with 1 yoctoNEAR
   attached; the app never holds the owner's key.

@@ -101,8 +101,14 @@ export function PolicyWriter({ status, feed, isOwner, busy, run }: Props) {
 
       {draft && review && (
         <div className="mt-5">
-          {review.summary && <p className="text-sm text-zinc-200">“{review.summary}”</p>}
-          <p className="mt-1 font-mono text-[11px] text-zinc-500">{draft.model}</p>
+          {review.summary && (
+            <p className="text-sm text-zinc-200">
+              <span className="text-zinc-400">The model read it as: </span>“{review.summary}”
+            </p>
+          )}
+          <p className="mt-1 text-[11px] text-zinc-500">
+            <span className="font-mono">{draft.model}</span> · only the rows below would change, one signature each
+          </p>
 
           {review.changes.length === 0 ? (
             <p className="mt-3 rounded-xl bg-black/25 px-3.5 py-3 text-sm text-zinc-300">
