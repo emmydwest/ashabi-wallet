@@ -96,6 +96,15 @@ Screen: `/dashboard`.
 > "A Rust contract, NEAR function-call keys, free models, and an SDK any agent can use. Give AI
 > the freedom to act, never the freedom to overspend. Try to break it at guardian-wallet.vercel.app."
 
+## Optional cut: your own wallet (if there's time, or for a second video)
+
+Screen: phone, `/start`. Connect, pick "API buyer", name it, 2 NEAR, confirm.
+
+> "Anyone can get their own guarded wallet in one transaction. It runs the same contract, from a
+> global contract on NEAR, so it costs a quarter of a NEAR to set up."
+
+`/chat` → "Renew my API plan for a year" → the card appears → tap Review → Approve.
+
 ## If something goes wrong while recording
 
 - An amber "as of HH:MM" pill: the testnet RPC is slow. The numbers are the last good on-chain

@@ -5,6 +5,7 @@
 - **Problem:** AI agents that hold a wallet can be talked into paying anyone. One poisoned web page, invoice or tool result is enough, and a better prompt is a promise, not a lock.
 - **Solution:** the agent can only *ask* for payments. A NEAR contract holds the funds and checks every request against the owner's rules (approved payees, daily budget, human approval above a threshold, velocity limit, kill-switch), and records every refusal on-chain.
 - **Live demo:** https://guardian-wallet.vercel.app/agent · **Contract:** [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) (NEAR testnet)
+- **Your own wallet:** https://guardian-wallet.vercel.app/start creates one per user through [`factory.gw-emmy.testnet`](https://testnet.nearblocks.io/address/factory.gw-emmy.testnet) from a NEP-591 global contract; https://guardian-wallet.vercel.app/chat is an assistant that buys through it
 - **Track:** AI Security & Defense (primary) · Agent Economy (secondary)
 
 Prompt-inject the agent, swap its model, steal its key: the worst it can do is file requests the
@@ -26,6 +27,11 @@ with the agent's own limited key. Open https://guardian-wallet.vercel.app/agent 
    outlined in red and the contract blocks the payment.
 4. **Real jobs → "Buy the premium annual plan."** At 1.5 NEAR it's over the 1 NEAR threshold,
    so it waits as pending on `/approve`. Only the owner's wallet can approve it; you can watch it wait.
+5. **Optional, with a testnet wallet: `/start`.** Connect (MyNearWallet, Meteor or Intear),
+   pick a template, name it, attach 2 testnet NEAR ([free from the faucet](https://near-faucet.io/)).
+   One transaction creates your own guarded wallet and its agent. Then `/chat` →
+   "Renew my API plan for a year" files a 1.5 NEAR request that waits on a card at
+   `/vault/<your wallet>/request/<id>`, which you approve from your phone.
 
 What you might see:
 
@@ -56,6 +62,10 @@ Every row is a real transaction from the live demo.
 | Next request while the breaker is on | `FROZEN` | [DoNJY3xx…](https://testnet.nearblocks.io/txns/DoNJY3xxvwr3FRZCeq4ngiWZ7jda6wBzpa3SLuRB7xkZ) |
 | 1.5 NEAR upgrade waits for the owner | `PENDING_APPROVAL` | [8D6HW9p6…](https://testnet.nearblocks.io/txns/8D6HW9p6eGudHSzNQnThAo7p2D2V3aqmh6KxVvUf46Ye) |
 | Owner approves on a phone (Meteor wallet) | `approve_payment` | [5Egz99Bb…](https://testnet.nearblocks.io/txns/5Egz99BbvHEe7hBkek1JCd6pxZRwGTQch2h9H7ac1iTz) |
+| Vault code published once as a global contract (hash `3Rh6iyiZ…`) | `deploy-as-global` | [AMofamyG…](https://testnet.nearblocks.io/txns/AMofamyGtE7c72ZM6jFzHvMWkhsy8H599owDRXAixYpR) |
+| Factory creates `boxtest.factory.gw-emmy.testnet` and its agent from the API-buyer template | `vault_created`, `agent_ready: true` | [2oWi2LgT…](https://testnet.nearblocks.io/txns/2oWi2LgtMzKd8iuHhibr3bweqk3GA2MGpWre6aBaFWP1) |
+| `/chat` buys a 0.05 NEAR report over 402 from that wallet with the hosted agent key | `APPROVED`, receipt verified | [4ZJRLZiA…](https://testnet.nearblocks.io/txns/4ZJRLZiAnLy6FLjBwxmRqdZ3UFbNKWnMRjPW2Ad59w4q) |
+| Its owner approves a 1.5 NEAR plan renewal that waited for them | `approve_payment`, then `COMPLETED` | [8yeSMFez…](https://testnet.nearblocks.io/txns/8yeSMFezUch7WYpWkKGog2hix2qWhNW2tfiTC5S26gQG) |
 
 Read it yourself, no keys needed:
 
@@ -128,6 +138,45 @@ run and is kept for 7 days at `/api/intent/<id>`. "Verify intent" on `/agent` re
 in the browser and compares it with the memo it reads straight from a testnet RPC. It is an
 audit-trail commitment: it proves the log wasn't edited after the payment, not who wrote it.
 
+## Your own guarded wallet
+
+`/start` turns the demo into something anyone with a testnet wallet can use. One transaction to
+`factory.gw-emmy.testnet` (`factory/`, Rust, 15 tests) creates two accounts:
+
+- **`<name>.factory.gw-emmy.testnet`, the wallet.** It runs the same guardian code as the demo,
+  initialised with the caller as owner and a template's rules (*Shopping assistant* 5 NEAR/day,
+  ask over 1; *API buyer* 2/day, ask over 0.5; *Tight leash* 1/day, ask over 0.1), with optional
+  overrides. It gets **no access keys at all**: nobody, including the factory, can redeploy it or
+  sign for it. Only its owner can change the rules, through the contract.
+- **`<name>-agent.factory.gw-emmy.testnet`, the agent.** It holds one function-call key that can
+  call only `request_payment` on that one wallet, with a 0.25 NEAR gas allowance. By default it's
+  the app's hosted agent key, so `/chat` works right away; pass `agent_key` to `create_vault` to
+  use your own agent instead.
+
+**Why global contracts.** Deploying the 200 KB wasm into every wallet would cost about 2 NEAR of
+storage each. Instead the vault code was published once with NEP-591 (`deploy-as-global`, about
+23 NEAR burned, paid from faucet funds), and each wallet points at it by code hash
+(`Promise::use_global_contract`). A new wallet costs **0.26 NEAR** in fees (0.25 for the agent's gas,
+0.01 for the registry entry); the rest of the deposit (minimum 0.5, `/start` suggests 2) lands in
+the wallet. Using the hash rather than the publishing account pins the code: if it ever changed,
+the factory owner (`realfile1618.testnet`) would have to switch the hash with `set_vault_code_hash`,
+and existing wallets keep the code they were created with.
+
+**If something fails.** If the wallet can't be created, the factory refunds the whole deposit and
+frees the name (`vault_failed`). If only the agent account fails, the wallet stays usable, the
+0.25 NEAR comes back to the owner, and it's marked `NO_AGENT`.
+
+**What the app trusts.** The vendor accepts receipts from the demo wallet or any wallet the factory
+created. It reads the wallet's `agent_id` on-chain and checks the transaction was signed by that
+agent and the transfer came from that wallet; the `X-NEAR-Receipt-Signer` header is only a lookup
+hint. `/api/agent/run` only uses the hosted key for a wallet whose factory record is `READY` and
+whose agent matches. The hosted key is shared across hosted wallets: if it leaked, someone could
+file requests against those wallets, and every one would still be held to its owner's rules, its
+payee list and the 0.25 NEAR gas allowance.
+
+Get testnet NEAR: create an account in [MyNearWallet](https://testnet.mynearwallet.com/) and use
+the [NEAR testnet faucet](https://near-faucet.io/). Nothing here touches mainnet.
+
 ## Security guarantees
 
 What holds even if the agent, its model and its server are fully compromised:
@@ -172,8 +221,14 @@ Every claim, where it lives, and the test that pins it (`cd contract && cargo te
 | Rule changes need the owner and 1 yoctoNEAR | `contract/src/lib.rs:814` | `agent_cannot_add_payee`, `agent_cannot_change_guards`, `agent_cannot_change_pending_rules` |
 | Upgrades keep existing state | `contract/src/lib.rs:291` | `migrate_keeps_v3_state` |
 | The agent key can only call `request_payment` | on-chain: `near account list-keys gw-emmy-agent.testnet network-config testnet now` | |
-| The live console uses the SDK | `dashboard/src/app/api/agent/run/route.ts:56` → `dashboard/src/lib/server/run-agent.ts:362`, `:373` → `dashboard/src/lib/server/agent-key.ts:14` | |
-| The vendor checks the receipt on-chain and refuses replays | `dashboard/src/vendor/x402.ts:110`–`138` | run a paid job on `/agent`; the last step shows the `409` |
+| The live console uses the SDK | `dashboard/src/app/api/agent/run/route.ts:50`, `:70` → `dashboard/src/lib/server/run-agent.ts:364`, `:375` → `dashboard/src/lib/server/agent-key.ts:20` | |
+| The vendor checks the receipt on-chain and refuses replays | `dashboard/src/vendor/x402.ts:109`–`160` | run a paid job on `/agent`; the last step shows the `409` |
+| A factory wallet's receipt must come from that wallet's own agent | `dashboard/src/vendor/x402.ts:121`–`123`, `:150` | the `/chat` purchase above |
+| The factory makes the caller the owner and needs at least 0.5 NEAR | `factory/src/lib.rs:123`, `:134` | `create_vault_claims_the_name_for_the_caller`, `too_small_a_deposit_is_refused` (`cd factory && cargo test`) |
+| Wallets run the global code by hash and get no access keys | `factory/src/lib.rs:202`–`205` | on-chain: `near account list-keys boxtest.factory.gw-emmy.testnet network-config testnet now` is empty |
+| The agent key can only call `request_payment` on its own wallet | `factory/src/lib.rs:254`–`259` | `a_created_wallet_gets_its_agent_then_is_ready`; on-chain: `list-keys boxtest-agent.factory.gw-emmy.testnet` |
+| A failed wallet refunds and frees the name; a failed agent leaves a usable wallet | `factory/src/lib.rs:225`, `:269` | `a_failed_wallet_frees_the_name_and_refunds`, `a_failed_agent_leaves_a_usable_wallet` |
+| Only the factory owner changes templates or the code hash, with 1 yoctoNEAR | `factory/src/lib.rs:296`, `:366` | `others_cannot_change_templates`, `owner_changes_need_one_yocto` |
 | 5 runs per 10 minutes per visitor | `dashboard/src/lib/server/rate-limit.ts:5` | |
 
 ## Threat model
@@ -196,8 +251,8 @@ Every claim, where it lives, and the test that pins it (`cd contract && cargo te
 
 - **Who it's for:** teams giving agents a budget: API-buying agents, shopping and booking
   assistants, DAO treasuries that delegate small payments to bots.
-- **Zero protocol rent:** no token, no fee on payments. Each owner deploys their own guardian and
-  pays only NEAR storage and gas.
+- **Zero protocol rent:** no token, no fee on payments. Each owner gets their own guardian from
+  the factory for 0.26 NEAR in fees, thanks to global contracts, and then pays only gas.
 - **Roadmap:** a Rust crate alongside the TypeScript SDK, NEAR Intents for cross-chain payouts
   (mainnet; Intents has no testnet), and adapters for agent frameworks so a tool call becomes
   `pay402()` with no wallet code.
@@ -213,7 +268,10 @@ const result = await agent.requestPayment({ receiverId: 'api-vendor.gw-emmy.test
 const paid = await agent.pay402('https://guardian-wallet.vercel.app/api/vendor/weather-now');
 ```
 
-The live `/agent` console runs on this SDK (`dashboard/src/lib/server/agent-key.ts` builds the
+The vendor's 402 challenge names the factory too (`pay_with.factory`), so the same `pay402()`
+call works from any factory wallet: pass its id as `contractId` and its agent account as `agentId`.
+
+The live `/agent` console and `/chat` run on this SDK (`dashboard/src/lib/server/agent-key.ts` builds the
 agent, `run-agent.ts` calls `requestPayment` and `pay402`). Full API in
 [packages/sdk/README.md](packages/sdk/README.md).
 
@@ -246,9 +304,13 @@ Requires Node 24, Rust with [`cargo-near`](https://github.com/near/cargo-near), 
 # contract: 42 unit tests, then the wasm
 cd contract && cargo test && cargo near build non-reproducible-wasm
 
+# factory: 15 unit tests, then the wasm
+cd factory && cargo test && cargo near build non-reproducible-wasm
+
 # dashboard + live agent (http://localhost:3000)
 cd dashboard && npm install
 # .env.local (server only): AGENT_WEB_PRIVATE_KEY=<function-call key for request_payment>,
+# HOSTED_AGENT_PRIVATE_KEY=<the key the factory puts on new agents, for /chat on user wallets>,
 # plus any of GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, NVIDIA_API_KEY
 npm run dev
 
@@ -278,6 +340,8 @@ the core idea works today, and you can try to break it on the live site.
 | Role | Account |
 |---|---|
 | Guardian contract | [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) |
+| Factory (one wallet per user) | [`factory.gw-emmy.testnet`](https://testnet.nearblocks.io/address/factory.gw-emmy.testnet), admin `realfile1618.testnet`, vault code hash `3Rh6iyiZbmi3gQjsWZMGyB7YmNovekeegaQaHBiskmaA` |
+| Example user wallet | [`boxtest.factory.gw-emmy.testnet`](https://testnet.nearblocks.io/address/boxtest.factory.gw-emmy.testnet) (owner `gw-emmy-fund1.testnet`, agent `boxtest-agent.factory.gw-emmy.testnet`) |
 | Owner (sets policy, approves) | `realfile1618.testnet` (Meteor wallet; [handover tx](https://testnet.nearblocks.io/txns/GS3WYYApFdR1HeqEd31HxRg1BQuFYdaokE3a9RC2hwbE)) |
 | AI agent (can only request) | `gw-emmy-agent.testnet` |
 | Approved payee (demo API vendor) | `api-vendor.gw-emmy.testnet` |
@@ -371,6 +435,29 @@ event one of `wallet_initialized`, `payment_approved`, `payment_pending`, `payme
 `guards_updated`, `pending_rules_updated`, `payment_expired`, `breaker_tripped`, `breaker_reset`,
 `deposit`, `withdraw`.
 
+### Factory (`factory/`, Rust + near-sdk 5)
+
+- `create_vault(name, template_id, daily_limit?, approval_threshold?, extra_payees?, agent_key?)`,
+  payable, at least 0.5 NEAR: creates `<name>.<factory>` from the global code with the caller as
+  owner, then `<name>-agent.<factory>` with a `request_payment`-only key. Callbacks
+  `on_vault_created` and `on_agent_created` settle the result.
+- Owner only, 1 yoctoNEAR: `set_template`, `remove_template`, `set_vault_code_hash`, `set_hosted_agent_key`.
+- Views: `get_config`, `get_templates`, `get_vault`, `get_vaults_by_owner`, `is_name_available`.
+- Vault states: `CREATING`, `READY`, `NO_AGENT`. Events (`standard: guardian_factory`):
+  `vault_created`, `vault_failed`, `code_hash_updated`.
+
+```sh
+cd factory && cargo test                       # 15 tests
+cargo near build non-reproducible-wasm
+# publish the guardian wasm once, by hash (burns ~10 NEAR per 100 KB)
+near contract deploy-as-global use-file ../contract/target/near/guardian_wallet.wasm as-global-hash <payer>.testnet network-config testnet sign-with-legacy-keychain send
+near contract deploy <factory>.testnet use-file target/near/guardian_factory.wasm \
+  with-init-call new json-args '{"owner_id":"<admin>","vault_code_hash":"<hash>","hosted_agent_key":"ed25519:...","templates":[...]}' \
+  prepaid-gas '30 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-legacy-keychain send
+near contract call-function as-transaction <factory>.testnet create_vault json-args '{"name":"me","template_id":"api-buyer"}' \
+  prepaid-gas '300 Tgas' attached-deposit '2 NEAR' sign-as <you>.testnet network-config testnet sign-with-legacy-keychain send
+```
+
 ### Reproduce
 
 Requires Rust, [`cargo-near`](https://github.com/near/cargo-near) and
@@ -456,7 +543,17 @@ model reasoning.
 
 ### Dashboard (`dashboard/`, Next.js 16, Tailwind 4)
 
-- `/` explains the idea in three steps.
+- `/` explains it for people: an allowance, not your bank password, in three steps.
+- `/start` connects a testnet wallet, lists the factory's templates, checks the name, shows what
+  the deposit covers, sends `create_vault`, and waits until the factory reports the wallet ready
+  (it survives the MyNearWallet redirect).
+- `/wallet` lists the wallets you own (`get_vaults_by_owner`). `/vault/<id>` is one wallet: what
+  the AI can still spend today, balance, payees, add funds, pending approvals, activity and the
+  same owner controls as `/approve`.
+- `/vault/<id>/request/<record>` is the deep link for one approval: "Your AI wants to spend 1.50
+  NEAR on premium annual. Approve / Reject", then the outcome. "Send to my phone" shares it.
+- `/chat` is the assistant: tell it what to buy and it runs the same agent against your wallet
+  (or the demo one), shows what it bought, or drops an approval card in the conversation.
 - Every page renders from cached on-chain state. If the testnet RPC is slow it shows the last
   good snapshot with an "as of HH:MM" note instead of a spinner.
 - `/dashboard` reads the contract live every 6 s: vault balance, daily budget (spent, reserved,

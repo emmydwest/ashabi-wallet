@@ -9,6 +9,8 @@ the questions we want a reviewer to answer. Everything here reflects the live st
 - Live agent console: https://guardian-wallet.vercel.app/agent
 - Live dashboard: https://guardian-wallet.vercel.app/dashboard
 - Owner view: https://guardian-wallet.vercel.app/approve
+- Create your own wallet: https://guardian-wallet.vercel.app/start · assistant: https://guardian-wallet.vercel.app/chat
+- Factory: `factory.gw-emmy.testnet`, https://testnet.nearblocks.io/address/factory.gw-emmy.testnet
 - Contract: `guardian.gw-emmy.testnet` on NEAR testnet,
   https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet
 - Builder: Emmy D West (solo)
@@ -95,6 +97,8 @@ flowchart LR
 | Approved payee (demo API vendor) | `api-vendor.gw-emmy.testnet` |
 | Attacker (not approved) | `attacker.gw-emmy.testnet` |
 | Look-alike used in one attack | `api-vendor.gw-ernmy.testnet` ("rn" instead of "m") |
+| Factory (one guarded wallet per user) | `factory.gw-emmy.testnet`, admin `realfile1618.testnet` |
+| Example user wallet and its agent | `boxtest.factory.gw-emmy.testnet`, `boxtest-agent.factory.gw-emmy.testnet` (owner `gw-emmy-fund1.testnet`) |
 
 The live policy: daily limit 5 NEAR, owner approval above 1 NEAR, velocity of at most 3
 automatic payments and 1 NEAR in any 10 minutes, circuit breaker after 3 strikes for 10 minutes.
@@ -128,7 +132,19 @@ The vault holds about 17 testnet NEAR. As of writing the contract has recorded 2
    "SkyCast" with a catalog, a docs page (with a hidden injection for the trap), and a paid
    endpoint that uses HTTP 402.
 6. **Dashboard app** (Next.js 16 with cache components, Tailwind 4, NEAR Wallet Selector),
-   deployed on Vercel. Pages: `/`, `/dashboard`, `/agent`, `/approve`.
+   deployed on Vercel. Pages: `/`, `/start`, `/wallet`, `/vault/<id>`, `/vault/<id>/request/<n>`,
+   `/chat`, `/agent` (the Arena), `/dashboard`, `/approve`.
+6b. **Factory** (`factory/`, Rust, 15 unit tests). `create_vault` makes `<name>.factory.gw-emmy.testnet`
+   with the caller as owner and a template's rules, running the guardian code published once as a
+   NEP-591 global contract (code hash `3Rh6iyiZbmi3gQjsWZMGyB7YmNovekeegaQaHBiskmaA`, about 23 NEAR
+   burned once from faucet funds). Each wallet has no access keys. A sibling
+   `<name>-agent.factory.gw-emmy.testnet` gets a function-call key for `request_payment` on that
+   wallet only, with a 0.25 NEAR allowance; by default it's the app's hosted key (Vercel env
+   `HOSTED_AGENT_PRIVATE_KEY`), or the user passes their own. A wallet costs 0.26 NEAR in fees;
+   the rest of the deposit is the wallet's balance. Failures refund (wallet) or mark `NO_AGENT`
+   (agent). Templates: Shopping assistant (5/day, ask over 1), API buyer (2/day, ask over 0.5),
+   Tight leash (1/day, ask over 0.1), all paying the demo vendor. The vendor accepts receipts
+   from any factory wallet after checking that wallet's own agent signed them.
 7. **Scripted CLI agent** (`agent/`, TypeScript on Node 24). It runs a three-act demo against
    testnet and writes an action log. This came first; the web console is the main demo, and the
    UI now keeps the recorded run in a collapsed reference section on `/dashboard`.
@@ -273,9 +289,30 @@ a 4 s timeout. If both are slow, the page shows the last good snapshot (or a bun
 with an amber "On-chain state as of HH:MM · testnet RPC is slow, retrying" pill, never a spinner
 or "…". The UI is dark, designed mobile-first and tested in iPhone WebKit.
 
-### `/` (landing)
+### `/` (home)
 
-The thesis in three steps, a sample "decision stream", and a "Try the live agent" call to action.
+For people, not judges: "Give your AI an allowance, not your bank password." Three steps (set a
+budget, pick who it can pay, approve big payments from your phone), "Create your guarded wallet"
+and "See it survive an attack" (the Arena). The contract details sit below the fold.
+
+### `/start`, `/wallet`, `/vault/<id>`
+
+`/start`: connect a testnet wallet, pick a template, name it (live availability check), choose
+the deposit (shows what lands in the wallet), one `create_vault` transaction, then a spinner until
+the factory reports `READY`, and "Your agent is ready" with links to the wallet and the assistant.
+A faucet link sits next to the connect button. `/wallet` lists the wallets you own. `/vault/<id>`
+shows what the AI can still spend today, the balance, budget, threshold and payees, "Add funds",
+then the same approval cards, freeze button, activity feed and owner controls as `/approve`, all
+pointed at that wallet. `/vault/<id>/request/<n>` is the deep link for a single approval, built
+for phones; "Send to my phone" opens the share sheet or copies the link.
+
+### `/chat` (the assistant)
+
+A chat over the same agent runtime as `/agent` real jobs. It pays from your own wallet if you're
+connected and own one (or `?vault=`), otherwise the demo wallet. Replies are short ("Done. Paid
+and delivered", "Your wallet said no: …", "I asked you first"), with the delivered weather data, an
+inline approval card that follows the request on-chain, and the full step list behind "What
+happened".
 
 ### `/dashboard`
 
@@ -429,6 +466,11 @@ Each hash opens at `https://testnet.nearblocks.io/txns/<hash>`.
 | 1.5 NEAR upgrade waits for the owner | `PENDING_APPROVAL` | `8D6HW9p6eGudHSzNQnThAo7p2D2V3aqmh6KxVvUf46Ye` |
 | Owner approves on a phone (Meteor wallet) | `approve_payment` | `5Egz99BbvHEe7hBkek1JCd6pxZRwGTQch2h9H7ac1iTz` |
 | Ownership handed to the Meteor wallet | `set_owner` | `GS3WYYApFdR1HeqEd31HxRg1BQuFYdaokE3a9RC2hwbE` |
+| Guardian code published as a global contract | `deploy-as-global` | `AMofamyGtE7c72ZM6jFzHvMWkhsy8H599owDRXAixYpR` |
+| Factory deployed and initialised | `new` | `EruueaiSDB1dVC37gdYDUcWE8pDe3m47UCGoDdPPxM51` |
+| Factory creates `boxtest` and its agent | `vault_created` | `2oWi2LgtMzKd8iuHhibr3bweqk3GA2MGpWre6aBaFWP1` |
+| `/chat` buys over 402 from `boxtest` with the hosted agent | `APPROVED` | `4ZJRLZiAnLy6FLjBwxmRqdZ3UFbNKWnMRjPW2Ad59w4q` |
+| `boxtest`'s owner approves a 1.5 NEAR renewal | `approve_payment` | `8yeSMFezUch7WYpWkKGog2hix2qWhNW2tfiTC5S26gQG` |
 
 Anyone can read the state with no keys:
 `near contract call-function as-read-only guardian.gw-emmy.testnet get_wallet_status json-args '{}' network-config testnet now`
@@ -534,9 +576,18 @@ sometimes gullible models. When one of them falls for an injection, the contract
 - Write and publish the X demo post.
 - Fill in the hackathon submission form.
 - Make the GitHub repo public.
-- Delete the full-access key on `guardian.gw-emmy.testnet`, after a final check that no more
-  upgrades are needed.
+- Delete the full-access keys on `guardian.gw-emmy.testnet` and `factory.gw-emmy.testnet`, after
+  a final check that no more upgrades are needed.
+- Swap in the final brand (logo, colours, fonts) following `docs/brand.md`.
 - Final pass: refresh the README proof table and the screenshots.
+
+### Product build (11 Nov)
+
+- Factory with templates, global contract, per-user agent accounts; 15 tests; deployed.
+- `/start`, `/wallet`, `/vault/<id>`, request deep links, `/chat`, a consumer home page, nav
+  renamed to Home · Assistant · Arena · My wallet.
+- Approval cards say "Your AI wants to spend X NEAR on Y" with Approve / Reject.
+- Brand colours and display font are tokens (`docs/brand.md`) so the final brand drops in.
 
 ### Changes after the Antigravity review (11 Nov)
 
