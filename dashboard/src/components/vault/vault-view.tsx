@@ -7,6 +7,7 @@ import { ApproveView } from '@/components/approve/approve-view';
 import { useWallet } from '@/components/approve/wallet';
 import { PaymentFeed } from '@/components/dashboard/payment-feed';
 import { ExplorerLink } from '@/components/explorer-link';
+import { BudgetMeter } from '@/components/stats/budget-meter';
 import { parseNear } from '@/lib/amount';
 import { CONTRACT_ID, FAUCET_URL } from '@/lib/config';
 import { factory, vaultName, type VaultInfo } from '@/lib/factory';
@@ -39,10 +40,6 @@ function VaultSummary({ vaultId, snapshot }: { vaultId: string; snapshot: Guardi
     if (!demo) factory.vault(vaultId).then(setInfo, () => setInfo(null));
   }, [vaultId, demo]);
 
-  const spent = BigInt(status.spent_today) + BigInt(status.reserved);
-  const limit = BigInt(status.daily_limit);
-  const used = limit > 0n ? Number((spent * 100n) / limit) : 0;
-
   return (
     <section className="mb-5">
       <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">{demo ? 'Demo wallet' : 'Guarded wallet'}</div>
@@ -52,17 +49,14 @@ function VaultSummary({ vaultId, snapshot }: { vaultId: string; snapshot: Guardi
       <p className="truncate font-mono text-xs text-zinc-500">{vaultId}</p>
 
       <div className="glass mt-4 rounded-card p-5">
-        <div className="text-sm text-zinc-400">Your AI can spend</div>
+        <div className="text-sm text-zinc-400">Your AI can still spend</div>
         <div className="mt-1 font-display text-4xl font-semibold tracking-tight text-white tabular">
           {toNear(status.remaining_today)} <span className="text-base font-normal text-zinc-400">NEAR today</span>
         </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-          <div className="h-full rounded-full bg-brand" style={{ width: `${Math.min(100, used)}%` }} />
-        </div>
-        <dl className="mt-4 grid grid-cols-3 gap-2 text-xs">
-          <Stat label="In the wallet" value={`${toNear(status.available_balance)}`} />
-          <Stat label="Daily budget" value={toNear(status.daily_limit)} />
-          <Stat label="Ask me over" value={toNear(status.approval_threshold)} />
+        <BudgetMeter status={status} className="mt-3" />
+        <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
+          <Stat label="In the wallet" value={`${toNear(status.available_balance)} NEAR`} />
+          <Stat label="Asks you over" value={`${toNear(status.approval_threshold)} NEAR`} />
         </dl>
         <div className="mt-4 text-xs text-zinc-400">
           Can pay: <span className="text-zinc-200">{status.approved_payees.join(', ') || 'nobody yet'}</span>

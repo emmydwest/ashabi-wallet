@@ -4,11 +4,11 @@ import { AGENT_ID, CONTRACT_ID } from '@/lib/config';
 import { shortAccount } from '@/lib/format';
 import { toNear } from '@/lib/near';
 import type { GuardianSnapshot } from '@/lib/types';
+import { BUDGET_RESET } from '@/lib/stats';
 import { BudgetGauge } from './budget-gauge';
 
 export function BalanceCard({ snapshot }: { snapshot: GuardianSnapshot }) {
-  const { status, feed } = snapshot;
-  const settled = feed.filter((i) => i.kind === 'payment' && i.record.status === 'COMPLETED').length;
+  const { status } = snapshot;
   return (
     <Card className="flex flex-col">
       <CardHeader title="Vault balance" action={<ExplorerLink label={shortAccount(CONTRACT_ID)} />} />
@@ -25,9 +25,9 @@ export function BalanceCard({ snapshot }: { snapshot: GuardianSnapshot }) {
           </p>
         </div>
         <div className="grid grid-cols-3 divide-x divide-white/[0.06] rounded-xl border border-white/[0.06] bg-black/20">
-          <Stat label="Settled" value={settled} />
-          <Stat label="Blocked" value={status.blocked_count} tone="text-rose-300" />
-          <Stat label="Pending" value={status.pending_count} tone="text-amber-300" />
+          <Stat label="Accepted, all-time" value={status.payment_count} />
+          <Stat label="Blocked, all-time" value={status.blocked_count} tone="text-rose-300" />
+          <Stat label="Waiting now" value={status.pending_count} tone="text-amber-300" />
         </div>
       </div>
     </Card>
@@ -46,7 +46,10 @@ function Stat({ label, value, tone = 'text-white' }: { label: string; value: num
 export function BudgetCard({ snapshot }: { snapshot: GuardianSnapshot }) {
   return (
     <Card>
-      <CardHeader title="Daily budget" hint="Pending approvals reserve budget until decided." />
+      <CardHeader
+        title="Daily budget"
+        hint={`Payments waiting for the owner already count as spent until decided. The budget ${BUDGET_RESET}.`}
+      />
       <div className="px-5 pb-6 pt-4 sm:px-6">
         <BudgetGauge status={snapshot.status} />
       </div>

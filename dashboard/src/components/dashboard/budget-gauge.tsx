@@ -59,13 +59,13 @@ export function BudgetGauge({ status }: { status: WalletStatus }) {
             {remaining.toFixed(2)}
           </span>
           <span className={`mt-0.5 text-xs ${remaining > 0 ? 'text-zinc-400' : 'text-rose-300'}`}>
-            {remaining > 0 ? 'NEAR left today' : 'Limit reached today'}
+            {remaining > 0 ? 'NEAR remaining today' : 'NEAR remaining today · limit reached'}
           </span>
         </div>
       </div>
       <dl className="grid w-full grid-cols-3 gap-3 text-sm sm:grid-cols-1">
-        <Legend color="bg-emerald-400" label="Spent" value={spent} />
-        <Legend color="bg-amber-400" label="Reserved" value={reserved} />
+        <Legend color="bg-emerald-400" label="Spent today" value={spent} />
+        <Legend color="bg-amber-400" label="Waiting for owner" value={reserved} />
         <Legend color="bg-white/20" label="Daily limit" value={limit} />
       </dl>
     </div>

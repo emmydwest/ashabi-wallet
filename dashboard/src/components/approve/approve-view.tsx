@@ -8,6 +8,7 @@ import { nsToDate, toNear } from '@/lib/near';
 import { AsOf } from '@/components/as-of';
 import { CONTRACT_ID } from '@/lib/config';
 import type { GuardianSnapshot } from '@/lib/types';
+import { BudgetMeter } from '@/components/stats/budget-meter';
 import { ApprovalCard } from './approval-card';
 import { OwnerControls } from './owner-controls';
 import { PolicyWriter } from './policy-writer';
@@ -213,10 +214,15 @@ export function ApproveView({ initial, vaultId = CONTRACT_ID, header, footer }: 
         ))}
       </div>
 
-      <dl className="mt-8 grid grid-cols-2 gap-3 text-sm">
-        <Fact label="Left today" value={`${toNear(snapshot.status.remaining_today)} NEAR`} />
-        <Fact label="Vault" value={`${toNear(snapshot.status.available_balance)} NEAR`} />
-      </dl>
+      {!header && (
+        <div className="glass mt-8 rounded-2xl px-4 py-4">
+          <BudgetMeter status={snapshot.status} />
+          <p className="mt-3 text-sm text-zinc-400">
+            In the wallet:{' '}
+            <span className="font-mono text-white">{toNear(snapshot.status.available_balance)} NEAR</span>
+          </p>
+        </div>
+      )}
 
       {footer?.(snapshot)}
 
@@ -235,13 +241,4 @@ export function ApproveView({ initial, vaultId = CONTRACT_ID, header, footer }: 
 
 function approveUrl() {
   return typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}`;
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="glass rounded-xl px-4 py-3">
-      <dt className="text-xs text-zinc-400">{label}</dt>
-      <dd className="tabular mt-0.5 font-mono text-white">{value}</dd>
-    </div>
-  );
 }
