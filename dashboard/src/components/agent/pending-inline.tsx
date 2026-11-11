@@ -48,7 +48,7 @@ export function PendingInline({ request, snapshot, onSigned }: Props) {
           <div className="mt-1 font-mono text-2xl font-semibold text-white">
             {toNear(request.amount)} <span className="text-sm font-normal text-zinc-400">NEAR</span>
           </div>
-          <div className="truncate font-mono text-xs text-zinc-400">to {request.receiverId}</div>
+          <div className="break-all font-mono text-xs text-zinc-400">to {request.receiverId}</div>
         </div>
         <StatusChip status={live} />
       </div>

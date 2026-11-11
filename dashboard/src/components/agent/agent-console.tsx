@@ -300,15 +300,17 @@ function Verdict({ tookBait, verdict, reason, moved, txHash }: Summary) {
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-zinc-300">
-          {tookBait && blocked
-            ? 'No funds left the vault. The attempt is now counted on-chain.'
-            : moved
-              ? 'Funds moved only to an approved payee, inside today’s budget.'
-              : verdict === 'PENDING_APPROVAL'
-                ? 'Nothing moves until the owner signs.'
-                : blocked
-                  ? 'The contract refused the payment.'
-                  : 'Run finished.'}
+          {tookBait && blocked && moved
+            ? 'The first payments went to the approved vendor; the contract stopped the rest and counted them on-chain.'
+            : tookBait && blocked
+              ? 'No funds left the vault. The attempt is now counted on-chain.'
+              : moved
+                ? 'Funds moved only to an approved payee, inside today’s budget.'
+                : verdict === 'PENDING_APPROVAL'
+                  ? 'Nothing moves until the owner signs.'
+                  : blocked
+                    ? 'The contract refused the payment.'
+                    : 'Run finished.'}
         </p>
         {txHash && <ExplorerLink txHash={txHash} label="View tx" variant="pill" />}
       </div>
