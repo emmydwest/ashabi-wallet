@@ -119,8 +119,9 @@ pub struct WalletStatus {
     pub payment_count: u32,
     pub blocked_count: u64,
     pub guards: Guards,
-    /// Automatic payments inside the current velocity window.
+    /// Automatic payments inside the current velocity window, and their total.
     pub auto_payments_in_window: u32,
+    pub auto_paid_in_window: U128,
     /// Suspicious blocks in a row; the breaker trips at `guards.breaker_strikes`.
     pub strikes: u32,
     /// Block timestamp (ns) the breaker cools down at, if it has tripped.
@@ -151,9 +152,10 @@ impl Default for Guards {
     }
 }
 
-/// State layout before the guards, kept so `migrate` can read it.
+/// The previous state layout, kept so `migrate` can read it. It tracked a timestamp list
+/// for the velocity guard; the guard now reads the payment records instead.
 #[near(serializers = [borsh])]
-pub struct GuardianWalletV1 {
+pub struct GuardianWalletV2 {
     owner_id: AccountId,
     agent_id: AccountId,
     daily_limit: u128,
@@ -168,6 +170,10 @@ pub struct GuardianWalletV1 {
     blocked_attempts: Vector<BlockedAttempt>,
     blocked_total: u64,
     used_request_ids: LookupSet<String>,
+    guards: Guards,
+    recent_auto_payments: Vec<u64>,
+    strikes: u32,
+    breaker_until: Option<u64>,
 }
 
 #[near(contract_state)]
@@ -190,8 +196,6 @@ pub struct GuardianWallet {
     blocked_total: u64,
     used_request_ids: LookupSet<String>,
     guards: Guards,
-    /// Timestamps of recent automatic payments, oldest first; never longer than the limit.
-    recent_auto_payments: Vec<u64>,
     strikes: u32,
     breaker_until: Option<u64>,
 }
@@ -237,7 +241,6 @@ impl GuardianWallet {
             blocked_total: 0,
             used_request_ids: LookupSet::new(StorageKey::UsedRequestIds),
             guards: Guards::default(),
-            recent_auto_payments: Vec::new(),
             strikes: 0,
             breaker_until: None,
         };
@@ -254,11 +257,11 @@ impl GuardianWallet {
         c
     }
 
-    /// One-off upgrade from the V1 layout; keeps every record and the current owner.
+    /// One-off upgrade from the V2 layout; keeps every record, the guards and the current owner.
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let old: GuardianWalletV1 = env::state_read().expect("no state to migrate");
+        let old: GuardianWalletV2 = env::state_read().expect("no state to migrate");
         Self {
             owner_id: old.owner_id,
             agent_id: old.agent_id,
@@ -274,10 +277,9 @@ impl GuardianWallet {
             blocked_attempts: old.blocked_attempts,
             blocked_total: old.blocked_total,
             used_request_ids: old.used_request_ids,
-            guards: Guards::default(),
-            recent_auto_payments: Vec::new(),
-            strikes: 0,
-            breaker_until: None,
+            guards: old.guards,
+            strikes: old.strikes,
+            breaker_until: old.breaker_until,
         }
     }
 
@@ -390,17 +392,14 @@ impl GuardianWallet {
         }
 
         let needs_approval = amount.0 > self.approval_threshold;
-        if !needs_approval && self.velocity_exceeded(now) {
+        if let Some(reason) = self.velocity_problem(now, amount.0, needs_approval) {
             return self.block(
                 request_id,
                 receiver_id,
                 amount,
                 memo,
                 RequestStatus::BlockedVelocity,
-                format!(
-                    "too many automatic payments: at most {} per {} min; smaller payments cannot dodge the approval threshold",
-                    self.guards.max_auto_payments, self.guards.velocity_window_minutes
-                ),
+                reason,
             );
         }
 
@@ -442,9 +441,6 @@ impl GuardianWallet {
             }
         } else {
             self.spent_today += amount.0;
-            if self.guards.max_auto_payments > 0 {
-                self.recent_auto_payments.push(now);
-            }
             emit(
                 "payment_approved",
                 json!({
@@ -594,7 +590,6 @@ impl GuardianWallet {
             guards.breaker_strikes == 0 || guards.breaker_cooldown_minutes > 0,
             "breaker cooldown must be at least 1 minute"
         );
-        self.recent_auto_payments.clear();
         emit("guards_updated", json!({ "guards": guards }));
         self.guards = guards;
     }
@@ -690,7 +685,8 @@ impl GuardianWallet {
             payment_count: self.payment_records.len(),
             blocked_count: self.blocked_total,
             guards: self.guards.clone(),
-            auto_payments_in_window: self.auto_payments_since(now) as u32,
+            auto_payments_in_window: self.auto_paid_in_window(now).0,
+            auto_paid_in_window: U128(self.auto_paid_in_window(now).1),
             strikes: self.strikes,
             breaker_until: self.breaker_until.filter(|until| now < *until),
         }
@@ -764,34 +760,62 @@ impl GuardianWallet {
         }
     }
 
-    fn window_start(&self, now: u64) -> u64 {
-        now.saturating_sub(self.guards.velocity_window_minutes as u64 * NANOS_PER_MINUTE)
-    }
-
-    fn auto_payments_since(&self, now: u64) -> usize {
-        let start = self.window_start(now);
-        self.recent_auto_payments
-            .iter()
-            .filter(|t| **t > start)
-            .count()
-    }
-
-    fn velocity_exceeded(&mut self, now: u64) -> bool {
-        if self.guards.max_auto_payments == 0 {
-            return false;
+    /// Count and total of automatic payments made inside the velocity window. Owner-approved,
+    /// pending, rejected and failed payments are left out. Records are in time order, so the
+    /// scan stops at the first one older than the window.
+    fn auto_paid_in_window(&self, now: u64) -> (u32, u128) {
+        let start =
+            now.saturating_sub(self.guards.velocity_window_minutes as u64 * NANOS_PER_MINUTE);
+        let (mut count, mut total) = (0u32, 0u128);
+        for i in (0..self.payment_records.len()).rev() {
+            let Some(rec) = self.payment_records.get(i) else {
+                break;
+            };
+            if rec.created_at <= start {
+                break;
+            }
+            let automatic = !rec.approved_by_owner
+                && matches!(
+                    rec.status,
+                    PaymentStatus::Transferring | PaymentStatus::Completed
+                );
+            if automatic {
+                count += 1;
+                total += rec.amount.0;
+            }
         }
-        let start = self.window_start(now);
-        self.recent_auto_payments.retain(|t| *t > start);
-        self.recent_auto_payments.len() >= self.guards.max_auto_payments as usize
+        (count, total)
     }
 
-    /// Paying a stranger or splitting payments looks like a hijacked agent; budget or
-    /// balance blocks do not, so only the first two count towards the breaker.
+    /// Automatic payments in one window may not add up past the approval threshold, so a large
+    /// payment split into small ones still reaches the owner. The count cap stops a flood of dust.
+    fn velocity_problem(&self, now: u64, amount: u128, needs_approval: bool) -> Option<String> {
+        if needs_approval || self.guards.max_auto_payments == 0 {
+            return None;
+        }
+        let (count, total) = self.auto_paid_in_window(now);
+        let window = self.guards.velocity_window_minutes;
+        if total + amount > self.approval_threshold {
+            return Some(format!(
+                "automatic payments in the last {} min would total {} yocto, above the {} yocto auto-pay limit; ask the owner",
+                window,
+                total + amount,
+                self.approval_threshold
+            ));
+        }
+        if count >= self.guards.max_auto_payments {
+            return Some(format!(
+                "too many automatic payments: at most {} per {} min",
+                self.guards.max_auto_payments, window
+            ));
+        }
+        None
+    }
+
+    /// Paying a stranger looks like a hijacked agent. Budget, balance and velocity blocks also
+    /// happen to honest agents, so they don't count towards the breaker.
     fn record_strike(&mut self, status: &RequestStatus) {
-        if !matches!(
-            status,
-            RequestStatus::BlockedRecipient | RequestStatus::BlockedVelocity
-        ) {
+        if *status != RequestStatus::BlockedRecipient {
             return;
         }
         self.strikes += 1;

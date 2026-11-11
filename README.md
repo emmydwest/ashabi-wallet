@@ -49,7 +49,7 @@ You should see the policy, the attacker's blocked attempts (`BLOCKED_RECIPIENT`,
 | 4 | receiver not on approved list | `BLOCKED_RECIPIENT` | no |
 | 5 | spent today + reserved (pending) + amount > daily limit | `BLOCKED_BUDGET` | no |
 | 6 | contract balance (minus storage and 0.1 NEAR reserve) too low | `INSUFFICIENT_FUNDS` | no |
-| 7 | below the threshold, but the velocity limit of automatic payments is used up | `BLOCKED_VELOCITY` | no |
+| 7 | below the threshold, but automatic payments in the window would pass the threshold (or the count cap) | `BLOCKED_VELOCITY` | no |
 | 8 | amount > approval threshold | `PENDING_APPROVAL` (amount reserved against budget) | after owner approves |
 | 9 | otherwise | `APPROVED` | yes, native transfer |
 
@@ -64,13 +64,15 @@ lifecycle: `PENDING_APPROVAL → TRANSFERRING → COMPLETED | FAILED`, or `PENDI
 
 Two guards catch patterns no single request shows:
 
-- **Velocity limit.** At most 3 automatic payments per rolling 10 minutes. Splitting a big
-  payment into pieces under the approval threshold stops after the third piece.
-- **Circuit breaker.** 3 suspicious blocks in a row (`BLOCKED_RECIPIENT` or `BLOCKED_VELOCITY`)
-  trip it: every request is refused for 10 minutes, or until the owner calls `unfreeze`. Budget,
-  balance and duplicate blocks don't count, and any approved or pending request resets the
-  strikes. The pause is timed rather than permanent so a burst of attacks on the public demo
-  can't lock the owner's wallet for good, while a hijacked agent still gets cut off mid-burst.
+- **Velocity limit.** Automatic payments in a rolling 10 minutes may not add up past the
+  approval threshold, and there are at most 3 of them. Splitting a 1.5 NEAR payment into 0.3 NEAR
+  pieces stops once the pieces would pass 1 NEAR, so the owner still sees it.
+- **Circuit breaker.** 3 payments to unknown accounts in a row (`BLOCKED_RECIPIENT`) trip it:
+  every request is refused for 10 minutes, or until the owner calls `unfreeze`. Budget, balance,
+  velocity and duplicate blocks don't count, since honest agents hit those too, and any approved
+  or pending request resets the strikes. The pause is timed rather than permanent so a burst of
+  attacks on the public demo can't lock the owner's wallet for good, while a hijacked agent still
+  gets cut off mid-burst.
 
 Both are owner-tunable with `set_guards`, and `0` turns either off.
 
@@ -88,7 +90,7 @@ resets at the first call of a new day. Pending reservations carry over until app
 | `add_payee(account_id)` / `remove_payee(account_id)` | owner, 1 yocto | |
 | `freeze()` / `unfreeze()` | owner, 1 yocto | emergency stop; `unfreeze` also resets a tripped breaker |
 | `set_guards({max_auto_payments, velocity_window_minutes, breaker_strikes, breaker_cooldown_minutes})` | owner, 1 yocto | 0 disables a guard |
-| `migrate()` | contract itself | one-off upgrade from the pre-guards state layout |
+| `migrate()` | contract itself | one-off upgrade from the previous state layout |
 | `set_agent(agent_id)` | owner, 1 yocto | rotate a compromised agent |
 | `set_owner(new_owner)` | owner, 1 yocto | hand ownership to another wallet; must differ from the agent |
 | `withdraw(amount)` | owner, 1 yocto | owner takes funds back |
@@ -116,7 +118,7 @@ Requires Rust, [`cargo-near`](https://github.com/near/cargo-near) and
 [`near-cli-rs`](https://github.com/near/near-cli-rs). Testnet NEAR is free.
 
 ```sh
-# 1. unit tests (31)
+# 1. unit tests (35)
 cd contract && cargo test
 
 # 2. build the wasm
