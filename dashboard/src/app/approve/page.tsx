@@ -5,7 +5,7 @@ import { WalletProvider } from '@/components/approve/wallet';
 import { PageSkeleton } from '@/components/page-skeleton';
 import { cachedSnapshot } from '@/lib/server/cached-snapshot';
 
-export const metadata: Metadata = { title: 'Approve · Guardian Wallet' };
+export const metadata: Metadata = { title: 'Approve' };
 
 async function Approve() {
   return <ApproveView initial={await cachedSnapshot()} />;

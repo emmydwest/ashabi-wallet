@@ -5,7 +5,7 @@ import { WalletProvider } from '@/components/approve/wallet';
 import { PageSkeleton } from '@/components/page-skeleton';
 import { cachedSnapshot } from '@/lib/server/cached-snapshot';
 
-export const metadata: Metadata = { title: 'Agent · Guardian Wallet' };
+export const metadata: Metadata = { title: 'Attack Demo' };
 
 async function Console() {
   return <AgentConsole initial={await cachedSnapshot()} />;

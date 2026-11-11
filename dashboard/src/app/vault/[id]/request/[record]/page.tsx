@@ -9,7 +9,7 @@ import { VaultMissing } from '@/components/vault/vault-view';
 import { isVaultId } from '@/lib/config';
 import { loadSnapshot } from '@/lib/guardian';
 
-export const metadata: Metadata = { title: 'Approve a payment · Guardian Wallet' };
+export const metadata: Metadata = { title: 'Approve a payment' };
 
 async function Request({ params }: { params: Promise<{ id: string; record: string }> }) {
   const { id, record } = await params;

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { WalletProvider } from '@/components/approve/wallet';
 import { MyWallets } from '@/components/start/my-wallets';
 
-export const metadata: Metadata = { title: 'My wallets · Guardian Wallet' };
+export const metadata: Metadata = { title: 'My wallets' };
 
 export default function WalletPage() {
   return (

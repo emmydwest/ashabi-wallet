@@ -6,7 +6,7 @@ import actionLog from '@/data/action-log.json';
 import { cachedSnapshot } from '@/lib/server/cached-snapshot';
 import type { ActionLog } from '@/lib/types';
 
-export const metadata: Metadata = { title: 'Dashboard · Guardian Wallet' };
+export const metadata: Metadata = { title: 'Dashboard' };
 
 async function Dashboard() {
   return <DashboardView log={actionLog as ActionLog} initial={await cachedSnapshot()} />;

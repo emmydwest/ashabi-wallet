@@ -8,7 +8,7 @@ import { VaultMissing, VaultView } from '@/components/vault/vault-view';
 import { isVaultId } from '@/lib/config';
 import { loadSnapshot } from '@/lib/guardian';
 
-export const metadata: Metadata = { title: 'Your wallet · Guardian Wallet' };
+export const metadata: Metadata = { title: 'Your wallet' };
 
 async function Vault({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
