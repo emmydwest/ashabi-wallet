@@ -9,6 +9,7 @@ import { nsToDate, toNear } from '@/lib/near';
 import { AsOf } from '@/components/as-of';
 import type { GuardianSnapshot, PaymentRecord } from '@/lib/types';
 import { OwnerControls } from './owner-controls';
+import { PolicyWriter } from './policy-writer';
 import { useWallet } from './wallet';
 import { readWalletReturn, walletLinkFor } from './wallet-link';
 
@@ -204,6 +205,7 @@ export function ApproveView({ initial }: { initial: GuardianSnapshot }) {
       </dl>
 
       <OwnerControls status={snapshot.status} isOwner={isOwner} busy={busy} run={run} />
+      <PolicyWriter status={snapshot.status} feed={snapshot.feed} isOwner={isOwner} busy={busy} run={run} />
     </main>
   );
 }
