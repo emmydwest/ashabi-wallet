@@ -120,12 +120,12 @@ function CheckRow({ check, compact }: { check: LiveCheck; compact: boolean }) {
             <h3 className="text-sm font-semibold text-white">{check.title}</h3>
             <StatePill state={check.state} />
           </div>
-          <p className="mt-1 text-sm leading-relaxed text-zinc-300">{check.summary}</p>
-          {check.detail && !compact && <p className="mt-1 text-xs leading-relaxed text-zinc-400">{check.detail}</p>}
+          <p className="wrap-ids mt-1 text-sm leading-relaxed text-zinc-300">{check.summary}</p>
+          {check.detail && !compact && <p className="wrap-ids mt-1 text-xs leading-relaxed text-zinc-400">{check.detail}</p>}
           {check.detail && compact && (
             <details className="mt-1">
               <summary className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-200">More</summary>
-              <p className="mt-1 text-xs leading-relaxed text-zinc-400">{check.detail}</p>
+              <p className="wrap-ids mt-1 text-xs leading-relaxed text-zinc-400">{check.detail}</p>
             </details>
           )}
         </div>

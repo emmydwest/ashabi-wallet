@@ -93,20 +93,13 @@ function agentKeyCheck(keys: AccessKey[]): LiveCheck {
       detail: `${keys.length} key(s) on the account.`,
     };
   }
-  const gas = scoped
-    .map((k) => {
-      const perm = k.access_key.permission;
-      if (typeof perm === 'string') return null;
-      return perm.FunctionCall.allowance ? `${toNear(perm.FunctionCall.allowance)} NEAR gas left` : 'no allowance cap';
-    })
-    .filter(Boolean)
-    .join(', ');
+  const allowances = scoped.map((k, i) => describeAllowance(k, i, scoped.length)).filter(Boolean).join(' ');
   if (full.length > 0) {
     return {
       id: 'agent-key',
       title,
       state: 'warn',
-      summary: `A function-call key is limited to request_payment on ${CONTRACT_ID}, with ${gas}. The same account still has a full-access key, left on during development; it will be removed before submission.`,
+      summary: `A function-call key is limited to request_payment on ${CONTRACT_ID}. ${allowances} The same account still has a full-access key, left on during development; it will be removed before submission.`,
       detail: `${scoped.length} scoped function-call key(s), ${full.length} full-access key(s). A full-access key can sign other transactions as the agent, but it still cannot change the contract’s rules: those methods require the owner’s signature and 1 yoctoNEAR.`,
     };
   }
@@ -114,9 +107,28 @@ function agentKeyCheck(keys: AccessKey[]): LiveCheck {
     id: 'agent-key',
     title,
     state: 'pass',
-    summary: `${scoped.length} function-call key(s) on ${AGENT_ID} can call request_payment on ${CONTRACT_ID} and nothing else. ${gas}. Function-call keys cannot attach a deposit.`,
+    summary: `${scoped.length} function-call key(s) on ${AGENT_ID} can call request_payment on ${CONTRACT_ID} and nothing else. ${allowances} Function-call keys cannot attach a deposit.`,
     detail: `No full-access keys on this account. ${keys.length} key(s) in total.`,
   };
+}
+
+/** Short public key so two function-call keys can be told apart in the UI. */
+function shortKey(publicKey: string) {
+  const colon = publicKey.indexOf(':');
+  const curve = colon >= 0 ? publicKey.slice(0, colon) : 'key';
+  const data = colon >= 0 ? publicKey.slice(colon + 1) : publicKey;
+  if (data.length <= 12) return publicKey;
+  return `${curve}:${data.slice(0, 6)}…${data.slice(-4)}`;
+}
+
+function describeAllowance(key: AccessKey, index: number, total: number): string | null {
+  const perm = key.access_key.permission;
+  if (typeof perm === 'string') return null;
+  const who = total > 1 ? `Function-call key ${index + 1} (${shortKey(key.public_key)})` : `The function-call key (${shortKey(key.public_key)})`;
+  const gas = perm.FunctionCall.allowance
+    ? `has ${toNear(perm.FunctionCall.allowance)} NEAR of gas allowance left.`
+    : 'has no gas allowance cap.';
+  return `${who} ${gas}`;
 }
 
 function velocityCheck(status: WalletStatus): LiveCheck {
@@ -177,10 +189,10 @@ function accountCheck(account: AccountView): LiveCheck {
     id: 'code',
     title: 'Contract code hash and balance',
     state: 'pass',
-    summary: placeholder
-      ? `${CONTRACT_ID} is using a global contract (view_account code hash is the empty placeholder). Balance ${toNear(account.amount, 3)} NEAR.`
-      : `${CONTRACT_ID} code hash ${account.code_hash}. Balance ${toNear(account.amount, 3)} NEAR.`,
-    detail: `Storage ${account.storage_usage.toLocaleString()} bytes. This is the live view_account result, not a baked-in screenshot.`,
+    summary: `${CONTRACT_ID} is live, with a balance of ${toNear(account.amount, 3)} NEAR.`,
+    detail: placeholder
+      ? `This account uses a global contract, so view_account reports the empty placeholder code hash (${account.code_hash}). Storage ${account.storage_usage.toLocaleString()} bytes. This is the live view_account result, not a baked-in screenshot.`
+      : `Code hash ${account.code_hash}. Storage ${account.storage_usage.toLocaleString()} bytes. This is the live view_account result, not a baked-in screenshot.`,
   };
 }
 

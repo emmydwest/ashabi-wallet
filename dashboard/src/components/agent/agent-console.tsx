@@ -102,7 +102,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
     (mode !== 'attack' || !needsBreakerConfirm || confirmBreaker);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-8 sm:py-14">
+    <div className="mx-auto min-w-0 max-w-7xl px-4 py-10 sm:px-8 sm:py-14">
       <div className="flex items-center justify-between gap-6">
         <div className="max-w-2xl">
           <div className="flex flex-wrap items-center gap-2">

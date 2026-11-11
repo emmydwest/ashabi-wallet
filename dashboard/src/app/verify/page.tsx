@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function VerifyPage() {
   return (
-    <main className="mx-auto max-w-4xl px-5 pb-24 pt-10 sm:px-8 sm:pt-16">
+    <main className="mx-auto min-w-0 max-w-4xl px-5 pb-24 pt-10 sm:px-8 sm:pt-16">
       <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">Verify</p>
       <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight text-white sm:text-5xl">
         Verify it yourself, on NEAR.
@@ -22,12 +22,12 @@ export default function VerifyPage() {
       </p>
       <p className="mt-3 text-sm text-zinc-500">
         Contract{' '}
-        <a href={accountUrl(CONTRACT_ID)} target="_blank" rel="noreferrer" className="font-mono text-emerald-300">
+        <a href={accountUrl(CONTRACT_ID)} target="_blank" rel="noreferrer" className="wrap-ids font-mono text-emerald-300">
           {CONTRACT_ID} ↗
         </a>
         {' · '}
         Agent{' '}
-        <a href={accountUrl(AGENT_ID)} target="_blank" rel="noreferrer" className="font-mono text-emerald-300">
+        <a href={accountUrl(AGENT_ID)} target="_blank" rel="noreferrer" className="wrap-ids font-mono text-emerald-300">
           {AGENT_ID} ↗
         </a>
       </p>

@@ -30,9 +30,9 @@ export function DashboardView({ log, initial }: { log: ActionLog; initial: Guard
   const { snapshot, error } = useGuardian(6000, initial);
 
   return (
-    <main className="mx-auto max-w-7xl px-5 pb-24 pt-10 sm:px-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
+    <main className="mx-auto min-w-0 max-w-7xl px-5 pb-24 pt-10 sm:px-8">
+      <div className="flex min-w-0 flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-emerald-300/80">Live from the contract</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Guardian dashboard</h1>
           <DemoWalletLabel className="mt-3" />

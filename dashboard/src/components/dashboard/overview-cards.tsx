@@ -87,7 +87,7 @@ export function PolicyCard({ snapshot }: { snapshot: GuardianSnapshot }) {
             {status.approved_payees.map((payee) => (
               <span
                 key={payee}
-                className="rounded-lg border border-emerald-400/15 bg-emerald-400/[0.06] px-2.5 py-1 font-mono text-xs text-emerald-200"
+                className="wrap-ids max-w-full rounded-lg border border-emerald-400/15 bg-emerald-400/[0.06] px-2.5 py-1 font-mono text-xs text-emerald-200"
               >
                 {payee}
               </span>
@@ -101,9 +101,9 @@ export function PolicyCard({ snapshot }: { snapshot: GuardianSnapshot }) {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="text-zinc-400">{label}</dt>
-      <dd className="text-right font-mono text-white">{children}</dd>
+    <div className="flex min-w-0 items-center justify-between gap-4">
+      <dt className="shrink-0 text-zinc-400">{label}</dt>
+      <dd className="min-w-0 wrap-ids text-right font-mono text-white">{children}</dd>
     </div>
   );
 }

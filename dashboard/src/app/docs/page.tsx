@@ -122,7 +122,7 @@ export default function DocsPage() {
         title="Use it from your agent"
         hint="@guardian-wallet/sdk: no dependencies, reads go straight to NEAR RPC."
       >
-        <pre className="glass overflow-x-auto rounded-card p-5 font-mono text-[13px] leading-relaxed text-zinc-200">
+        <pre className="glass max-w-full overflow-x-auto rounded-card p-5 font-mono text-[13px] leading-relaxed text-zinc-200">
           <code>{SDK}</code>
         </pre>
         <p className="mt-3 text-sm text-zinc-400">

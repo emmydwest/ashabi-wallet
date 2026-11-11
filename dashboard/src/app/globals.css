@@ -43,11 +43,25 @@
   -webkit-text-size-adjust: 100%;
 }
 
+html {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 body {
   background-color: var(--color-ink);
   color: #e7e9ee;
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-feature-settings: 'ss01', 'cv11';
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+/* Account ids, code hashes and tx ids are long unbroken strings; wrap them instead of widening the page. */
+.wrap-ids,
+[data-wrap-ids] {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .backdrop {
