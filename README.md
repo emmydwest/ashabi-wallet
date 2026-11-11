@@ -161,16 +161,16 @@ Every claim, where it lives, and the test that pins it (`cd contract && cargo te
 
 | Claim | Code | Test |
 |---|---|---|
-| Only the registered agent can request a payment | `contract/src/lib.rs:333` | `non_agent_cannot_request` |
-| Unknown payees are refused and the attempt is stored | `contract/src/lib.rs:389`, `:981` | `attacker_recipient_is_blocked_and_persisted` |
-| Replayed `request_id` is refused | `contract/src/lib.rs:352` | `duplicate_request_id_is_rejected` |
-| Freeze and the kill-switch stop everything | `contract/src/lib.rs:364`, `:376`, `:926` | `freeze_blocks_everything`, `breaker_trips_after_three_suspicious_blocks_then_cools_down` |
-| At most 3 requests wait for the owner | `contract/src/lib.rs:404` | `too_many_pending_requests_are_refused` |
-| Daily budget counts pending reservations | `contract/src/lib.rs:422` | `budget_counts_pending_reservations` |
-| Splitting a payment is caught | `contract/src/lib.rs:446` | `splitting_below_threshold_is_capped_by_the_window_total` |
-| Unapproved requests expire after 24 h and free the budget | `contract/src/lib.rs:828`, `:843` | `pending_request_expires_and_releases_budget`, `owner_cannot_approve_an_expired_request` |
-| Rule changes need the owner and 1 yoctoNEAR | `contract/src/lib.rs:815` | `agent_cannot_add_payee`, `agent_cannot_change_guards`, `agent_cannot_change_pending_rules` |
-| Upgrades keep existing state | `contract/src/lib.rs:292` | `migrate_keeps_v3_state` |
+| Only the registered agent can request a payment | `contract/src/lib.rs:332` | `non_agent_cannot_request` |
+| Unknown payees are refused and the attempt is stored | `contract/src/lib.rs:388`, `:980` | `attacker_recipient_is_blocked_and_persisted` |
+| Replayed `request_id` is refused | `contract/src/lib.rs:351` | `duplicate_request_id_is_rejected` |
+| Freeze and the kill-switch stop everything | `contract/src/lib.rs:363`, `:375`, `:925` | `freeze_blocks_everything`, `breaker_trips_after_three_suspicious_blocks_then_cools_down` |
+| At most 3 requests wait for the owner | `contract/src/lib.rs:403` | `too_many_pending_requests_are_refused` |
+| Daily budget counts pending reservations | `contract/src/lib.rs:421` | `budget_counts_pending_reservations` |
+| Splitting a payment is caught | `contract/src/lib.rs:445` | `splitting_below_threshold_is_capped_by_the_window_total` |
+| Unapproved requests expire after 24 h and free the budget | `contract/src/lib.rs:827`, `:842` | `pending_request_expires_and_releases_budget`, `owner_cannot_approve_an_expired_request` |
+| Rule changes need the owner and 1 yoctoNEAR | `contract/src/lib.rs:814` | `agent_cannot_add_payee`, `agent_cannot_change_guards`, `agent_cannot_change_pending_rules` |
+| Upgrades keep existing state | `contract/src/lib.rs:291` | `migrate_keeps_v3_state` |
 | The agent key can only call `request_payment` | on-chain: `near account list-keys gw-emmy-agent.testnet network-config testnet now` | |
 | The live console uses the SDK | `dashboard/src/app/api/agent/run/route.ts:56` → `dashboard/src/lib/server/run-agent.ts:362`, `:373` → `dashboard/src/lib/server/agent-key.ts:14` | |
 | The vendor checks the receipt on-chain and refuses replays | `dashboard/src/vendor/x402.ts:110`–`138` | run a paid job on `/agent`; the last step shows the `409` |
