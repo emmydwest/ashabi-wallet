@@ -316,12 +316,18 @@ for phones; "Send to my phone" opens the share sheet or copies the link.
 
 ### `/chat` (the assistant)
 
-A chat over the same agent runtime as `/agent` real jobs. It pays from your own wallet if you're
-connected and own one (or `?vault=`), otherwise the demo wallet. Replies are short ("Done. Paid
-and delivered", "Your wallet said no: …", "I asked you first"), with the delivered item (weather,
-news, a translation, icons or a market report), an
-inline approval card that follows the request on-chain, and the full step list behind "What
-happened".
+The assistant is **Guardian**, the mascot. It is a shopping and payments assistant with its own
+NEAR testnet wallet, limited by the contract. Small talk, questions about its name, budget, rules,
+catalog or how it stays safe are answered in conversation, using live `get_wallet_status` figures
+(remaining today, threshold, approved payees, reset at 00:00 UTC / 1:00 AM WAT). Those replies do
+not start a payment and do not spend the 5-purchase-run quota (they have a separate chat cap).
+
+Only a purchase or transfer intent starts a payment run, against your own wallet if you're
+connected and own one (or `?vault=`), otherwise the demo wallet. A request to send funds to a
+named account always goes to the contract — the model cannot talk around it. Blocked purchases
+get a plain-language reply (for example, today's budget is used up and resets at 1:00 AM WAT);
+the exact contract reason stays inside "What happened". Delivered items and an inline approval
+card still appear when a payment succeeds or waits for the owner.
 
 ### `/verify`
 
@@ -420,7 +426,7 @@ agent log and its trap page sit in a collapsed "Recorded reference run" section.
   (The earlier "Tamper" toggle was removed to keep the card simple.)
 - **Recent verdicts** show in the empty run card, so a first visitor sees real history straight
   away.
-- **Runs left:** "N of 5 runs left per 10 minutes".
+- **Purchase runs left:** "N purchase runs left" (5 per 10 minutes). Plain chat on `/chat` does not spend this quota.
 - **Kill-switch banner.** While the breaker is on, the Real jobs tab shows "Another visitor's
   attacks tripped the kill-switch - that's the defence working. Honest jobs resume in m:ss;
   attacks still work meanwhile." with a live countdown. The run button is disabled for honest jobs, but attacks and the hijack still run, so

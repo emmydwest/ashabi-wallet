@@ -652,12 +652,14 @@ model reasoning.
   same owner controls as `/approve`.
 - `/vault/<id>/request/<record>` is the deep link for one approval: "Your AI wants to spend 1.50
   NEAR on premium annual. Approve / Reject", then the outcome. "Send to my phone" shares it.
-- `/chat` is the assistant: tell it what to buy and it runs the same agent against your wallet
-  (or the demo one), shows what it bought, or drops an approval card in the conversation. The
-  catalog is weather, a news digest, a translation, an icon pack, a market report, and a 1.5 NEAR
-  annual plan that waits for the owner.
-- `/verify` runs five live RPC checks in the visitor’s browser (agent key restriction, contract
-  code hash and balance, velocity limit, kill-switch, latest blocked attempt) and lists every
+- `/chat` is Guardian, the mascot: a shopping assistant with a guarded NEAR testnet wallet. It
+  answers questions about itself, its budget and its rules without starting a payment. Tell it
+  what to buy and it runs the same agent against your wallet (or the demo one), shows what it
+  bought, or drops an approval card in the conversation. A request to send funds still goes to
+  the contract. The catalog is weather, a news digest, a translation, an icon pack, a market
+  report, and a 1.5 NEAR annual plan that waits for the owner.
+- `/verify` runs live RPC checks in the visitor’s browser (agent key scope, vault full-access
+  key count, owner control, contract code hash and balance, velocity limit, kill-switch, latest blocked attempt) and lists every
   published proof transaction with a NearBlocks link. The same checks sit on `/` and `/agent`.
   A check that cannot reach the RPC, or that does not hold, is shown as a failure or a caveat,
   not as a green tick.

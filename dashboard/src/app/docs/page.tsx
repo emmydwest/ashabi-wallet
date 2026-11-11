@@ -104,9 +104,9 @@ export default function DocsPage() {
           <Step n="1" href="/agent?try=hijack" label="Hijack the agent">
             A web page tells the agent to send money to an attacker. The contract blocks it and stores the attempt.
           </Step>
-          <Step n="2" href="/chat" label="Ask the live agent to buy something">
-            Weather, news, a translation, an icon pack, a market report, or a 1.5 NEAR annual plan that waits for you.
-            Each one pays the demo vendor over HTTP 402.
+          <Step n="2" href="/chat" label="Chat with Guardian, or ask it to buy something">
+            It will tell you its name, budget and rules without starting a payment. Weather, news, a translation, an
+            icon pack, a market report, or a 1.5 NEAR annual plan still pay the demo vendor over HTTP 402.
           </Step>
           <Step n="3" href="/start" label="Create your own guarded wallet">
             Connect a testnet wallet from the nav first (MyNearWallet works in the browser, including iPhone Safari).

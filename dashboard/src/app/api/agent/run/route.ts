@@ -1,9 +1,11 @@
 import { ATTACKS, CUSTOM_ATTACK_ID } from '@/lib/agent/attacks';
 import { CUSTOM_MAX, TASK_MAX, type AgentEvent, type RunRequest } from '@/lib/agent/types';
 import { CONTRACT_ID, isVaultId } from '@/lib/config';
+import { classifyIntent, replyForChat } from '@/lib/server/chat';
 import { agentConfigured, agentFor } from '@/lib/server/agent-key';
-import { clientIp, RUNS_PER_WINDOW, runsLeft, takeRun } from '@/lib/server/rate-limit';
+import { clientIp, RUNS_PER_WINDOW, runsLeft, takeChat, takeRun } from '@/lib/server/rate-limit';
 import { runAgent } from '@/lib/server/run-agent';
+import type { WalletStatus } from '@/lib/types';
 
 export const maxDuration = 60;
 
@@ -13,7 +15,7 @@ function parse(body: unknown): RunRequest | string {
     const task = String(b.task ?? '').trim();
     if (!task) return 'Tell the agent what to buy.';
     if (task.length > TASK_MAX) return `Keep the task under ${TASK_MAX} characters.`;
-    return { mode: 'task', task };
+    return { mode: 'task', task, surface: b.surface === 'chat' ? 'chat' : undefined };
   }
   if (b.mode === 'hijack') return { mode: 'hijack' };
   if (b.mode === 'attack') {
@@ -26,6 +28,32 @@ function parse(body: unknown): RunRequest | string {
   }
   return 'Unknown mode.';
 }
+
+function stream(write: (emit: (event: AgentEvent) => void) => Promise<void>) {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    async start(controller) {
+      const emit = (event: AgentEvent) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+      try {
+        await write(emit);
+      } catch (e) {
+        emit({
+          type: 'step',
+          kind: 'error',
+          title: 'The run stopped unexpectedly',
+          body: String((e as Error).message),
+        });
+      }
+      emit({ type: 'done' });
+      controller.close();
+    },
+  });
+}
+
+const ndjson = (body: ReadableStream) =>
+  new Response(body, {
+    headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' },
+  });
 
 export async function GET(request: Request) {
   return Response.json(
@@ -52,35 +80,46 @@ export async function POST(request: Request) {
     return Response.json({ error: (e as Error).message }, { status: 409 });
   }
 
-  const slot = takeRun(clientIp(request.headers));
+  const ip = clientIp(request.headers);
+
+  // Chat questions never spend a purchase run or call request_payment.
+  if (input.mode === 'task' && input.surface === 'chat' && classifyIntent(input.task).kind === 'chat') {
+    const slot = takeChat(ip);
+    if (!slot.ok) {
+      const minutes = Math.ceil(slot.retryInSec / 60);
+      return Response.json(
+        { error: `That's a lot of chat for now. Try again in about ${minutes} min.` },
+        { status: 429, headers: { 'retry-after': String(slot.retryInSec) } },
+      );
+    }
+    let status: WalletStatus | null = null;
+    try {
+      status = (await agent.getStatus()) as WalletStatus;
+    } catch {
+      status = null;
+    }
+    const reply = await replyForChat(input.task, status);
+    return ndjson(
+      stream(async (emit) => {
+        emit({ type: 'quota', left: runsLeft(ip), limit: RUNS_PER_WINDOW });
+        if (reply) emit({ type: 'reply', text: reply.text, mood: reply.mood });
+      }),
+    );
+  }
+
+  const slot = takeRun(ip);
   if (!slot.ok) {
     const minutes = Math.ceil(slot.retryInSec / 60);
     return Response.json(
-      { error: `You have used your 5 runs for now. Try again in about ${minutes} min.` },
+      { error: `You have used your 5 purchase runs for now. Try again in about ${minutes} min.` },
       { status: 429, headers: { 'retry-after': String(slot.retryInSec) } },
     );
   }
 
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(controller) {
-      const emit = (event: AgentEvent) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+  return ndjson(
+    stream(async (emit) => {
       emit({ type: 'quota', left: slot.left, limit: RUNS_PER_WINDOW });
-      try {
-        await runAgent(input, emit, { origin: new URL(request.url).origin, agent });
-      } catch (e) {
-        emit({
-          type: 'step',
-          kind: 'error',
-          title: 'The run stopped unexpectedly',
-          body: String((e as Error).message),
-        });
-      }
-      emit({ type: 'done' });
-      controller.close();
-    },
-  });
-  return new Response(stream, {
-    headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' },
-  });
+      await runAgent(input, emit, { origin: new URL(request.url).origin, agent });
+    }),
+  );
 }

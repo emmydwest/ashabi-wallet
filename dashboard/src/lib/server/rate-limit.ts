@@ -33,3 +33,26 @@ export function takeRun(ip: string): { ok: true; left: number } | { ok: false; r
 
 export const clientIp = (headers: Headers) =>
   headers.get('x-real-ip') ?? headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+
+// Conversation replies are cheap (no payment), but still capped so one IP cannot
+// hammer the RPC or the model fallback.
+const CHAT_PER_IP = 30;
+const CHAT_PER_INSTANCE = 200;
+const chatHits = new Map<string, number[]>();
+let chatEveryone: number[] = [];
+
+export const CHATS_PER_WINDOW = CHAT_PER_IP;
+
+export function takeChat(ip: string): { ok: true } | { ok: false; retryInSec: number } {
+  const now = Date.now();
+  const mine = recent(chatHits.get(ip) ?? [], now);
+  chatEveryone = recent(chatEveryone, now);
+  if (mine.length >= CHAT_PER_IP || chatEveryone.length >= CHAT_PER_INSTANCE) {
+    const oldest = (mine.length >= CHAT_PER_IP ? mine : chatEveryone)[0];
+    return { ok: false, retryInSec: Math.ceil((WINDOW_MS - (now - oldest)) / 1000) };
+  }
+  mine.push(now);
+  chatEveryone.push(now);
+  chatHits.set(ip, mine);
+  return { ok: true };
+}

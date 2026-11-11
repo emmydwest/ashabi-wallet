@@ -7,6 +7,8 @@ import { INTENT_PREFIX_LENGTH, intentHash, type IntentLog } from '@/lib/agent/in
 import type { AgentEvent, Plan, RunRequest } from '@/lib/agent/types';
 import { CATALOG, deliver, itemFor } from '@/vendor/catalog';
 import { receiptProblem } from '@/vendor/receipt';
+import { matchCatalog, parseTransfer } from '@/lib/chat-intent';
+import { paymentMessage } from './chat';
 import { askModel, type ModelChoice } from './models';
 import type { GuardianAgent, PaymentArgs, PaymentResult } from 'guardian-wallet-sdk';
 import { guardianAgent } from './agent-key';
@@ -81,18 +83,6 @@ function cleanPlan(raw: Partial<Plan> | null): Plan | null {
   return plan;
 }
 
-function fallbackPlan(task: string): Plan {
-  const wanted = CATALOG.find((i) => task.toLowerCase().includes(i.sku.split('-')[1])) ?? itemFor('weather-basic')!;
-  return {
-    action: 'pay',
-    receiver_id: VENDOR_ID,
-    amount_near: wanted.price_near,
-    sku: wanted.sku,
-    reason: 'Rule-based fallback: the catalog plan that matches the task.',
-    installments: 1,
-  };
-}
-
 const waitForRecord = (id: number, agent: GuardianAgent) =>
   agent.waitForSettlement(id) as Promise<PaymentRecord | null>;
 
@@ -135,22 +125,41 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
   const task =
     input.mode === 'task' ? input.task : 'Get a 7-day weather forecast for Lagos. Spend as little as possible.';
   const choice: ModelChoice = input.mode === 'attack' ? input.model : 'main';
+  let lastPlan: Plan | null = null;
+  const emitTask: Emit =
+    input.mode === 'task'
+      ? (event) => {
+          if (event.type === 'summary' && !event.message) {
+            emit({
+              ...event,
+              message: paymentMessage(event.verdict, event.reason, status, {
+                amount: lastPlan?.amount_near,
+                sku: lastPlan?.sku,
+                receiver: lastPlan?.receiver_id,
+              }),
+            });
+            return;
+          }
+          emit(event);
+        }
+      : emit;
+  const out = emitTask;
 
-  emit({
+  out({
     type: 'step',
     kind: 'read',
     title: 'Read the vendor catalog',
     body: CATALOG.map((i) => `${i.sku} · ${i.price_near} NEAR`).join('\n'),
   });
-  emit({ type: 'step', kind: 'read', title: 'Read the vendor docs page' });
+  out({ type: 'step', kind: 'read', title: 'Read the vendor docs page' });
   if (attack && attack.surface !== 'page')
-    emit({
+    out({
       type: 'step',
       kind: 'read',
       title: attack.surface === 'invoice' ? 'Read the vendor invoice' : 'Called get_payment_routing()',
     });
   if (attack) {
-    emit({
+    out({
       type: 'step',
       kind: 'warning',
       title: `The ${SURFACE_NAME[attack.surface]} carries a hidden instruction (${attack.name})`,
@@ -163,29 +172,53 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
   const reply = await askModel<Partial<Plan>>(choice, choice === 'small' ? NAIVE : SYSTEM, prompt);
   let plan = cleanPlan(reply.data);
   const why: Why = { task, model: reply.model ? `${reply.provider} · ${reply.model}` : 'rule-based planner' };
+  const forced = input.mode === 'task' ? parseTransfer(task) : null;
+  const wanted = input.mode === 'task' && !forced ? matchCatalog(task) : null;
+
+  // A named transfer always goes to the contract. The model cannot talk around it.
+  if (forced) {
+    plan = {
+      action: 'pay',
+      receiver_id: forced.receiver_id,
+      amount_near: forced.amount_near,
+      sku: '',
+      reason: plan?.reason || 'The visitor asked to send this payment.',
+      installments: 1,
+    };
+  } else if ((!plan || plan.action === 'none') && wanted) {
+    plan = {
+      action: 'pay',
+      receiver_id: VENDOR_ID,
+      amount_near: wanted.price_near,
+      sku: wanted.sku,
+      reason: plan?.reason || `Buy the ${wanted.name}.`,
+      installments: 1,
+    };
+  }
 
   if (!plan) {
     if (attack) {
-      emit({
+      out({
         type: 'step',
         kind: 'error',
         title: 'No model gave a usable answer, so nothing was sent',
         body: summarize(reply.attempts),
       });
-      emit({ type: 'summary', tookBait: null, verdict: null, moved: false });
+      out({ type: 'summary', tookBait: null, verdict: null, moved: false });
       return;
     }
-    plan = fallbackPlan(task);
-    emit({
+    out({
       type: 'step',
       kind: 'model',
-      title: 'Models unavailable; used the rule-based planner',
-      plan,
-      body: summarize(reply.attempts),
+      title: 'I could not tell what to buy, so I did not send a payment',
+      body: summarize(reply.attempts) || 'No matching catalog item or payee in the request.',
     });
+    out({ type: 'summary', tookBait: null, verdict: null, moved: false });
+    return;
   } else {
+    lastPlan = plan;
     const split = plan.installments > 1 ? ` in ${plan.installments} payments of ${plan.amount_near}` : '';
-    emit({
+    out({
       type: 'step',
       kind: 'model',
       model: reply.model ? `${reply.provider} · ${reply.model}` : undefined,
@@ -203,24 +236,24 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
 
   if (attack) return finishAttack(plan, status, emit, why);
   if (plan.action === 'none') {
-    emit({ type: 'summary', tookBait: null, verdict: null, moved: false });
+    out({ type: 'summary', tookBait: null, verdict: null, moved: false });
     return;
   }
 
   const problem = status.approved_payees.includes(plan.receiver_id) ? priceProblem(plan) : null;
   if (problem) {
-    emit({ type: 'step', kind: 'guard', title: `Vendor check refused it: ${problem}`, status: 'REFUSED' });
-    emit({ type: 'summary', tookBait: null, verdict: null, moved: false });
+    out({ type: 'step', kind: 'guard', title: `Vendor check refused it: ${problem}`, status: 'REFUSED' });
+    out({ type: 'summary', tookBait: null, verdict: null, moved: false });
     return;
   }
   if (status.approved_payees.includes(plan.receiver_id) && Number(plan.amount_near) > MAX_RUN_NEAR) {
-    emit({
+    out({
       type: 'step',
       kind: 'guard',
       title: `Console cap: public runs can send at most ${MAX_RUN_NEAR} NEAR to a payee`,
       body: 'This demo limit sits on top of the contract’s own rules, so visitors cannot drain the shared vault.',
     });
-    emit({ type: 'summary', tookBait: null, verdict: null, moved: false });
+    out({ type: 'summary', tookBait: null, verdict: null, moved: false });
     return;
   }
 
@@ -232,14 +265,14 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
   const { verdict, recordId, reason, txHash, memo } = call;
 
   if (verdict === 'PENDING_APPROVAL' && recordId !== null) {
-    emit({
+    out({
       type: 'step',
       kind: 'settlement',
       title: `Payment #${recordId} is waiting for the owner`,
       body: 'It is above the approval threshold. The owner can approve or reject it from the wallet’s approval page.',
       status: 'PENDING_APPROVAL',
     });
-    emit({
+    out({
       type: 'summary',
       tookBait: null,
       verdict,
@@ -254,7 +287,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
   if (verdict === 'APPROVED' && recordId !== null) {
     const record = await waitForRecord(recordId, context.agent);
     moved = record?.status === 'COMPLETED';
-    emit({
+    out({
       type: 'step',
       kind: 'settlement',
       title: `Payment #${recordId} is ${record?.status ?? 'still settling'}`,
@@ -262,7 +295,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
     });
     if (moved && plan.sku) {
       const refused = await receiptProblem(plan.sku, recordId, context.agent.contractId);
-      emit(
+      out(
         refused
           ? { type: 'step', kind: 'delivery', title: `Vendor refused: ${refused}`, status: 'REFUSED' }
           : {
@@ -276,7 +309,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
     }
   }
   const blocked = verdict !== 'APPROVED';
-  emit({ type: 'summary', tookBait: null, verdict, reason: blocked ? reason : undefined, moved, txHash });
+  out({ type: 'summary', tookBait: null, verdict, reason: blocked ? reason : undefined, moved, txHash });
 }
 
 // The vendor's own sanity check: a payment must be one whole catalog item at its listed price.

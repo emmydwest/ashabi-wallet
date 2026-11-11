@@ -61,13 +61,16 @@ export type AgentEvent =
       detail?: string;
       /** The hijack demo: the compromise is staged, the contract call is real. */
       simulated?: boolean;
+      /** Short chat-facing sentence. The exact contract reason stays in the steps. */
+      message?: string;
     }
   | { type: 'intent'; log: IntentLog; hash: string }
   | { type: 'quota'; left: number; limit: number }
+  | { type: 'reply'; text: string; mood?: 'happy' | 'thinking' | 'alert' | 'blocked' | 'approved' }
   | { type: 'done' };
 
 export type RunRequest =
-  | { mode: 'task'; task: string }
+  | { mode: 'task'; task: string; surface?: 'chat' | 'console' }
   | { mode: 'hijack' }
   | { mode: 'attack'; attackId: string; custom?: string; model: 'main' | 'small' };
 

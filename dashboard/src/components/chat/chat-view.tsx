@@ -20,15 +20,23 @@ type Step = Extract<AgentEvent, { type: 'step' }>;
 type Summary = Extract<AgentEvent, { type: 'summary' }>;
 type Message =
   | { role: 'user'; text: string }
-  | { role: 'assistant'; vault: string; steps: Step[]; summary?: Summary; error?: string; done: boolean };
+  | {
+      role: 'assistant';
+      vault: string;
+      steps: Step[];
+      summary?: Summary;
+      reply?: string;
+      mood?: Mood;
+      error?: string;
+      done: boolean;
+    };
 
 const IDEAS = [
-  'Buy me today’s weather report',
-  'Get me this morning’s news digest',
-  'Translate “payment received” into Yoruba',
+  "What's my budget?",
+  'What can you buy?',
+  "Buy me today's weather report",
+  "Get me this morning's news digest",
   'Buy a small icon pack',
-  'Get a Lagos market report',
-  'Renew my API plan for a year',
 ];
 
 export function ChatView() {
@@ -44,6 +52,13 @@ export function ChatView() {
   const [running, setRunning] = useState(false);
   const [left, setLeft] = useState<number | null>(null);
   const end = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch('/api/agent/run')
+      .then((r) => r.json())
+      .then((d) => typeof d.left === 'number' && setLeft(d.left))
+      .catch(() => {});
+  }, []);
 
   // A signed-in owner pays from their own wallet unless the link picked one.
   useEffect(() => {
@@ -78,11 +93,11 @@ export function ChatView() {
       const res = await fetch('/api/agent/run', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ mode: 'task', task: trimmed, vault }),
+        body: JSON.stringify({ mode: 'task', surface: 'chat', task: trimmed, vault }),
       });
       if (!res.ok || !res.body) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `The assistant couldn’t start (${res.status}).`);
+        throw new Error(body.error ?? `I couldn't start just now (${res.status}).`);
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -98,6 +113,7 @@ export function ChatView() {
           const event = JSON.parse(line) as AgentEvent;
           if (event.type === 'step') update((m) => ({ steps: [...m.steps, event] }));
           if (event.type === 'summary') update(() => ({ summary: event }));
+          if (event.type === 'reply') update(() => ({ reply: event.text, mood: event.mood }));
           if (event.type === 'quota') setLeft(event.left);
         }
       }
@@ -120,9 +136,10 @@ export function ChatView() {
               <div aria-hidden className="animate-glow absolute inset-4 rounded-full bg-emerald-400/25 blur-2xl" />
               <Mascot size={148} priority decorative className="animate-float relative" />
             </div>
-            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-white">What should I buy?</h1>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-white">Hi, I’m Guardian.</h1>
             <p className="mx-auto mt-2 max-w-sm text-zinc-400">
-              I pay from your guarded wallet, inside the budget you set. Anything big waits for your OK.
+              I’m a shopping assistant with my own NEAR testnet wallet, limited by a smart contract. Ask me about my
+              budget, or tell me what to buy — I can only spend what the contract allows.
             </p>
             <div className="mt-6 flex flex-col gap-2">
               {IDEAS.map((idea) => (
@@ -130,10 +147,10 @@ export function ChatView() {
                   key={idea}
                   type="button"
                   onClick={() => ask(idea)}
-                  className="glass flex items-center gap-3 rounded-xl px-4 py-3 text-left text-[15px] text-zinc-200 transition hover:border-emerald-400/30"
+                  className="glass flex min-w-0 items-center gap-3 rounded-xl px-4 py-3 text-left text-[15px] text-zinc-200 transition hover:border-emerald-400/30"
                 >
                   <Sparkles className="size-4 shrink-0 text-emerald-300" aria-hidden />
-                  {idea}
+                  <span className="min-w-0 text-pretty">{idea}</span>
                 </button>
               ))}
             </div>
@@ -142,7 +159,7 @@ export function ChatView() {
         {messages.map((m, i) =>
           m.role === 'user' ? (
             <div key={i} className="flex justify-end">
-              <p className="max-w-[85%] rounded-2xl rounded-br-md bg-white/[0.09] px-4 py-2.5 text-[15px] text-white">
+              <p className="max-w-[85%] wrap-ids text-pretty rounded-2xl rounded-br-md bg-white/[0.09] px-4 py-2.5 text-[15px] text-white">
                 {m.text}
               </p>
             </div>
@@ -160,7 +177,7 @@ export function ChatView() {
             <select
               value={vault}
               onChange={(e) => setVault(e.target.value)}
-              className="min-w-0 truncate rounded-md border border-white/10 bg-black/40 px-1.5 py-1 text-zinc-200"
+              className="min-w-0 max-w-[14rem] truncate rounded-md border border-white/10 bg-black/40 px-1.5 py-1 text-zinc-200"
             >
               {options.map((id) => (
                 <option key={id} value={id}>
@@ -169,20 +186,20 @@ export function ChatView() {
               ))}
             </select>
           </label>
-          {left !== null && <span className="shrink-0">{left} runs left</span>}
+          {left !== null && <span className="shrink-0">{left} purchase runs left</span>}
         </div>
         <form
           onSubmit={(e) => {
             e.preventDefault();
             ask(text);
           }}
-          className="flex gap-2"
+          className="flex min-w-0 gap-2"
         >
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={TASK_MAX}
-            placeholder="Ask me to buy something…"
+            placeholder="Ask me something, or tell me what to buy…"
             className="min-w-0 flex-1 rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-base text-white outline-none placeholder:text-zinc-500 focus:border-emerald-400/60"
           />
           <button
@@ -200,7 +217,7 @@ export function ChatView() {
 }
 
 function Reply({ message }: { message: Extract<Message, { role: 'assistant' }> }) {
-  const { steps, summary, error, done, vault } = message;
+  const { steps, summary, reply, error, done, vault } = message;
   const delivery = steps.find((s) => s.kind === 'delivery' && s.status === 'DELIVERED');
   const last = steps.at(-1);
 
@@ -208,16 +225,19 @@ function Reply({ message }: { message: Extract<Message, { role: 'assistant' }> }
     <div className="flex max-w-[94%] items-start gap-2.5">
       <Mascot mood={replyMood(message)} size={36} decorative className="mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1 space-y-2">
-        <div className="rounded-2xl rounded-tl-md border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-[15px] text-zinc-200">
-          {!done && !summary && (
+        <div className="rounded-2xl rounded-tl-md border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-[15px] text-pretty text-zinc-200">
+          {!done && !summary && !reply && (
             <span className="flex items-center gap-2 text-zinc-400" role="status">
               <span className="size-2 animate-pulse rounded-full bg-brand" />
               {last ? last.title : 'Thinking…'}
             </span>
           )}
           {error && <span className="text-danger">{error}</span>}
+          {reply && <span className="wrap-ids">{reply}</span>}
           {summary && <SummaryText summary={summary} delivered={Boolean(delivery)} />}
-          {done && !summary && !error && <span className="text-zinc-400">I stopped before paying anyone.</span>}
+          {done && !summary && !reply && !error && (
+            <span>I’m here — ask me about my budget, what I can buy, or tell me what you’d like me to get.</span>
+          )}
         </div>
 
         {delivery?.data != null && <Delivered data={delivery.data} />}
@@ -230,13 +250,14 @@ function Reply({ message }: { message: Extract<Message, { role: 'assistant' }> }
             </summary>
             <ol className="mt-2 space-y-1.5 border-l border-white/10 pl-3">
               {steps.map((s, i) => (
-                <li key={i} className="text-zinc-400">
+                <li key={i} className="wrap-ids text-zinc-400">
                   {s.title}
                   {s.txHash && (
                     <span className="ml-2 inline-block align-middle">
                       <ExplorerLink txHash={s.txHash} />
                     </span>
                   )}
+                  {s.kind === 'verdict' && s.body && <span className="mt-0.5 block text-zinc-500">{s.body}</span>}
                 </li>
               ))}
             </ol>
@@ -247,7 +268,9 @@ function Reply({ message }: { message: Extract<Message, { role: 'assistant' }> }
   );
 }
 
-function replyMood({ summary, error, done }: Extract<Message, { role: 'assistant' }>): Mood {
+function replyMood(message: Extract<Message, { role: 'assistant' }>): Mood {
+  if (message.mood) return message.mood;
+  const { summary, error, done } = message;
   if (summary?.pending) return 'alert';
   if (summary?.verdict === 'APPROVED') return 'approved';
   if (summary?.verdict) return 'blocked';
@@ -256,6 +279,18 @@ function replyMood({ summary, error, done }: Extract<Message, { role: 'assistant
 }
 
 function SummaryText({ summary, delivered }: { summary: Summary; delivered: boolean }) {
+  if (summary.message) {
+    return (
+      <span className="wrap-ids">
+        {delivered && summary.verdict === 'APPROVED' ? `${summary.message} Here it is.` : summary.message}
+        {summary.txHash && (
+          <span className="ml-2 inline-block align-middle">
+            <ExplorerLink txHash={summary.txHash} />
+          </span>
+        )}
+      </span>
+    );
+  }
   if (summary.pending) return <>That one is over your auto-approve limit, so I asked you first.</>;
   if (summary.verdict === 'APPROVED')
     return (
@@ -267,11 +302,11 @@ function SummaryText({ summary, delivered }: { summary: Summary; delivered: bool
   if (summary.verdict)
     return (
       <>
-        Your wallet said no{summary.reason ? `: ${summary.reason}` : '.'}{' '}
+        I couldn’t complete that. The contract refused the payment.{' '}
         <span className="text-zinc-400">Nothing was spent.</span>
       </>
     );
-  return <>I didn’t buy anything. Open “What happened” for the reason.</>;
+  return <>I didn’t go through with a payment. If you wanted me to buy something, tell me which item.</>;
 }
 
 function Delivered({ data }: { data: unknown }) {
