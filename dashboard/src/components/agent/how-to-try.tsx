@@ -9,7 +9,7 @@ const STEPS = [
 // stays focused on the hijack button.
 export function HowToTry() {
   return (
-    <details className="group mt-4 rounded-2xl border border-white/10 bg-white/[0.03] sm:max-w-2xl">
+    <details className="group rounded-2xl border border-white/10 bg-white/[0.03] lg:w-[26rem] lg:shrink-0">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
         <span className="min-w-0">
           <span className="block text-sm font-semibold text-white">How to try it in 2 minutes</span>
@@ -36,7 +36,7 @@ export function HowToTry() {
           <li>Everything runs on this project&apos;s own testnet vault and the agent&apos;s limited key.</li>
           <li>
             <span className="text-amber-200">Kill-switch countdown?</span> Three attacks in a row trip it. That is the
-            defence working; honest jobs resume in 10 min.
+            defence working; honest jobs resume after a short cooldown.
           </li>
           <li>Daily budget resets at 1:00 AM Lagos (00:00 UTC). 5 runs per 10 min per visitor.</li>
           <li>

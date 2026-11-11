@@ -72,12 +72,24 @@ export function DashboardView({ log, initial }: { log: ActionLog; initial: Guard
         </div>
       </>
 
-      <Reveal delay={0.25} className="mt-5">
-        <AgentTimeline log={log} />
-      </Reveal>
-      <Reveal delay={0.3} className="mt-5">
-        <InjectionPanel />
-      </Reveal>
+      {/* The scripted terminal run predates the live console; keep it as reference, out of the way. */}
+      <details className="group mt-8 rounded-2xl border border-white/10 bg-white/[0.02]">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-white">Recorded reference run</span>
+            <span className="block text-xs text-zinc-400">
+              The scripted three-act run and its poisoned page. The live version is on /agent.
+            </span>
+          </span>
+          <span aria-hidden className="shrink-0 text-zinc-400 transition-transform group-open:rotate-180">
+            ⌄
+          </span>
+        </summary>
+        <div className="space-y-5 border-t border-white/[0.06] p-3 sm:p-5">
+          <AgentTimeline log={log} />
+          <InjectionPanel />
+        </div>
+      </details>
     </main>
   );
 }

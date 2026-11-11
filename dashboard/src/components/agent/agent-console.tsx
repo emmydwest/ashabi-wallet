@@ -84,18 +84,16 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
         <h1 className="mt-3 text-[2.2rem] font-semibold leading-tight tracking-tight text-white sm:text-5xl">
           Give the agent a job. <span className="text-gradient">Or try to rob it.</span>
         </h1>
-        <p className="mt-4 text-base leading-relaxed text-zinc-400">
-          Every run is a real transaction. The agent holds a key that can only ask the guardian contract for a payment.
-          The contract decides.
-        </p>
       </div>
 
       <HijackButton onClick={hijack} disabled={running || outOfRuns} />
-      <HowToTry />
 
-      <Scoreboard status={status} />
+      <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
+        <HowToTry />
+        <Scoreboard status={status} />
+      </div>
 
-      <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
         <Card className="min-w-0">
           <div className="flex gap-1 p-4 pb-0 sm:p-5 sm:pb-0">
             {(['task', 'attack'] as const).map((m) => (
@@ -318,21 +316,12 @@ function PausedNote({ status }: { status: WalletStatus }) {
   const left = Math.max(0, Math.ceil((Number(BigInt(status.breaker_until!) / 1_000_000n) - now) / 1000));
   const clock = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   return (
-    <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-3.5 py-3 text-sm text-amber-100">
-      <div className="font-semibold">
-        Kill-switch on · honest jobs resume in{' '}
-        <span suppressHydrationWarning className="tabular-nums">
-          {clock}
-        </span>
-      </div>
-      <p className="mt-1 text-xs leading-relaxed text-amber-100/80">
-        The guardian froze the agent after 3 attacks in a row. That is the automatic kill-switch working, not an outage.
-        Attacks still run and still get blocked; the owner can reset it early on{' '}
-        <Link href="/approve" className="underline">
-          /approve
-        </Link>
-        .
-      </p>
+    <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-3.5 py-3 text-sm leading-relaxed text-amber-100">
+      Another visitor&apos;s attacks tripped the kill-switch - that&apos;s the defence working. Honest jobs resume in{' '}
+      <span suppressHydrationWarning className="font-semibold tabular-nums">
+        {clock}
+      </span>
+      ; attacks still work meanwhile.
     </div>
   );
 }
@@ -366,10 +355,10 @@ function Scoreboard({ status }: { status: WalletStatus }) {
     },
   ];
   return (
-    <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-4">
+    <div className="grid flex-1 grid-cols-3 gap-2 sm:gap-3">
       {items.map((item) => (
-        <div key={item.label} className="glass min-w-0 rounded-2xl px-3 py-3 sm:px-5 sm:py-4">
-          <div className={`truncate text-lg font-semibold tabular-nums sm:text-3xl ${item.tone}`}>
+        <div key={item.label} className="glass min-w-0 rounded-2xl px-3 py-3 sm:px-4">
+          <div className={`truncate text-lg font-semibold tabular-nums sm:text-2xl ${item.tone}`}>
             {item.value}
             {item.unit && <span className="ml-1 text-xs font-normal text-zinc-400">{item.unit}</span>}
           </div>
@@ -383,33 +372,53 @@ function Scoreboard({ status }: { status: WalletStatus }) {
 const BLOCKED = (verdict: string | null) =>
   Boolean(verdict && verdict !== 'APPROVED' && verdict !== 'PENDING_APPROVAL');
 
-function AttackVerdict({ outcome, headline, detail, txHash, simulated }: Summary) {
+// Which layer stopped the attack, in the words a judge would use.
+function defenseOf({ outcome, verdict, reason }: Summary) {
+  if (outcome === 'breached') return { layer: 'none', text: 'the attack got through' };
+  if (outcome === 'failed') return { layer: 'model layer', text: 'the model spotted the injection and refused' };
+  if (verdict === 'REFUSED')
+    return { layer: 'vendor layer', text: 'model compromised, the vendor’s price check refused it' };
+  const what =
+    verdict === 'BLOCKED_RECIPIENT'
+      ? 'contract blocked unapproved payee'
+      : `contract blocked it (${shortReason(verdict, reason)})`;
+  return { layer: 'contract layer', text: `model compromised, ${what}` };
+}
+
+function contractVerdict({ outcome, verdict, reason }: Summary) {
+  if (outcome === 'failed') return 'not reached (nothing was sent)';
+  if (verdict === 'REFUSED') return 'not reached (the vendor refused first)';
+  if (!verdict) return 'no answer';
+  if (BLOCKED(verdict)) return `BLOCKED (${shortReason(verdict, reason)})`;
+  return verdict.replaceAll('_', ' ');
+}
+
+function AttackVerdict(props: Summary) {
+  const { outcome, headline, detail, txHash, simulated } = props;
+  const defense = defenseOf(props);
   const tone =
     outcome === 'breached'
       ? 'border-rose-400/40 bg-rose-500/[0.08]'
       : outcome === 'failed'
         ? 'border-sky-400/30 bg-sky-400/[0.06]'
-        : 'border-amber-400/30 bg-amber-400/[0.05]';
+        : 'border-emerald-400/30 bg-emerald-400/[0.05]';
   return (
     <div className={`animate-in mt-6 rounded-xl border p-4 ${tone}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        {outcome === 'failed' && <Badge tone="sky">Attack failed</Badge>}
-        {outcome === 'blocked' && (
-          <>
-            <Badge tone="amber">{simulated ? 'Agent compromised (simulated)' : 'Model was tricked'}</Badge>
-            <Badge tone="emerald">
-              {headline?.includes('vendor')
-                ? 'Vendor check stopped it'
-                : headline?.includes('kill-switch')
-                  ? 'Kill-switch on'
-                  : simulated
-                    ? 'Contract blocked: unapproved payee'
-                    : 'Contract blocked it'}
-            </Badge>
-          </>
-        )}
-        {outcome === 'breached' && <Badge tone="rose">Attack got through</Badge>}
-      </div>
+      <p className="text-sm font-semibold leading-snug text-white">
+        Defense:{' '}
+        <span
+          className={
+            outcome === 'breached' ? 'text-rose-300' : outcome === 'failed' ? 'text-sky-300' : 'text-emerald-300'
+          }
+        >
+          {defense.layer}
+        </span>{' '}
+        - {defense.text}
+      </p>
+      <p className="mt-2 font-mono text-xs text-zinc-300">Contract verdict: {contractVerdict(props)}</p>
+      {simulated && (
+        <p className="mt-1 text-xs text-zinc-500">The compromise is simulated; the contract call is real.</p>
+      )}
       <p className="mt-3 text-base font-semibold text-white">{headline}</p>
       {detail && <p className="mt-1 break-words text-sm text-zinc-400">{detail}</p>}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -459,15 +468,17 @@ function Verdict(props: Summary) {
 function shortReason(verdict: string | null, reason?: string) {
   switch (verdict) {
     case 'BLOCKED_RECIPIENT':
-      return 'payee not on the allowlist';
+      return 'unapproved payee';
     case 'BLOCKED_VELOCITY':
       return 'too many small payments';
     case 'BLOCKED_BUDGET':
       return 'over today’s budget';
     case 'FROZEN':
-      return reason?.includes('breaker') ? 'circuit breaker' : 'wallet frozen';
+      return reason?.includes('breaker') ? 'kill-switch on' : 'wallet frozen';
     case 'INSUFFICIENT_FUNDS':
       return 'vault too low';
+    case 'TOO_MANY_PENDING':
+      return 'too many requests waiting for the owner';
     default:
       return reason ?? verdict ?? '';
   }

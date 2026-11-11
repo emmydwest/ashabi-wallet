@@ -33,11 +33,9 @@ async function memoOf(txHash: string) {
 }
 
 // Recomputes the intent hash in this browser and compares it with the memo stored on-chain.
-// "Tamper" changes the amount in the log, to show that any edit breaks the match.
+// It is an audit-trail commitment: it proves the log was not edited after the payment.
 export function VerifyIntent({ log, hash, txHash }: { log: IntentLog; hash: string; txHash: string }) {
   const [result, setResult] = useState<Result>({ state: 'idle' });
-  const [tampered, setTampered] = useState(false);
-  const shown: IntentLog = tampered ? { ...log, amount_near: String(Number(log.amount_near) * 10) } : log;
 
   const verify = async (entry: IntentLog) => {
     setResult({ state: 'checking' });
@@ -68,12 +66,12 @@ export function VerifyIntent({ log, hash, txHash }: { log: IntentLog; hash: stri
         <div className="min-w-0">
           <div className="text-sm font-semibold text-white">Intent hash</div>
           <div className="font-mono text-xs text-zinc-400">
-            intent:{hash.slice(0, INTENT_PREFIX_LENGTH)} · SHA-256 of the run log
+            intent:{hash.slice(0, INTENT_PREFIX_LENGTH)} · audit-trail commitment (SHA-256 of the run log)
           </div>
         </div>
         <button
           type="button"
-          onClick={() => verify(shown)}
+          onClick={() => verify(log)}
           disabled={result.state === 'checking'}
           className="shrink-0 rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-black disabled:opacity-50"
         >
@@ -93,8 +91,7 @@ export function VerifyIntent({ log, hash, txHash }: { log: IntentLog; hash: stri
         <p className="mt-3 flex items-start gap-2 text-sm text-rose-100">
           <span className="mt-0.5 rounded-full bg-rose-400 px-2 py-0.5 text-[11px] font-bold text-black">Mismatch</span>
           <span>
-            This log hashes to {result.computed.slice(0, 16)}, the chain says {result.onChain ?? 'nothing'}.{' '}
-            {tampered ? 'The edit was caught.' : ''}
+            This log hashes to {result.computed.slice(0, 16)}, the chain says {result.onChain ?? 'nothing'}.
           </span>
         </p>
       )}
@@ -105,7 +102,7 @@ export function VerifyIntent({ log, hash, txHash }: { log: IntentLog; hash: stri
           View the log that was hashed
         </summary>
         <pre className="overflow-x-auto whitespace-pre-wrap break-words border-t border-white/[0.06] px-3 py-2 font-mono text-[11px] leading-relaxed text-zinc-300">
-          {canonical(shown)}
+          {canonical(log)}
         </pre>
         {(result.state === 'match' || result.state === 'mismatch') && (
           <p className="break-words border-t border-white/[0.06] px-3 py-2 font-mono text-[11px] text-zinc-400">
@@ -113,16 +110,6 @@ export function VerifyIntent({ log, hash, txHash }: { log: IntentLog; hash: stri
           </p>
         )}
       </details>
-      <button
-        type="button"
-        onClick={() => {
-          setTampered((t) => !t);
-          setResult({ state: 'idle' });
-        }}
-        className="mt-2 text-xs text-zinc-400 underline decoration-dotted underline-offset-2"
-      >
-        {tampered ? 'Undo the edit' : 'Tamper with the log (×10 amount), then verify'}
-      </button>
     </div>
   );
 }
