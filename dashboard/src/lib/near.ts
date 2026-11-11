@@ -1,10 +1,28 @@
 import { CONTRACT_ID, RPC_URL } from './config';
 
+// Testnet RPCs stall now and then; ask the next one instead of leaving the page waiting.
+const RPCS = [RPC_URL, 'https://test.rpc.fastnear.com'];
+
 export async function viewCall<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch(RPC_URL, {
+  let lastError: unknown;
+  for (const url of [...new Set(RPCS)]) {
+    try {
+      return await viewCallOn<T>(url, method, args);
+    } catch (e) {
+      // A contract panic is an answer, not an outage; don't retry it elsewhere.
+      if ((e as Error).message.startsWith(`${method}:`)) throw e;
+      lastError = e;
+    }
+  }
+  throw lastError;
+}
+
+async function viewCallOn<T>(url: string, method: string, args: Record<string, unknown>): Promise<T> {
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     cache: 'no-store',
+    signal: AbortSignal.timeout(4000),
     body: JSON.stringify({
       jsonrpc: '2.0',
       id: method,
@@ -18,6 +36,7 @@ export async function viewCall<T>(method: string, args: Record<string, unknown> 
       },
     }),
   });
+  if (!res.ok) throw new Error(`RPC ${url} answered ${res.status}`);
   const body = await res.json();
   if (body.error || body.result?.error)
     throw new Error(`${method}: ${JSON.stringify(body.error ?? body.result.error)}`);

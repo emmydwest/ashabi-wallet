@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "sync-log": "cp ../data/action-log.json src/data/action-log.json",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "save-fallback": "node scripts/save-fallback.mjs"
   },
   "dependencies": {
     "@near-js/crypto": "^2.5.1",

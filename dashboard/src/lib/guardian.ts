@@ -1,5 +1,6 @@
 import 'server-only';
 import { CONTRACT_ID } from './config';
+import fallback from '@/data/snapshot-fallback.json';
 import { viewCall } from './near';
 import type { BlockedAttempt, FeedItem, GuardianSnapshot, PaymentRecord, WalletStatus } from './types';
 
@@ -45,7 +46,7 @@ function attachTxHashes(items: FeedItem[], txns: ExplorerTxn[]) {
   }
 }
 
-export async function loadSnapshot(): Promise<GuardianSnapshot> {
+async function readSnapshot(): Promise<GuardianSnapshot> {
   const [status, history, blocked, pending, txns] = await Promise.all([
     viewCall<WalletStatus>('get_wallet_status'),
     viewCall<PaymentRecord[]>('get_payment_history', { limit: 100 }),
@@ -65,4 +66,17 @@ export async function loadSnapshot(): Promise<GuardianSnapshot> {
   attachTxHashes(feed, txns);
   feed.sort((a, b) => b.at - a.at);
   return { status, pending, feed, fetchedAt: new Date().toISOString() };
+}
+
+let lastGood: GuardianSnapshot | null = null;
+
+// The last state this server read, or the one saved at build time, so a slow RPC never leaves a
+// page blank. Either way it is flagged stale and shows its own timestamp.
+export async function loadSnapshot(): Promise<GuardianSnapshot> {
+  try {
+    lastGood = await readSnapshot();
+    return lastGood;
+  } catch {
+    return { ...(lastGood ?? (fallback as GuardianSnapshot)), stale: true };
+  }
 }

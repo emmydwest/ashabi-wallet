@@ -6,23 +6,24 @@ import { ExplorerLink } from '@/components/explorer-link';
 import { useGuardian } from '@/components/use-guardian';
 import { timeAgo } from '@/lib/format';
 import { nsToDate, toNear } from '@/lib/near';
-import type { PaymentRecord } from '@/lib/types';
+import { AsOf } from '@/components/as-of';
+import type { GuardianSnapshot, PaymentRecord } from '@/lib/types';
 import { OwnerControls } from './owner-controls';
 import { useWallet } from './wallet';
 import { readWalletReturn, walletLinkFor } from './wallet-link';
 
 type Notice = { tone: 'ok' | 'error'; text: string; txHash?: string };
 
-export function ApproveView() {
-  const { snapshot, refresh } = useGuardian(4000);
+export function ApproveView({ initial }: { initial: GuardianSnapshot }) {
+  const { snapshot, error, refresh } = useGuardian(4000, initial);
   const { accountId, ready, signIn, signOut, callOwnerMethod } = useWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   // The contract is the source of truth: ownership can move with set_owner.
-  const ownerId = snapshot?.status.owner_id;
+  const ownerId = snapshot.status.owner_id;
   const isOwner = Boolean(accountId) && accountId === ownerId;
-  const frozen = snapshot?.status.frozen ?? false;
-  const breakerUntil = snapshot?.status.breaker_until ?? null;
+  const frozen = snapshot.status.frozen ?? false;
+  const breakerUntil = snapshot.status.breaker_until ?? null;
   // A tripped breaker also clears with unfreeze, so one button covers both.
   const stopped = frozen || breakerUntil !== null;
 
@@ -56,6 +57,11 @@ export function ApproveView() {
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-16 pt-6">
+      {(snapshot.stale || error) && (
+        <div className="mb-3">
+          <AsOf snapshot={snapshot} offline={Boolean(error)} />
+        </div>
+      )}
       <div className="glass flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-zinc-400">
@@ -156,13 +162,11 @@ export function ApproveView() {
 
       <div className="mt-8 flex items-baseline justify-between">
         <h1 className="text-lg font-semibold tracking-tight text-white">Waiting for you</h1>
-        <span className="font-mono text-xs text-zinc-400">
-          {snapshot ? `${snapshot.pending.length} pending` : 'loading…'}
-        </span>
+        <span className="font-mono text-xs text-zinc-400">{snapshot.pending.length} pending</span>
       </div>
 
       <div className="mt-3 space-y-3">
-        {snapshot && snapshot.pending.length === 0 && (
+        {snapshot.pending.length === 0 && (
           <div className="glass rounded-2xl px-5 py-10 text-center">
             <div className="text-white">Nothing needs your approval</div>
             <p className="mt-1 text-sm text-zinc-400">
@@ -170,7 +174,7 @@ export function ApproveView() {
             </p>
           </div>
         )}
-        {snapshot?.pending.map((record) => (
+        {snapshot.pending.map((record) => (
           <PendingCard
             key={record.id}
             record={record}
@@ -194,14 +198,12 @@ export function ApproveView() {
         ))}
       </div>
 
-      {snapshot && (
-        <dl className="mt-8 grid grid-cols-2 gap-3 text-sm">
-          <Fact label="Left today" value={`${toNear(snapshot.status.remaining_today)} NEAR`} />
-          <Fact label="Vault" value={`${toNear(snapshot.status.available_balance)} NEAR`} />
-        </dl>
-      )}
+      <dl className="mt-8 grid grid-cols-2 gap-3 text-sm">
+        <Fact label="Left today" value={`${toNear(snapshot.status.remaining_today)} NEAR`} />
+        <Fact label="Vault" value={`${toNear(snapshot.status.available_balance)} NEAR`} />
+      </dl>
 
-      {snapshot && <OwnerControls status={snapshot.status} isOwner={isOwner} busy={busy} run={run} />}
+      <OwnerControls status={snapshot.status} isOwner={isOwner} busy={busy} run={run} />
     </main>
   );
 }

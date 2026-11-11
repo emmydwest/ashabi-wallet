@@ -74,6 +74,8 @@ export type GuardianSnapshot = {
   pending: PaymentRecord[];
   feed: FeedItem[];
   fetchedAt: string;
+  /** Set when this is the last good state because the RPC could not be reached. */
+  stale?: boolean;
 };
 
 export type LogEvent = {
