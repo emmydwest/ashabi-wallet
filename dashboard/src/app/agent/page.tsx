@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { AgentConsole } from '@/components/agent/agent-console';
-import { WalletProvider } from '@/components/approve/wallet';
 import { PageSkeleton } from '@/components/page-skeleton';
 import { cachedSnapshot } from '@/lib/server/cached-snapshot';
 
@@ -13,10 +12,8 @@ async function Console() {
 
 export default function AgentPage() {
   return (
-    <WalletProvider>
-      <Suspense fallback={<PageSkeleton />}>
-        <Console />
-      </Suspense>
-    </WalletProvider>
+    <Suspense fallback={<PageSkeleton />}>
+      <Console />
+    </Suspense>
   );
 }

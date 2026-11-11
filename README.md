@@ -27,7 +27,7 @@ with the agent's own limited key. Open https://guardian-wallet.vercel.app/agent 
    outlined in red and the contract blocks the payment.
 4. **Real jobs → "Buy the premium annual plan."** At 1.5 NEAR it's over the 1 NEAR threshold,
    so it waits as pending on `/approve`. Only the owner's wallet can approve it; you can watch it wait.
-5. **Optional, with a testnet wallet: `/start`.** Connect (MyNearWallet, Meteor or Intear),
+5. **Optional, with a testnet wallet: `/start`.** Connect from the nav (MyNearWallet, Meteor, HERE or Intear),
    pick a template, name it, attach 2 testnet NEAR ([free from the faucet](https://near-faucet.io/)).
    One transaction creates your own guarded wallet and its agent. Then `/chat` →
    "Renew my API plan for a year" files a 1.5 NEAR request that waits on a card at
@@ -614,10 +614,16 @@ model reasoning.
   all-time accepted and blocked counts), then a live stats strip (payments accepted, requests
   blocked, spent today, wallets the factory has created), how it works, the same three proof
   cards as `/agent`, real screenshots, what happens above your limit, a who-can-do-what diagram,
-  and a trust section (contract links, source, test counts, testnet limitations). Every number is
-  read from the chain and says what it counts.
+  and a trust section (contract links, source, test counts, testnet limitations). Numbers that
+  come from the shared demo wallet are labelled "Public demo wallet · guardian.gw-emmy.testnet"
+  with a NearBlocks link; if you are connected and already have a vault, the same label offers
+  "View your vault". Every number is read from the chain and says what it counts.
 - The nav is Home, Live Agent (`/chat`), Attack Demo (`/agent`), Wallet, Verify (`/verify`) and Docs (`/docs`, a
-  short guide to the rules, the SDK and the accounts). The Guardian mascot's visor is an SVG dot
+  short guide to the rules, the SDK and the accounts), plus a Connect wallet button (desktop and
+  the mobile menu). It opens a themed modal with MyNearWallet (browser redirect, including iPhone
+  Safari), Meteor, HERE, and Intear. Once connected, the button becomes an account pill with
+  disconnect. The same modal is used on `/start`, `/wallet`, `/approve` and `/vault/*`. Inside the
+  Meteor in-app browser the app signs in through Meteor's bridge instead of the modal. The Guardian mascot's visor is an SVG dot
   matrix that changes with the outcome: thinking while the agent runs, an X when the contract
   blocks a payment, a check when one is approved, amber while it waits for you. Motion follows
   `prefers-reduced-motion`.
@@ -626,7 +632,7 @@ model reasoning.
   shared demo wallet (blocked includes budget and speed limits); the kill-switch reads "2 of 3
   blocked payments to unknown accounts in a row", which is what the contract counts
   (`contract/src/lib.rs:920`: only `BLOCKED_RECIPIENT` adds a strike; any accepted request clears it, `:450`).
-- `/start` connects a testnet wallet, lists the factory's templates, checks the name, shows what
+- `/start` uses the same Connect wallet control, lists the factory's templates, checks the name, shows what
   the deposit covers, sends `create_vault`, and waits until the factory reports the wallet ready
   (it survives the MyNearWallet redirect).
 - `/wallet` lists the wallets you own (`get_vaults_by_owner`). `/vault/<id>` is one wallet: what
@@ -664,7 +670,7 @@ model reasoning.
 - `/approve` also has an optional, collapsed policy writer: plain English in, a checked diff
   out, one wallet signature per change.
 - `/approve` is the owner's phone view: pending payments with Approve and Reject, a Freeze
-  button, and the rules (daily limit, guards including the kill-switch cooldown, approved payees). It signs through NEAR Wallet Selector (Meteor, MyNearWallet, Intear) with 1 yoctoNEAR
+  button, and the rules (daily limit, guards including the kill-switch cooldown, approved payees). It signs through the same Connect wallet button as the rest of the app (MyNearWallet, Meteor, HERE or Intear) with 1 yoctoNEAR
   attached; the app never holds the owner's key.
 
 | Dashboard | Owner approvals (mobile) |

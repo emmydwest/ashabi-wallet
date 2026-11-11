@@ -109,6 +109,7 @@ export default function DocsPage() {
             Each one pays the demo vendor over HTTP 402.
           </Step>
           <Step n="3" href="/start" label="Create your own guarded wallet">
+            Connect a testnet wallet from the nav first (MyNearWallet works in the browser, including iPhone Safari).
             One transaction through the factory. You become the owner; the AI gets its own limited key.
           </Step>
           <Step n="4" href="/verify" label="Verify it live on NEAR">

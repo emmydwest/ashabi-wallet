@@ -15,7 +15,7 @@ npm run build
 | `/` | Landing page |
 | `/agent` | Live agent console and attack playground |
 | `/dashboard` | Live contract state, activity feed, blocked attacks, agent log, Act 2 trap page |
-| `/approve` | Owner approvals and freeze, signed in a NEAR wallet (Wallet Selector) |
+| `/approve` | Owner approvals and freeze, signed in a NEAR wallet from the nav Connect button |
 | `/api/agent/run` | Runs one agent turn on the server and streams the steps as NDJSON |
 | `/api/guardian` | Contract views plus NearBlocks tx links, refreshed by the dashboard |
 | `/api/vendor/catalog` | Vendor plans |
@@ -39,6 +39,11 @@ approved payee. Requests to anyone else always go to the contract, so it records
 
 Signing on a phone:
 
-- Inside the Meteor app's browser, `/approve` connects through Meteor's in-app bridge (no popups).
+- Connect wallet in the nav (and the same control on `/start`, `/wallet`, `/approve` and `/vault`)
+  opens a themed modal: MyNearWallet, Meteor, HERE, and Intear. MyNearWallet uses a full-page
+  redirect, which works in iPhone Safari. Meteor and HERE open their apps. Intear is happiest on
+  desktop. Nightly is omitted: the official module is a browser extension and is not reliable in
+  mobile Safari.
+- Inside the Meteor app's browser, connect goes through Meteor's in-app bridge (no popups).
 - Anywhere else, each pending payment also has an "Approve in MyNearWallet" link: a full-page
   redirect to `testnet.mynearwallet.com/sign` that returns to `/approve` with the tx hash.

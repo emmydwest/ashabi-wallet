@@ -10,6 +10,7 @@ import { AgentTimeline } from './agent-timeline';
 import { BlockedAttacks } from './blocked-attacks';
 import { InjectionPanel } from './injection-panel';
 import { BalanceCard, BudgetCard, PolicyCard } from './overview-cards';
+import { DemoWalletLabel } from '@/components/wallet/demo-wallet-label';
 import { PaymentFeed } from './payment-feed';
 
 function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; delay?: number; className?: string }) {
@@ -34,6 +35,7 @@ export function DashboardView({ log, initial }: { log: ActionLog; initial: Guard
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-emerald-300/80">Live from the contract</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Guardian dashboard</h1>
+          <DemoWalletLabel className="mt-3" />
         </div>
         {snapshot.stale || error ? (
           <AsOf snapshot={snapshot} offline={Boolean(error)} />

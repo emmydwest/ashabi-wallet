@@ -4,6 +4,7 @@ import { useGuardian } from '@/components/use-guardian';
 import { toNear } from '@/lib/near';
 import { budgetToday } from '@/lib/stats';
 import type { GuardianSnapshot } from '@/lib/types';
+import { DemoWalletLabel } from '@/components/wallet/demo-wallet-label';
 import { CountUp } from './count-up';
 
 // Real numbers only, each with its scope: the shared demo wallet, or every wallet the factory made.
@@ -25,7 +26,8 @@ export function StatsStrip({ initial, wallets }: { initial: GuardianSnapshot; wa
   ];
 
   return (
-    <dl className="glass grid grid-cols-2 divide-white/[0.06] rounded-card lg:grid-cols-4 lg:divide-x">
+    <div>
+      <dl className="glass grid grid-cols-2 divide-white/[0.06] rounded-card lg:grid-cols-4 lg:divide-x">
       {stats.map((stat, i) => (
         <div
           key={stat.label}
@@ -43,6 +45,8 @@ export function StatsStrip({ initial, wallets }: { initial: GuardianSnapshot; wa
           <dd className="mt-1 text-xs text-zinc-500">{stat.scope}</dd>
         </div>
       ))}
-    </dl>
+      </dl>
+      <DemoWalletLabel className="mt-3 px-1" />
+    </div>
   );
 }

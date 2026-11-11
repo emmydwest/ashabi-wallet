@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { ApprovalCard } from '@/components/approve/approval-card';
 import { useWallet } from '@/components/approve/wallet';
+import { ConnectWalletButton } from '@/components/wallet/connect-control';
 import { readWalletReturn, walletLinkFor } from '@/components/approve/wallet-link';
 import { ExplorerLink } from '@/components/explorer-link';
 import { Mascot, type Mood } from '@/components/mascot/mascot';
@@ -26,7 +27,7 @@ const OUTCOME: Record<string, { title: string; tone: string; mood: Mood }> = {
 // The page a phone opens from a shared link: one request, the two buttons, and its outcome.
 export function RequestView({ vaultId, recordId, initial }: Props) {
   const { snapshot } = useGuardian(8000, initial, vaultId === CONTRACT_ID ? undefined : vaultId);
-  const { accountId, ready, signIn, callOwnerMethod } = useWallet();
+  const { accountId, callOwnerMethod } = useWallet();
   const [record, setRecord] = useState<PaymentRecord | null | undefined>(() => {
     const item = initial.feed.find((i) => i.kind === 'payment' && i.record.id === recordId);
     return item?.kind === 'payment' ? item.record : undefined;
@@ -125,14 +126,7 @@ export function RequestView({ vaultId, recordId, initial }: Props) {
       {record?.status === 'PENDING_APPROVAL' && (
         <div className="mt-4 text-center text-sm text-zinc-400">
           {!accountId ? (
-            <button
-              type="button"
-              onClick={() => signIn()}
-              disabled={!ready}
-              className="rounded-full bg-white px-5 py-2.5 font-medium text-ink disabled:opacity-50"
-            >
-              Connect the owner wallet
-            </button>
+            <ConnectWalletButton variant="primary" label="Connect the owner wallet" className="rounded-full py-2.5 text-sm" />
           ) : isOwner ? (
             <span>
               Signed in as <span className="font-mono text-zinc-200">{accountId}</span>

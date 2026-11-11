@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
-import { WalletProvider } from '@/components/approve/wallet';
 import { PageSkeleton } from '@/components/page-skeleton';
 import { RequestView } from '@/components/vault/request-view';
 import { VaultMissing } from '@/components/vault/vault-view';
@@ -24,10 +23,8 @@ async function Request({ params }: { params: Promise<{ id: string; record: strin
 
 export default function RequestPage({ params }: { params: Promise<{ id: string; record: string }> }) {
   return (
-    <WalletProvider>
-      <Suspense fallback={<PageSkeleton narrow />}>
-        <Request params={params} />
-      </Suspense>
-    </WalletProvider>
+    <Suspense fallback={<PageSkeleton narrow />}>
+      <Request params={params} />
+    </Suspense>
   );
 }

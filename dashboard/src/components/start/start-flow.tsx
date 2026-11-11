@@ -4,6 +4,7 @@ import { actionCreators } from '@near-js/transactions';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useWallet } from '@/components/approve/wallet';
+import { ConnectWalletButton } from '@/components/wallet/connect-control';
 import { readWalletReturn } from '@/components/approve/wallet-link';
 import { ExplorerLink } from '@/components/explorer-link';
 import { Mascot } from '@/components/mascot/mascot';
@@ -22,7 +23,7 @@ const PENDING_KEY = 'gw:creating';
 type Creating = { vaultId: string; tx?: string };
 
 export function StartFlow() {
-  const { accountId, ready, signIn, send } = useWallet();
+  const { accountId, send } = useWallet();
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [templateId, setTemplateId] = useState('api-buyer');
   const [typed, setTyped] = useState<string | null>(null);
@@ -141,16 +142,9 @@ export function StartFlow() {
           </p>
         ) : (
           <>
-            <button
-              type="button"
-              onClick={() => signIn().catch((e: Error) => setError(e.message))}
-              disabled={!ready}
-              className="w-full rounded-xl bg-white py-3 text-[15px] font-medium text-ink disabled:opacity-50"
-            >
-              Connect wallet
-            </button>
+            <ConnectWalletButton variant="primary" className="w-full" />
             <p className="mt-2 text-xs text-zinc-500">
-              No testnet account yet? Create one in MyNearWallet, then{' '}
+              No testnet account yet? Create one in a testnet wallet (MyNearWallet is the simplest in the browser), then{' '}
               <a href={FAUCET_URL} target="_blank" rel="noreferrer" className="text-sky-300">
                 get free testnet NEAR
               </a>

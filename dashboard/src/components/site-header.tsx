@@ -4,6 +4,7 @@ import { ArrowRight, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Suspense, useState } from 'react';
+import { ConnectWalletButton } from '@/components/wallet/connect-control';
 import { NearBadge, Wordmark } from './logo';
 
 const LINKS = [
@@ -67,9 +68,10 @@ function Header({ pathname }: { pathname: string | null }) {
 
         <div className="flex items-center gap-2">
           <NearBadge className="max-[380px]:hidden" />
+          <ConnectWalletButton variant="nav" />
           <Link
             href="/chat"
-            className="btn-brand hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-shadow sm:inline-flex"
+            className="btn-brand hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-shadow lg:inline-flex"
           >
             Try the Agent
             <ArrowRight className="size-4" aria-hidden />
@@ -93,6 +95,9 @@ function Header({ pathname }: { pathname: string | null }) {
           aria-label="Main"
           className="animate-in border-t border-white/[0.06] bg-black px-4 pb-5 pt-2 lg:hidden"
         >
+          <div className="mb-2 px-1 pt-2">
+            <ConnectWalletButton variant="menu" onBeforeOpen={() => setOpenOn(false)} />
+          </div>
           <ul className="flex flex-col">
             {LINKS.map((link) => (
               <li key={link.href}>

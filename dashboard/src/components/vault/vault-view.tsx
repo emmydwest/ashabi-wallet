@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ApproveView } from '@/components/approve/approve-view';
 import { useWallet } from '@/components/approve/wallet';
+import { ConnectWalletButton } from '@/components/wallet/connect-control';
 import { Mascot } from '@/components/mascot/mascot';
 import { PaymentFeed } from '@/components/dashboard/payment-feed';
 import { ExplorerLink } from '@/components/explorer-link';
@@ -82,7 +83,7 @@ function VaultSummary({ vaultId, snapshot }: { vaultId: string; snapshot: Guardi
 }
 
 function TopUp({ vaultId }: { vaultId: string }) {
-  const { accountId, send, signIn, ready } = useWallet();
+  const { accountId, send } = useWallet();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('1');
   const [state, setState] = useState<{ busy?: boolean; tx?: string; error?: string }>({});
@@ -133,14 +134,7 @@ function TopUp({ vaultId }: { vaultId: string }) {
             {state.busy ? 'Waiting…' : 'Send'}
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={() => signIn()}
-            disabled={!ready}
-            className="rounded-xl bg-white px-4 text-sm font-medium text-ink disabled:opacity-50"
-          >
-            Connect
-          </button>
+          <ConnectWalletButton variant="compact" label="Connect" className="self-stretch" />
         )}
       </div>
       {state.tx && (

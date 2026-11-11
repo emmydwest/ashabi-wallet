@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import { MotionProvider } from '@/components/motion-provider';
+import { Providers } from '@/components/providers';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import './globals.css';
@@ -31,11 +31,11 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       <body className="relative min-h-full overflow-x-hidden bg-ink">
         <div aria-hidden className="backdrop pointer-events-none fixed inset-0 -z-10" />
         <div aria-hidden className="grid-lines pointer-events-none fixed inset-x-0 top-0 -z-10 h-[40rem]" />
-        <MotionProvider>
+        <Providers>
           <SiteHeader />
           {children}
           <SiteFooter />
-        </MotionProvider>
+        </Providers>
       </body>
     </html>
   );

@@ -127,12 +127,6 @@ body {
   background: rgb(61 242 166 / 0.3);
 }
 
-/* The wallet selector keeps its bottom sheet in the DOM with opacity 0. In some in-app WebViews the
-   fade-out never finishes and a light sheet stays on screen, so take it out of layout when closed. */
-.nws-modal-wrapper:not(.open) {
-  display: none !important;
-}
-
 @keyframes step-in {
   from {
     opacity: 0;

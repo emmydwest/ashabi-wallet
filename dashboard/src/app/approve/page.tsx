@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { ApproveView } from '@/components/approve/approve-view';
-import { WalletProvider } from '@/components/approve/wallet';
 import { PageSkeleton } from '@/components/page-skeleton';
 import { cachedSnapshot } from '@/lib/server/cached-snapshot';
 
@@ -13,10 +12,8 @@ async function Approve() {
 
 export default function ApprovePage() {
   return (
-    <WalletProvider>
-      <Suspense fallback={<PageSkeleton narrow />}>
-        <Approve />
-      </Suspense>
-    </WalletProvider>
+    <Suspense fallback={<PageSkeleton narrow />}>
+      <Approve />
+    </Suspense>
   );
 }

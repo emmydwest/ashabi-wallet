@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
-import { WalletProvider } from '@/components/approve/wallet';
 import { PageSkeleton } from '@/components/page-skeleton';
 import { VaultMissing, VaultView } from '@/components/vault/vault-view';
 import { isVaultId } from '@/lib/config';
@@ -22,10 +21,8 @@ async function Vault({ params }: { params: Promise<{ id: string }> }) {
 
 export default function VaultPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <WalletProvider>
-      <Suspense fallback={<PageSkeleton narrow />}>
-        <Vault params={params} />
-      </Suspense>
-    </WalletProvider>
+    <Suspense fallback={<PageSkeleton narrow />}>
+      <Vault params={params} />
+    </Suspense>
   );
 }

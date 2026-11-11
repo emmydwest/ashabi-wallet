@@ -414,9 +414,9 @@ agent log and its trap page sit in a collapsed "Recorded reference run" section.
 
 ### `/approve` (the owner's phone view)
 
-- Connect a wallet through NEAR Wallet Selector: Meteor, MyNearWallet or Intear, and the Meteor
-  in-app browser. Only `realfile1618.testnet` can sign. Everything attaches 1 yoctoNEAR and is
-  signed in the wallet; the app never sees the owner's key.
+- Connect a wallet from the nav or on `/approve` through a themed modal (MyNearWallet, Meteor,
+  HERE or Intear), or through Meteor's in-app browser. Only `realfile1618.testnet` can sign.
+  Everything attaches 1 yoctoNEAR and is signed in the wallet; the app never sees the owner's key.
 - **Approvals:** pending payments with Approve and Reject.
 - **Freeze all spending** button. When the breaker is tripped, it becomes "Reset the circuit
   breaker" and shows when the breaker lifts.
@@ -650,7 +650,7 @@ sometimes gullible models. When one of them falls for an injection, the contract
 
 - **Contract:** Rust, near-sdk 5.30, cargo-near, near-cli-rs.
 - **App and agent:** near-api-js 7, TypeScript, Next.js 16 (App Router, cache components), React,
-  Tailwind CSS 4, NEAR Wallet Selector (Meteor, MyNearWallet, Intear), Vercel (functions, runtime
+  Tailwind CSS 4, NEAR Wallet Selector (MyNearWallet, Meteor, HERE, Intear), Vercel (functions, runtime
   cache, server-only env vars).
 - **Models:** free tiers of Groq, Google AI Studio, OpenRouter and NVIDIA.
 - **History and tooling:** no pre-hackathon code. AI coding assistance was used.

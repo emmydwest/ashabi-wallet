@@ -14,6 +14,7 @@ import { ApprovalCard } from './approval-card';
 import { OwnerControls } from './owner-controls';
 import { PolicyWriter } from './policy-writer';
 import { useWallet } from './wallet';
+import { ConnectWalletButton } from '@/components/wallet/connect-control';
 import { readWalletReturn, walletLinkFor } from './wallet-link';
 
 type Notice = { tone: 'ok' | 'error'; text: string; txHash?: string };
@@ -28,7 +29,7 @@ type Props = {
 
 export function ApproveView({ initial, vaultId = CONTRACT_ID, header, footer }: Props) {
   const { snapshot, error, refresh } = useGuardian(4000, initial, vaultId === CONTRACT_ID ? undefined : vaultId);
-  const { accountId, ready, signIn, signOut, callOwnerMethod } = useWallet();
+  const { accountId, signOut, callOwnerMethod } = useWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   // The contract is the source of truth: ownership can move with set_owner.
@@ -96,16 +97,7 @@ export function ApproveView({ initial, vaultId = CONTRACT_ID, header, footer }: 
             Sign out
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={() =>
-              signIn().catch((e: Error) => setNotice({ tone: 'error', text: `Could not connect: ${e.message}` }))
-            }
-            disabled={!ready}
-            className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-medium text-ink disabled:opacity-50"
-          >
-            Connect wallet
-          </button>
+          <ConnectWalletButton variant="compact" className="shrink-0 rounded-full px-4 py-2" />
         )}
       </div>
 

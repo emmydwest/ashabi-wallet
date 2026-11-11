@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useWallet } from '@/components/approve/wallet';
+import { ConnectWalletButton } from '@/components/wallet/connect-control';
 import { Mascot } from '@/components/mascot/mascot';
 import { CONTRACT_ID } from '@/lib/config';
 import { factory, vaultName, type VaultInfo } from '@/lib/factory';
 
 export function MyWallets() {
-  const { accountId, ready, signIn, signOut } = useWallet();
+  const { accountId, signOut } = useWallet();
   // Keyed by account, so switching accounts shows a loading state instead of the old list.
   const [result, setResult] = useState<{ owner: string; vaults?: VaultInfo[]; error?: boolean } | null>(null);
   const current = result?.owner === accountId ? result : null;
@@ -28,14 +29,7 @@ export function MyWallets() {
       <div className="glass rounded-card px-5 py-10 text-center">
         <Mascot size={120} decorative className="mx-auto" />
         <p className="mt-2 text-white">Connect to see the wallets you own</p>
-        <button
-          type="button"
-          onClick={() => signIn()}
-          disabled={!ready}
-          className="mt-4 rounded-full bg-white px-5 py-2.5 text-sm font-medium text-ink disabled:opacity-50"
-        >
-          Connect wallet
-        </button>
+        <ConnectWalletButton variant="primary" className="mt-4 rounded-full py-2.5 text-sm" />
         <p className="mt-4 text-sm text-zinc-500">
           Just looking?{' '}
           <Link href={`/vault/${CONTRACT_ID}`} className="text-sky-300">

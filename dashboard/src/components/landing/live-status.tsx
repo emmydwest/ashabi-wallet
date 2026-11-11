@@ -6,6 +6,7 @@ import { useGuardian } from '@/components/use-guardian';
 import { toNear } from '@/lib/near';
 import { budgetToday } from '@/lib/stats';
 import type { GuardianSnapshot } from '@/lib/types';
+import { DemoWalletLabel } from '@/components/wallet/demo-wallet-label';
 import { CountUp } from './count-up';
 
 // The demo wallet's real state, refreshed every few seconds, shaped like the card in the hero.
@@ -27,7 +28,7 @@ export function LiveStatus({ initial }: { initial: GuardianSnapshot }) {
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-70" />
             <span className="relative inline-flex size-1.5 rounded-full bg-emerald-400" />
           </span>
-          Live demo
+          Live
         </span>
       </div>
 
@@ -83,6 +84,7 @@ export function LiveStatus({ initial }: { initial: GuardianSnapshot }) {
             ? 'Kill-switch on: payments paused for a few minutes'
             : 'Your AI is protected'}
       </div>
+      <DemoWalletLabel className="mt-4" />
     </div>
   );
 }

@@ -1,10 +1,9 @@
 'use client';
 
-import '@near-wallet-selector/modal-ui/styles.css';
 import type { WalletSelector } from '@near-wallet-selector/core';
-import type { WalletSelectorModal } from '@near-wallet-selector/modal-ui';
 import { actionCreators } from '@near-js/transactions';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { ConnectModal, type WalletOptionId } from '@/components/wallet/connect-modal';
 import { CONTRACT_ID, NETWORK } from '@/lib/config';
 
 type WalletState = {
@@ -34,44 +33,64 @@ function inMeteorApp() {
   return Boolean(w.__is_running_in_meteor_wallet_app__ || w.ReactNativeWebView || window.top !== window);
 }
 
+function friendlyConnectError(err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/user (reject|cancel|close)|cancelled|canceled|closed/i.test(message)) {
+    return 'Connection cancelled.';
+  }
+  return message || 'Could not connect.';
+}
+
 async function createSelector() {
-  const [core, modalUi, meteor, meteorApp, myNearWallet, intear] = await Promise.all([
+  const [core, meteor, meteorApp, myNearWallet, here, intear] = await Promise.all([
     import('@near-wallet-selector/core'),
-    import('@near-wallet-selector/modal-ui'),
     import('@near-wallet-selector/meteor-wallet'),
     import('@near-wallet-selector/meteor-wallet-app'),
     import('@near-wallet-selector/my-near-wallet'),
+    import('@near-wallet-selector/here-wallet'),
     import('@near-wallet-selector/intear-wallet'),
   ]);
   const modules = inMeteorApp()
     ? [meteorApp.setupMeteorWalletApp({ contractId: CONTRACT_ID })]
-    : [meteor.setupMeteorWallet(), myNearWallet.setupMyNearWallet(), intear.setupIntearWallet()];
-  const selector = await core.setupWalletSelector({ network: NETWORK, modules });
-  const modal = modalUi.setupModal(selector, {
-    theme: 'dark',
-    contractId: CONTRACT_ID,
-    description: 'Sign in as the Guardian Wallet owner.',
-  });
-  return { selector, modal };
+    : [
+        myNearWallet.setupMyNearWallet(),
+        meteor.setupMeteorWallet(),
+        here.setupHereWallet(),
+        intear.setupIntearWallet(),
+      ];
+  return core.setupWalletSelector({ network: NETWORK, modules });
 }
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [selector, setSelector] = useState<WalletSelector | null>(null);
-  const [modal, setModal] = useState<WalletSelectorModal | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
-    createSelector().then(({ selector, modal }) => {
-      setSelector(selector);
-      setModal(modal);
-      setAccountId(selector.store.getState().accounts.find((a) => a.active)?.accountId ?? null);
-      const subscription = selector.store.observable.subscribe((state) => {
-        setAccountId(state.accounts.find((a) => a.active)?.accountId ?? null);
-      });
+    let cancelled = false;
+    createSelector().then((next) => {
+      if (cancelled) return;
+      setSelector(next);
+      const applyAccounts = (state: { accounts: { accountId: string; active?: boolean }[] }) => {
+        const id = state.accounts.find((a) => a.active)?.accountId ?? null;
+        setAccountId(id);
+        if (id) {
+          setModalOpen(false);
+          setPendingId(null);
+          setError(null);
+        }
+      };
+      applyAccounts(next.store.getState());
+      const subscription = next.store.observable.subscribe(applyAccounts);
       unsubscribe = () => subscription.unsubscribe();
     });
-    return () => unsubscribe?.();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   const signOut = useCallback(async () => {
@@ -80,17 +99,39 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     await wallet.signOut();
   }, [selector]);
 
-  // Owner methods require exactly 1 yoctoNEAR, which forces a full wallet confirmation.
-  // The modal hides instant-link wallets, so inside the Meteor app we sign in directly.
   const signIn = useCallback(async () => {
     if (!selector) return;
-    if (!inMeteorApp()) {
-      modal?.show();
+    if (inMeteorApp()) {
+      const wallet = await selector.wallet('meteor-wallet-app');
+      await wallet.signIn({ contractId: CONTRACT_ID, accounts: [] });
       return;
     }
-    const wallet = await selector.wallet('meteor-wallet-app');
-    await wallet.signIn({ contractId: CONTRACT_ID, accounts: [] });
-  }, [selector, modal]);
+    setError(null);
+    setPendingId(null);
+    setModalOpen(true);
+  }, [selector]);
+
+  const connectWith = useCallback(
+    async (walletId: WalletOptionId) => {
+      if (!selector) return;
+      setError(null);
+      setPendingId(walletId);
+      try {
+        const wallet = await selector.wallet(walletId);
+        await wallet.signIn({ contractId: CONTRACT_ID, accounts: [] });
+      } catch (err) {
+        setError(friendlyConnectError(err));
+        setPendingId(null);
+      }
+    },
+    [selector],
+  );
+
+  const closeModal = useCallback(() => {
+    if (pendingId) return;
+    setModalOpen(false);
+    setError(null);
+  }, [pendingId]);
 
   const send = useCallback(
     async (receiverId: string, actions: Action[]) => {
@@ -112,6 +153,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <WalletContext.Provider value={{ accountId, ready: Boolean(selector), signIn, signOut, callOwnerMethod, send }}>
       {children}
+      <ConnectModal
+        open={modalOpen}
+        pendingId={pendingId}
+        error={error}
+        onClose={closeModal}
+        onPick={(id) => void connectWith(id)}
+      />
     </WalletContext.Provider>
   );
 }
