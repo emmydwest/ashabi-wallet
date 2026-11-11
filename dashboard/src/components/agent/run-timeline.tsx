@@ -9,7 +9,7 @@ const LABEL: Record<StepKind, string> = {
   read: 'Read',
   warning: 'Injection',
   model: 'Model',
-  guard: 'Console cap',
+  guard: 'Check',
   request: 'Request',
   verdict: 'Contract',
   settlement: 'Settlement',
