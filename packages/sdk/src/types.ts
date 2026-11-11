@@ -101,6 +101,8 @@ export type PaymentChallenge = {
   pay_with: {
     network: string;
     contract: string;
+    /** If set, wallets created by this factory (`<name>.<factory>`) may pay too. */
+    factory?: string;
     method: 'request_payment';
     memo_must_include: string[];
   };

@@ -60,6 +60,7 @@ export function reviewProposal(
   proposal: PolicyProposal,
   status: WalletStatus,
   blockedCounts: Record<string, number> = {},
+  vaultId = CONTRACT_ID,
 ): ReviewedPolicy {
   const rejected: string[] = [];
   const changes: PolicyChange[] = [];
@@ -100,7 +101,7 @@ export function reviewProposal(
       });
   }
 
-  const reserved = new Set([CONTRACT_ID, status.agent_id, status.owner_id]);
+  const reserved = new Set([CONTRACT_ID, vaultId, status.agent_id, status.owner_id]);
   const payees = (list: unknown, adding: boolean) => {
     if (!Array.isArray(list)) return;
     const unique = [...new Set(list.map((p) => String(p).trim().toLowerCase()))];

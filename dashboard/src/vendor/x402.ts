@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { AGENT_ID, CONTRACT_ID, RPC_URL, VENDOR_ID } from '@/lib/config';
-import { nearToYocto } from '@/lib/near';
+import { AGENT_ID, CONTRACT_ID, FACTORY_ID, isVaultId, RPC_URL, VENDOR_ID } from '@/lib/config';
+import { nearToYocto, viewCall } from '@/lib/near';
 import { claim, get } from '@/lib/server/store';
 import type { CATALOG } from './catalog';
 
@@ -12,6 +12,8 @@ import type { CATALOG } from './catalog';
 type Item = (typeof CATALOG)[number];
 
 export const RECEIPT_HEADER = 'x-near-receipt-tx';
+/** Who signed the receipt; only a lookup hint for the RPC, the signer is checked on-chain. */
+export const SIGNER_HEADER = 'x-near-receipt-signer';
 const NONCE_TTL_SEC = 15 * 60;
 const USED_TTL_SEC = 7 * 24 * 60 * 60;
 const TX_HASH = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
@@ -49,6 +51,8 @@ export function challenge(item: Item) {
     pay_with: {
       network: 'near-testnet',
       contract: CONTRACT_ID,
+      // Any wallet this factory created is accepted too.
+      factory: FACTORY_ID,
       method: 'request_payment',
       memo_must_include: [`sku:${item.sku}`, `nonce:${nonce}`],
     },
@@ -70,7 +74,7 @@ type TxStatus = {
   receipts_outcome: { id: string; outcome: { status: ExecutionStatus } }[];
 };
 
-async function txStatus(hash: string): Promise<TxStatus | string> {
+async function txStatus(hash: string, signer: string): Promise<TxStatus | string> {
   for (const url of [...new Set([RPC_URL, 'https://test.rpc.fastnear.com'])]) {
     try {
       const res = await fetch(url, {
@@ -82,7 +86,7 @@ async function txStatus(hash: string): Promise<TxStatus | string> {
           jsonrpc: '2.0',
           id: 'receipt',
           method: 'EXPERIMENTAL_tx_status',
-          params: { tx_hash: hash, sender_account_id: AGENT_ID, wait_until: 'FINAL' },
+          params: { tx_hash: hash, sender_account_id: signer, wait_until: 'FINAL' },
         }),
       });
       const body = await res.json();
@@ -102,19 +106,23 @@ export type Verification =
   | { ok: true; recordId: number; checks: string[] }
   | { ok: false; status: 402 | 409; problem: string; checks: string[] };
 
-export async function verifyReceipt(hash: string, item: Item): Promise<Verification> {
+export async function verifyReceipt(hash: string, item: Item, signerHint?: string | null): Promise<Verification> {
   const checks: string[] = [];
   const fail = (problem: string, status: 402 | 409 = 402): Verification => ({ ok: false, status, problem, checks });
 
   if (!TX_HASH.test(hash)) return fail('X-NEAR-Receipt-Tx is not a transaction hash');
   if ((await get(`receipt:${hash}`)) !== undefined) return fail('this receipt was already used', 409);
 
-  const tx = await txStatus(hash);
+  const signer = signerHint?.trim() || AGENT_ID;
+  const tx = await txStatus(hash, signer);
   if (typeof tx === 'string') return fail(tx);
 
-  if (tx.transaction.signer_id !== AGENT_ID || tx.transaction.receiver_id !== CONTRACT_ID)
-    return fail(`transaction was not sent by ${AGENT_ID} to ${CONTRACT_ID}`);
-  checks.push(`Signed by ${AGENT_ID}, sent to ${CONTRACT_ID}`);
+  const vault = tx.transaction.receiver_id;
+  if (!isVaultId(vault)) return fail(`transaction was sent to ${vault}, not a guardian wallet`);
+  const agentId =
+    vault === CONTRACT_ID ? AGENT_ID : (await viewCall<{ agent_id: string }>('get_wallet_status', {}, vault)).agent_id;
+  if (tx.transaction.signer_id !== agentId) return fail(`transaction was not signed by ${vault}'s agent`);
+  checks.push(`Signed by ${agentId}, sent to the guardian wallet ${vault}`);
 
   const call = tx.transaction.actions[0]?.FunctionCall;
   if (tx.transaction.actions.length !== 1 || call?.method_name !== 'request_payment')
@@ -139,7 +147,7 @@ export async function verifyReceipt(hash: string, item: Item): Promise<Verificat
 
   const transfer = tx.receipts.find(
     (r) =>
-      r.predecessor_id === CONTRACT_ID &&
+      r.predecessor_id === vault &&
       r.receiver_id === VENDOR_ID &&
       r.receipt.Action?.actions.some((a) => a.Transfer && BigInt(a.Transfer.deposit) === price),
   );

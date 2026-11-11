@@ -1,6 +1,7 @@
 import { ATTACKS, CUSTOM_ATTACK_ID } from '@/lib/agent/attacks';
 import { CUSTOM_MAX, TASK_MAX, type AgentEvent, type RunRequest } from '@/lib/agent/types';
-import { agentConfigured } from '@/lib/server/agent-key';
+import { CONTRACT_ID, isVaultId } from '@/lib/config';
+import { agentConfigured, agentFor } from '@/lib/server/agent-key';
 import { clientIp, RUNS_PER_WINDOW, runsLeft, takeRun } from '@/lib/server/rate-limit';
 import { runAgent } from '@/lib/server/run-agent';
 
@@ -34,9 +35,22 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const input = parse(await request.json().catch(() => null));
+  const body = await request.json().catch(() => null);
+  const input = parse(body);
   if (typeof input === 'string') return Response.json({ error: input }, { status: 400 });
   if (!agentConfigured()) return Response.json({ error: 'The agent is not configured here.' }, { status: 503 });
+
+  // Real jobs can run against any guardian wallet; attacks only ever target the demo wallet.
+  const vault = String((body as { vault?: unknown })?.vault ?? CONTRACT_ID).trim();
+  if (!isVaultId(vault)) return Response.json({ error: 'That is not a guardian wallet.' }, { status: 400 });
+  if (vault !== CONTRACT_ID && input.mode !== 'task')
+    return Response.json({ error: 'Attacks only run against the demo wallet.' }, { status: 400 });
+  let agent;
+  try {
+    agent = await agentFor(vault);
+  } catch (e) {
+    return Response.json({ error: (e as Error).message }, { status: 409 });
+  }
 
   const slot = takeRun(clientIp(request.headers));
   if (!slot.ok) {
@@ -53,7 +67,7 @@ export async function POST(request: Request) {
       const emit = (event: AgentEvent) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       emit({ type: 'quota', left: slot.left, limit: RUNS_PER_WINDOW });
       try {
-        await runAgent(input, emit, { origin: new URL(request.url).origin });
+        await runAgent(input, emit, { origin: new URL(request.url).origin, agent });
       } catch (e) {
         emit({
           type: 'step',

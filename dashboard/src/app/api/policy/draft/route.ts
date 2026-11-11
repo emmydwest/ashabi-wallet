@@ -1,3 +1,4 @@
+import { CONTRACT_ID, isVaultId } from '@/lib/config';
 import { viewCall, toNear } from '@/lib/near';
 import { LIMITS, reviewProposal, sanitizeProposal } from '@/lib/policy';
 import { askModel } from '@/lib/server/models';
@@ -29,12 +30,14 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Too many drafts for now. Try again in a few minutes.' }, { status: 429 });
   drafts.set(ip, [...mine, now]);
 
-  const body = (await request.json().catch(() => null)) as { text?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { text?: unknown; vault?: unknown } | null;
+  const vault = String(body?.vault ?? CONTRACT_ID);
+  if (!isVaultId(vault)) return Response.json({ error: 'That is not a guardian wallet.' }, { status: 400 });
   const text = String(body?.text ?? '').trim();
   if (!text) return Response.json({ error: 'Describe the change you want.' }, { status: 400 });
   if (text.length > MAX_TEXT) return Response.json({ error: `Keep it under ${MAX_TEXT} characters.` }, { status: 400 });
 
-  const status = await viewCall<WalletStatus>('get_wallet_status');
+  const status = await viewCall<WalletStatus>('get_wallet_status', {}, vault);
   const current = {
     daily_limit_near: toNear(status.daily_limit, 3),
     approval_threshold_near: toNear(status.approval_threshold, 3),
@@ -47,7 +50,7 @@ export async function POST(request: Request) {
 
   const proposal = sanitizeProposal(reply.data);
   return Response.json(
-    { proposal, review: reviewProposal(proposal, status), model: `${reply.provider} · ${reply.model}` },
+    { proposal, review: reviewProposal(proposal, status, {}, vault), model: `${reply.provider} · ${reply.model}` },
     { headers: { 'cache-control': 'no-store' } },
   );
 }

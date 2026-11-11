@@ -1,5 +1,5 @@
 import 'server-only';
-import { CONTRACT_ID, VENDOR_ID } from '@/lib/config';
+import { VENDOR_ID } from '@/lib/config';
 import { nearToYocto, nsToDate, toNear } from '@/lib/near';
 import type { PaymentRecord, WalletStatus } from '@/lib/types';
 import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, HIJACK, type Surface } from '@/lib/agent/attacks';
@@ -8,7 +8,7 @@ import type { AgentEvent, Plan, RunRequest } from '@/lib/agent/types';
 import { CATALOG, forecast, itemFor } from '@/vendor/catalog';
 import { receiptProblem } from '@/vendor/receipt';
 import { askModel, type ModelChoice } from './models';
-import type { PaymentArgs, PaymentResult } from '@guardian-wallet/sdk';
+import type { GuardianAgent, PaymentArgs, PaymentResult } from '@guardian-wallet/sdk';
 import { guardianAgent } from './agent-key';
 import { put } from './store';
 
@@ -34,7 +34,8 @@ Getting started: 1) pick a plan from the catalog, 2) GET /api/vendor/<plan>; it 
 
 type Emit = (event: AgentEvent) => void;
 const SURFACE_NAME: Record<Surface, string> = { page: 'docs page', invoice: 'invoice', tool: 'tool result' };
-type Context = { origin: string };
+// Which wallet this run pays through, and the agent key for it.
+type Context = { origin: string; agent: GuardianAgent };
 // Who asked for the payment and why, hashed into the memo as intent:<hash>.
 type Why = { task: string; model: string };
 
@@ -92,7 +93,8 @@ function fallbackPlan(task: string): Plan {
   };
 }
 
-const waitForRecord = (id: number) => guardianAgent().waitForSettlement(id) as Promise<PaymentRecord | null>;
+const waitForRecord = (id: number, agent: GuardianAgent) =>
+  agent.waitForSettlement(id) as Promise<PaymentRecord | null>;
 
 function walletNote(status: WalletStatus) {
   if (status.frozen)
@@ -108,7 +110,7 @@ function walletNote(status: WalletStatus) {
 }
 
 export async function runAgent(input: RunRequest, emit: Emit, context: Context) {
-  const status = (await guardianAgent().getStatus()) as WalletStatus;
+  const status = (await context.agent.getStatus()) as WalletStatus;
   emit({
     type: 'step',
     kind: 'budget',
@@ -219,7 +221,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
   const auto = BigInt(nearToYocto(plan.amount_near)) <= BigInt(status.approval_threshold);
   if (plan.receiver_id === VENDOR_ID && auto) return payPerRequest(plan, emit, why, context);
 
-  const call = await sendRequest(plan, emit, why);
+  const call = await sendRequest(plan, emit, why, [], context.agent);
   if (!call) return;
   const { verdict, recordId, reason, txHash, memo } = call;
 
@@ -228,7 +230,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
       type: 'step',
       kind: 'settlement',
       title: `Payment #${recordId} is waiting for the owner`,
-      body: 'It is above the approval threshold. The owner can approve or reject it right here or on /approve.',
+      body: 'It is above the approval threshold. The owner can approve or reject it from the wallet’s approval page.',
       status: 'PENDING_APPROVAL',
     });
     emit({
@@ -244,7 +246,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
 
   let moved = false;
   if (verdict === 'APPROVED' && recordId !== null) {
-    const record = await waitForRecord(recordId);
+    const record = await waitForRecord(recordId, context.agent);
     moved = record?.status === 'COMPLETED';
     emit({
       type: 'step',
@@ -253,7 +255,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
       status: record?.status,
     });
     if (moved && plan.sku) {
-      const refused = await receiptProblem(plan.sku, recordId);
+      const refused = await receiptProblem(plan.sku, recordId, context.agent.contractId);
       emit(
         refused
           ? { type: 'step', kind: 'delivery', title: `Vendor refused: ${refused}`, status: 'REFUSED' }
@@ -310,7 +312,7 @@ async function recordIntent(plan: Plan, why: Why, emit: Emit) {
   return `intent:${id}`;
 }
 
-function requestStep(plan: Plan, request: PaymentArgs): AgentEvent {
+function requestStep(plan: Plan, request: PaymentArgs, contractId: string): AgentEvent {
   const args = {
     request_id: request.requestId,
     receiver_id: request.receiverId,
@@ -321,7 +323,7 @@ function requestStep(plan: Plan, request: PaymentArgs): AgentEvent {
     type: 'step',
     kind: 'request',
     title: `request_payment(${plan.amount_near} NEAR → ${plan.receiver_id})`,
-    body: `Signed with the agent's limited key. It can call request_payment on ${CONTRACT_ID} and nothing else.`,
+    body: `Signed with the agent's limited key. It can call request_payment on ${contractId} and nothing else.`,
     args,
   };
 }
@@ -350,7 +352,7 @@ function contractAnswer(payment: PaymentResult, emit: Emit) {
   };
 }
 
-async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string[] = []) {
+async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string[] = [], agent = guardianAgent()) {
   const intent = await recordIntent(plan, why, emit);
   const request = {
     requestId: `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
@@ -358,19 +360,19 @@ async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string[] = []
     amount: nearToYocto(plan.amount_near),
     memo: memoFor(plan, [...tags, intent]),
   };
-  emit(requestStep(plan, request));
-  return contractAnswer(await guardianAgent().requestPayment(request), emit);
+  emit(requestStep(plan, request, agent.contractId));
+  return contractAnswer(await agent.requestPayment(request), emit);
 }
 
 // The vendor's 402 loop, run by the SDK: ask, get a price and nonce, pay through the guardian,
 // retry with the receipt. The vendor checks the transaction on-chain before it hands over anything.
-async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin }: Context) {
+async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin, agent }: Context) {
   const url = `${origin}/api/vendor/${plan.sku}`;
   const intent = await recordIntent(plan, why, emit);
   // Set by onPayment; a cast keeps TypeScript from narrowing it to null across the callbacks.
   let answer = null as ReturnType<typeof contractAnswer>;
 
-  const result = await guardianAgent().pay402(url, {
+  const result = await agent.pay402(url, {
     maxPrice: nearToYocto(plan.amount_near),
     allowedPayees: [plan.receiver_id],
     memoTags: [intent],
@@ -385,7 +387,7 @@ async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin }: Conte
         args: offer,
         argsLabel: 'View 402 response',
       }),
-    onRequest: (request) => emit(requestStep(plan, request)),
+    onRequest: (request) => emit(requestStep(plan, request, agent.contractId)),
     onPayment: (payment) => {
       answer = contractAnswer(payment, emit);
     },

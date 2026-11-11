@@ -226,7 +226,7 @@ export class GuardianAgent {
 
     const response = await fetchFn(url, {
       cache: 'no-store',
-      headers: { 'X-NEAR-Receipt-Tx': payment.txHash },
+      headers: { 'X-NEAR-Receipt-Tx': payment.txHash, 'X-NEAR-Receipt-Signer': this.agentId },
     });
     return {
       kind: response.ok ? 'paid' : 'receipt-refused',
@@ -300,7 +300,8 @@ export type Pay402Result =
 
 function challengeProblem(c: PaymentChallenge, contractId: string, options: Pay402Options) {
   if (!c?.payee || !c.price_yocto || !c.pay_with?.memo_must_include) return 'not a Guardian payment challenge';
-  if (c.pay_with.contract !== contractId) return `challenge asks to pay through ${c.pay_with.contract}`;
+  const viaFactory = Boolean(c.pay_with.factory) && contractId.endsWith(`.${c.pay_with.factory}`);
+  if (c.pay_with.contract !== contractId && !viaFactory) return `challenge asks to pay through ${c.pay_with.contract}`;
   if (options.allowedPayees && !options.allowedPayees.includes(c.payee)) return `${c.payee} is not an allowed payee`;
   if (options.maxPrice !== undefined && BigInt(c.price_yocto) > BigInt(options.maxPrice))
     return `price ${c.price} NEAR is above the limit`;

@@ -1,6 +1,6 @@
 import { connection, type NextRequest } from 'next/server';
 import { forecast, itemFor } from '@/vendor/catalog';
-import { challenge, RECEIPT_HEADER, verifyReceipt } from '@/vendor/x402';
+import { challenge, RECEIPT_HEADER, SIGNER_HEADER, verifyReceipt } from '@/vendor/x402';
 
 // GET /api/vendor/<sku>, or /api/vendor/weather for the basic plan. Unpaid: 402 with a price
 // and nonce. Paid: retry with the request_payment transaction hash in X-NEAR-Receipt-Tx.
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const receipt = request.headers.get(RECEIPT_HEADER)?.trim();
   if (!receipt) return Response.json(challenge(item), { status: 402, headers });
 
-  const result = await verifyReceipt(receipt, item);
+  const result = await verifyReceipt(receipt, item, request.headers.get(SIGNER_HEADER));
   if (!result.ok)
     return Response.json(
       {
