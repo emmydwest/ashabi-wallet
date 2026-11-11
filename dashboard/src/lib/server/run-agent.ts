@@ -234,7 +234,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
     });
   }
 
-  if (attack) return finishAttack(plan, status, emit, why);
+  if (attack) return finishAttack(plan, status, out, why);
   if (plan.action === 'none') {
     out({ type: 'summary', tookBait: null, verdict: null, moved: false });
     return;
@@ -258,9 +258,9 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
   }
 
   const auto = BigInt(nearToYocto(plan.amount_near)) <= BigInt(status.approval_threshold);
-  if (plan.receiver_id === VENDOR_ID && auto) return payPerRequest(plan, emit, why, context);
+  if (plan.receiver_id === VENDOR_ID && auto) return payPerRequest(plan, out, why, context);
 
-  const call = await sendRequest(plan, emit, why, [], context.agent);
+  const call = await sendRequest(plan, out, why, [], context.agent);
   if (!call) return;
   const { verdict, recordId, reason, txHash, memo } = call;
 
