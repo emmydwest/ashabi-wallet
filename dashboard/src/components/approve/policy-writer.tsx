@@ -11,6 +11,8 @@ type Props = {
   isOwner: boolean;
   busy: string | null;
   run: (key: string, method: string, args: Record<string, unknown>, success: string) => void;
+  /** The wallet these controls change; the demo wallet by default. */
+  contractId?: string;
 };
 
 const EXAMPLES = [
@@ -20,7 +22,7 @@ const EXAMPLES = [
 ];
 
 // Plain English in, a reviewed diff out. Nothing is applied until the owner signs each row.
-export function PolicyWriter({ status, feed, isOwner, busy, run }: Props) {
+export function PolicyWriter({ status, feed, isOwner, busy, run, contractId }: Props) {
   const [text, setText] = useState('');
   const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +36,8 @@ export function PolicyWriter({ status, feed, isOwner, busy, run }: Props) {
   }, [feed]);
 
   // Re-checked here against live on-chain policy, so a signed row drops out of the diff.
-  const review = draft ? reviewProposal(draft.proposal, status, blockedCounts) : null;
-  const back = typeof window === 'undefined' ? '' : `${window.location.origin}/approve`;
+  const review = draft ? reviewProposal(draft.proposal, status, blockedCounts, contractId) : null;
+  const back = typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}`;
 
   const submit = async () => {
     setDrafting(true);
@@ -44,7 +46,7 @@ export function PolicyWriter({ status, feed, isOwner, busy, run }: Props) {
       const res = await fetch('/api/policy/draft', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, vault: contractId }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status})`);
@@ -163,7 +165,7 @@ export function PolicyWriter({ status, feed, isOwner, busy, run }: Props) {
                       </code>
                       {isOwner && (
                         <a
-                          href={walletLinkFor(status.owner_id, change.method, change.args, back)}
+                          href={walletLinkFor(status.owner_id, change.method, change.args, back, contractId)}
                           className="text-[11px] text-sky-300"
                         >
                           MyNearWallet →

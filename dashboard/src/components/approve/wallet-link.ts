@@ -10,9 +10,15 @@ const ONE_YOCTO = 1n;
 // nonce and block hash, so those fields only need to be well-formed here.
 const PLACEHOLDER_KEY = PublicKey.fromString('ed25519:11111111111111111111111111111111');
 
-export function walletLinkFor(ownerId: string, method: string, args: Record<string, unknown>, callbackUrl: string) {
+export function walletLinkFor(
+  ownerId: string,
+  method: string,
+  args: Record<string, unknown>,
+  callbackUrl: string,
+  contractId = CONTRACT_ID,
+) {
   const action = actionCreators.functionCall(method, args, GAS, ONE_YOCTO);
-  const tx = createTransaction(ownerId, PLACEHOLDER_KEY, CONTRACT_ID, 0n, [action], new Uint8Array(32));
+  const tx = createTransaction(ownerId, PLACEHOLDER_KEY, contractId, 0n, [action], new Uint8Array(32));
   const url = new URL('/sign', MY_NEAR_WALLET);
   url.searchParams.set('transactions', toBase64(encodeTransaction(tx)));
   url.searchParams.set('callbackUrl', callbackUrl);

@@ -12,9 +12,11 @@ type Props = {
   isOwner: boolean;
   busy: string | null;
   run: (key: string, method: string, args: Record<string, unknown>, success: string) => void;
+  /** The wallet these controls change; the demo wallet by default. */
+  contractId?: string;
 };
 
-export function OwnerControls({ status, isOwner, busy, run }: Props) {
+export function OwnerControls({ status, isOwner, busy, run, contractId }: Props) {
   const [limit, setLimit] = useState('');
   const [payee, setPayee] = useState('');
   const disabled = !isOwner || busy !== null;
@@ -24,7 +26,7 @@ export function OwnerControls({ status, isOwner, busy, run }: Props) {
   const payeeId = payee.trim().toLowerCase();
   const payeeValid = payeeId.length >= 2 && payeeId.length <= 64 && ACCOUNT_ID.test(payeeId);
   const limitArgs = limitValid ? { daily_limit: nearToYocto(String(limitNear)).toString() } : null;
-  const back = typeof window === 'undefined' ? '' : `${window.location.origin}/approve`;
+  const back = typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}`;
 
   return (
     <section className="glass mt-8 rounded-2xl p-5">
@@ -59,7 +61,7 @@ export function OwnerControls({ status, isOwner, busy, run }: Props) {
         </div>
         {isOwner && limitArgs && (
           <a
-            href={walletLinkFor(status.owner_id, 'set_daily_limit', limitArgs, back)}
+            href={walletLinkFor(status.owner_id, 'set_daily_limit', limitArgs, back, contractId)}
             className="mt-2 inline-block text-xs text-sky-300"
           >
             Or sign it in MyNearWallet →
@@ -67,7 +69,15 @@ export function OwnerControls({ status, isOwner, busy, run }: Props) {
         )}
       </div>
 
-      <GuardsEditor status={status} disabled={disabled} busy={busy} run={run} back={back} isOwner={isOwner} />
+      <GuardsEditor
+        status={status}
+        disabled={disabled}
+        busy={busy}
+        run={run}
+        back={back}
+        isOwner={isOwner}
+        contractId={contractId}
+      />
 
       <div className="mt-6">
         <span className="text-sm text-zinc-300">Approved payees</span>
@@ -126,6 +136,7 @@ function GuardsEditor({
   run,
   back,
   isOwner,
+  contractId,
 }: Omit<Props, 'status'> & {
   status: WalletStatus;
   disabled: boolean;
@@ -178,7 +189,10 @@ function GuardsEditor({
           {busy === 'guards' ? 'Waiting…' : 'Save guards'}
         </button>
         {isOwner && changed && !problem && (
-          <a href={walletLinkFor(status.owner_id, 'set_guards', args, back)} className="text-xs text-sky-300">
+          <a
+            href={walletLinkFor(status.owner_id, 'set_guards', args, back, contractId)}
+            className="text-xs text-sky-300"
+          >
             Or sign it in MyNearWallet →
           </a>
         )}

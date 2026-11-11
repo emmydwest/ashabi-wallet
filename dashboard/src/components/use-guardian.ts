@@ -6,14 +6,15 @@ import type { GuardianSnapshot } from '@/lib/types';
 
 const FALLBACK = { ...(fallback as GuardianSnapshot), stale: true };
 
-export function useGuardian(intervalMs = 6000, initial: GuardianSnapshot | null = null) {
+export function useGuardian(intervalMs = 6000, initial: GuardianSnapshot | null = null, vaultId?: string) {
   // Never empty: the server's snapshot, or the saved one until the first fetch lands.
   const [snapshot, setSnapshot] = useState<GuardianSnapshot>(initial ?? FALLBACK);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch('/api/guardian', { cache: 'no-store' });
+      const url = vaultId ? `/api/guardian?vault=${encodeURIComponent(vaultId)}` : '/api/guardian';
+      const res = await fetch(url, { cache: 'no-store' });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? res.statusText);
       const next = body as GuardianSnapshot;
@@ -25,7 +26,7 @@ export function useGuardian(intervalMs = 6000, initial: GuardianSnapshot | null 
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+  }, [vaultId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

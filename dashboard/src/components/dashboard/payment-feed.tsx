@@ -86,7 +86,8 @@ export function PaymentFeed({ feed }: { feed: FeedItem[] }) {
                   </div>
                   <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-400">{row.memo || 'no memo'}</p>
                   <div className="mt-2.5 flex items-center justify-between gap-3 text-xs text-zinc-400">
-                    <span>
+                    {/* Relative time ticks between the server render and hydration. */}
+                    <span suppressHydrationWarning>
                       {timeAgo(nsToDate(item.at))}
                       {blocked && ' · funds not moved'}
                     </span>

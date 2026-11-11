@@ -12,7 +12,15 @@ type WalletState = {
   ready: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  callOwnerMethod: (method: string, args?: Record<string, unknown>) => Promise<string | undefined>;
+  callOwnerMethod: (method: string, args?: Record<string, unknown>, contractId?: string) => Promise<string | undefined>;
+  /** Any call or transfer, confirmed in the wallet. Returns the final outcome. */
+  send: (receiverId: string, actions: Action[]) => Promise<SendOutcome | undefined>;
+};
+
+type Action = ReturnType<typeof actionCreators.functionCall>;
+export type SendOutcome = {
+  transaction?: { hash: string };
+  status?: { SuccessValue?: string; Failure?: unknown } | string;
 };
 
 const WalletContext = createContext<WalletState | null>(null);
@@ -84,21 +92,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     await wallet.signIn({ contractId: CONTRACT_ID, accounts: [] });
   }, [selector, modal]);
 
-  const callOwnerMethod = useCallback(
-    async (method: string, args: Record<string, unknown> = {}) => {
+  const send = useCallback(
+    async (receiverId: string, actions: Action[]) => {
       if (!selector) throw new Error('Wallet is still loading');
       const wallet = await selector.wallet();
-      const outcome = await wallet.signAndSendTransaction({
-        receiverId: CONTRACT_ID,
-        actions: [actionCreators.functionCall(method, args, GAS, ONE_YOCTO)],
-      });
-      return outcome?.transaction?.hash;
+      return (await wallet.signAndSendTransaction({ receiverId, actions })) as SendOutcome | undefined;
     },
     [selector],
   );
 
+  const callOwnerMethod = useCallback(
+    async (method: string, args: Record<string, unknown> = {}, contractId = CONTRACT_ID) => {
+      const outcome = await send(contractId, [actionCreators.functionCall(method, args, GAS, ONE_YOCTO)]);
+      return outcome?.transaction?.hash;
+    },
+    [send],
+  );
+
   return (
-    <WalletContext.Provider value={{ accountId, ready: Boolean(selector), signIn, signOut, callOwnerMethod }}>
+    <WalletContext.Provider value={{ accountId, ready: Boolean(selector), signIn, signOut, callOwnerMethod, send }}>
       {children}
     </WalletContext.Provider>
   );

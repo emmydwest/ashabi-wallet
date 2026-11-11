@@ -1,13 +1,14 @@
 'use client';
 
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ExplorerLink } from '@/components/explorer-link';
 import { useGuardian } from '@/components/use-guardian';
-import { timeAgo } from '@/lib/format';
 import { nsToDate, toNear } from '@/lib/near';
 import { AsOf } from '@/components/as-of';
-import type { GuardianSnapshot, PaymentRecord } from '@/lib/types';
+import { CONTRACT_ID } from '@/lib/config';
+import type { GuardianSnapshot } from '@/lib/types';
+import { ApprovalCard } from './approval-card';
 import { OwnerControls } from './owner-controls';
 import { PolicyWriter } from './policy-writer';
 import { useWallet } from './wallet';
@@ -15,8 +16,16 @@ import { readWalletReturn, walletLinkFor } from './wallet-link';
 
 type Notice = { tone: 'ok' | 'error'; text: string; txHash?: string };
 
-export function ApproveView({ initial }: { initial: GuardianSnapshot }) {
-  const { snapshot, error, refresh } = useGuardian(4000, initial);
+type Props = {
+  initial: GuardianSnapshot;
+  vaultId?: string;
+  /** Extra sections for the per-user wallet page, drawn from the same live snapshot. */
+  header?: (snapshot: GuardianSnapshot) => ReactNode;
+  footer?: (snapshot: GuardianSnapshot) => ReactNode;
+};
+
+export function ApproveView({ initial, vaultId = CONTRACT_ID, header, footer }: Props) {
+  const { snapshot, error, refresh } = useGuardian(4000, initial, vaultId === CONTRACT_ID ? undefined : vaultId);
   const { accountId, ready, signIn, signOut, callOwnerMethod } = useWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -46,7 +55,7 @@ export function ApproveView({ initial }: { initial: GuardianSnapshot }) {
     setBusy(key);
     setNotice(null);
     try {
-      const txHash = await callOwnerMethod(method, args);
+      const txHash = await callOwnerMethod(method, args, vaultId);
       setNotice({ tone: 'ok', text: success, txHash });
       await refresh();
     } catch (e) {
@@ -63,6 +72,7 @@ export function ApproveView({ initial }: { initial: GuardianSnapshot }) {
           <AsOf snapshot={snapshot} offline={Boolean(error)} />
         </div>
       )}
+      {header?.(snapshot)}
       <div className="glass flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-zinc-400">
@@ -176,11 +186,15 @@ export function ApproveView({ initial }: { initial: GuardianSnapshot }) {
           </div>
         )}
         {snapshot.pending.map((record) => (
-          <PendingCard
+          <ApprovalCard
             key={record.id}
+            vaultId={vaultId}
             record={record}
+            status={snapshot.status}
             walletLink={
-              ownerId ? walletLinkFor(ownerId, 'approve_payment', { record_id: record.id }, approveUrl()) : null
+              ownerId
+                ? walletLinkFor(ownerId, 'approve_payment', { record_id: record.id }, approveUrl(), vaultId)
+                : null
             }
             busy={busy}
             disabled={!isOwner || frozen || busy !== null}
@@ -204,77 +218,23 @@ export function ApproveView({ initial }: { initial: GuardianSnapshot }) {
         <Fact label="Vault" value={`${toNear(snapshot.status.available_balance)} NEAR`} />
       </dl>
 
-      <OwnerControls status={snapshot.status} isOwner={isOwner} busy={busy} run={run} />
-      <PolicyWriter status={snapshot.status} feed={snapshot.feed} isOwner={isOwner} busy={busy} run={run} />
+      {footer?.(snapshot)}
+
+      <OwnerControls status={snapshot.status} isOwner={isOwner} busy={busy} run={run} contractId={vaultId} />
+      <PolicyWriter
+        status={snapshot.status}
+        feed={snapshot.feed}
+        isOwner={isOwner}
+        busy={busy}
+        run={run}
+        contractId={vaultId}
+      />
     </main>
   );
 }
 
 function approveUrl() {
-  return typeof window === 'undefined' ? '' : `${window.location.origin}/approve`;
-}
-
-type PendingCardProps = {
-  record: PaymentRecord;
-  walletLink: string | null;
-  busy: string | null;
-  disabled: boolean;
-  onApprove: () => void;
-  onReject: () => void;
-};
-
-function PendingCard({ record, walletLink, busy, disabled, onApprove, onReject }: PendingCardProps) {
-  const [sku, ...reason] = record.memo.split(' | ');
-  return (
-    <motion.article layout className="glass rounded-2xl p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="tabular font-mono text-3xl font-semibold tracking-tight text-white">
-            {toNear(record.amount)} <span className="text-base font-normal text-zinc-400">NEAR</span>
-          </div>
-          <div className="mt-1 font-mono text-xs text-zinc-400">to {record.receiver_id}</div>
-        </div>
-        <span className="rounded-full bg-amber-400/10 px-2.5 py-1 font-mono text-xs text-amber-300">#{record.id}</span>
-      </div>
-      <div className="mt-4 rounded-xl bg-black/25 px-3.5 py-3 text-sm">
-        <div className="font-mono text-xs text-zinc-400">{sku}</div>
-        {reason.length > 0 && <p className="mt-1 text-zinc-200">{reason.join(' | ')}</p>}
-      </div>
-      <div className="mt-2 text-xs text-zinc-400">Requested by the agent {timeAgo(nsToDate(record.created_at))}</div>
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={onReject}
-          disabled={disabled}
-          className="rounded-xl border border-white/10 py-3 text-sm text-zinc-200 transition hover:bg-white/5 disabled:opacity-40"
-        >
-          {busy === `reject-${record.id}` ? 'Waiting…' : 'Reject'}
-        </button>
-        <button
-          type="button"
-          onClick={onApprove}
-          disabled={disabled}
-          className="rounded-xl bg-emerald-400 py-3 text-sm font-semibold text-ink transition hover:bg-emerald-300 disabled:opacity-40"
-        >
-          {busy === `approve-${record.id}` ? 'Waiting…' : 'Approve'}
-        </button>
-      </div>
-      {walletLink && (
-        <a
-          href={walletLink}
-          className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-sky-300/20 bg-sky-300/[0.06] px-4 py-3 text-sm transition hover:bg-sky-300/10"
-        >
-          <span>
-            <span className="block font-medium text-sky-100">Approve in MyNearWallet</span>
-            <span className="block text-xs text-sky-200/70">If the wallet popup does not open</span>
-          </span>
-          <span aria-hidden className="text-sky-200">
-            →
-          </span>
-        </a>
-      )}
-    </motion.article>
-  );
+  return typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}`;
 }
 
 function Fact({ label, value }: { label: string; value: string }) {
