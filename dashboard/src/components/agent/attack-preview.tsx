@@ -25,11 +25,11 @@ export function AttackPreview({ text, surface }: { text: string; surface: Surfac
     <span
       className={
         revealed
-          ? 'my-2 block rounded-lg border border-rose-400/50 bg-rose-500/15 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-rose-100 shadow-[0_0_20px_-6px_rgba(251,113,133,0.6)]'
+          ? 'my-2 block rounded-lg border border-rose-500/60 bg-rose-100 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-rose-900 shadow-[0_0_20px_-6px_rgba(244,63,94,0.7)]'
           : 'hidden'
       }
     >
-      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-rose-300">
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-rose-600">
         Hidden from people · read by the agent
       </span>
       {surface === 'tool' ? text : plain(text)}
