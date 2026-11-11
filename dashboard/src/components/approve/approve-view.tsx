@@ -22,6 +22,9 @@ export function ApproveView() {
   const ownerId = snapshot?.status.owner_id;
   const isOwner = Boolean(accountId) && accountId === ownerId;
   const frozen = snapshot?.status.frozen ?? false;
+  const breakerUntil = snapshot?.status.breaker_until ?? null;
+  // A tripped breaker also clears with unfreeze, so one button covers both.
+  const stopped = frozen || breakerUntil !== null;
 
   // Coming back from a MyNearWallet redirect: show the outcome once, then tidy the URL.
   useEffect(() => {
@@ -106,22 +109,32 @@ export function ApproveView() {
         onClick={() =>
           run(
             'freeze',
-            frozen ? 'unfreeze' : 'freeze',
+            stopped ? 'unfreeze' : 'freeze',
             {},
-            frozen ? 'Spending unfrozen.' : 'All agent spending is frozen.',
+            stopped ? 'Spending unfrozen.' : 'All agent spending is frozen.',
           )
         }
         className={`mt-5 flex w-full flex-col items-center justify-center rounded-3xl px-6 py-7 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${
-          frozen
+          stopped
             ? 'border border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
             : 'bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-[0_20px_60px_-20px_rgba(244,63,94,0.7)]'
         }`}
       >
         <span className="text-2xl font-semibold tracking-tight">
-          {busy === 'freeze' ? 'Waiting for wallet…' : frozen ? 'Unfreeze spending' : 'Freeze all spending'}
+          {busy === 'freeze'
+            ? 'Waiting for wallet…'
+            : frozen
+              ? 'Unfreeze spending'
+              : breakerUntil
+                ? 'Reset the circuit breaker'
+                : 'Freeze all spending'}
         </span>
-        <span className={`mt-1 text-sm ${frozen ? 'text-emerald-300/80' : 'text-rose-100/80'}`}>
-          {frozen ? 'The agent is blocked right now' : 'Stops every agent payment instantly'}
+        <span className={`mt-1 text-sm ${stopped ? 'text-emerald-300/80' : 'text-rose-100/80'}`}>
+          {frozen
+            ? 'The agent is blocked right now'
+            : breakerUntil
+              ? `Tripped by suspicious requests · lifts by itself at ${nsToDate(breakerUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+              : 'Stops every agent payment instantly'}
         </span>
       </button>
 

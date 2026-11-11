@@ -67,6 +67,25 @@ export function OwnerControls({ status, isOwner, busy, run }: Props) {
         )}
       </div>
 
+      <dl className="mt-6 grid grid-cols-2 gap-2 text-sm">
+        <Guard
+          label="Velocity limit"
+          value={
+            status.guards.max_auto_payments
+              ? `${status.guards.max_auto_payments} auto-payments / ${status.guards.velocity_window_minutes} min`
+              : 'off'
+          }
+        />
+        <Guard
+          label="Circuit breaker"
+          value={
+            status.guards.breaker_strikes
+              ? `${status.guards.breaker_strikes} strikes · ${status.guards.breaker_cooldown_minutes} min pause`
+              : 'off'
+          }
+        />
+      </dl>
+
       <div className="mt-6">
         <span className="text-sm text-zinc-300">Approved payees</span>
         <ul className="mt-2 space-y-2">
@@ -105,5 +124,14 @@ export function OwnerControls({ status, isOwner, busy, run }: Props) {
         </div>
       </div>
     </section>
+  );
+}
+
+function Guard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-black/25 px-3.5 py-2.5">
+      <dt className="text-xs text-zinc-400">{label}</dt>
+      <dd className="mt-0.5 text-zinc-100">{value}</dd>
+    </div>
   );
 }

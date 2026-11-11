@@ -46,18 +46,24 @@ export default function Home() {
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             <Link
-              href="/dashboard"
+              href="/agent"
               className="rounded-full bg-white px-5 py-2.5 text-sm font-medium text-ink shadow-[0_0_40px_-8px_rgba(110,231,183,0.6)] transition hover:bg-emerald-100"
             >
-              Open the live dashboard
+              Try the live agent
+            </Link>
+            <Link
+              href="/dashboard"
+              className="rounded-full border border-white/12 px-5 py-2.5 text-sm text-zinc-200 transition hover:border-white/25 hover:text-white"
+            >
+              Open the dashboard
             </Link>
             <a
               href={accountUrl(CONTRACT_ID)}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full border border-white/12 px-5 py-2.5 text-sm text-zinc-200 transition hover:border-white/25 hover:text-white"
+              className="px-2 py-2.5 text-sm text-zinc-400 transition hover:text-white"
             >
-              Contract on NearBlocks
+              Contract on NearBlocks ↗
             </a>
           </div>
         </div>
@@ -146,8 +152,14 @@ export default function Home() {
         </p>
         <div className="relative mt-8 flex flex-wrap justify-center gap-3">
           <Link
-            href="/dashboard"
+            href="/agent"
             className="whitespace-nowrap rounded-full bg-white px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-emerald-100"
+          >
+            Try the live agent
+          </Link>
+          <Link
+            href="/dashboard"
+            className="whitespace-nowrap rounded-full border border-white/15 px-5 py-2.5 text-sm text-zinc-100 transition hover:border-white/25"
           >
             Open dashboard
           </Link>
