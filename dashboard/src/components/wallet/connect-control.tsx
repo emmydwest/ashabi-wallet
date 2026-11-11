@@ -26,7 +26,7 @@ export function ConnectWalletButton({
   }
 
   const styles = {
-    nav: 'inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-400/10 px-3.5 py-1.5 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/20 disabled:opacity-50',
+    nav: 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-emerald-400/35 bg-emerald-400/10 px-3 py-1.5 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/20 disabled:opacity-50 sm:px-3.5',
     menu: 'inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-400/35 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/20 disabled:opacity-50',
     primary:
       'inline-flex items-center justify-center gap-1.5 rounded-xl bg-white px-5 py-3 text-[15px] font-medium text-ink disabled:opacity-50',
@@ -44,8 +44,15 @@ export function ConnectWalletButton({
       }}
       className={`${styles} ${className}`}
     >
-      {variant !== 'compact' && <Wallet className="size-4" aria-hidden />}
-      {label}
+      {variant !== 'compact' && <Wallet className="size-4 max-[360px]:hidden" aria-hidden />}
+      {variant === 'nav' ? (
+        <>
+          <span className="sm:hidden">Connect</span>
+          <span className="hidden sm:inline">{label}</span>
+        </>
+      ) : (
+        label
+      )}
     </button>
   );
 }

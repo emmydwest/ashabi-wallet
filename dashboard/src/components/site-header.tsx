@@ -67,7 +67,7 @@ function Header({ pathname }: { pathname: string | null }) {
         </nav>
 
         <div className="flex items-center gap-2">
-          <NearBadge className="max-[380px]:hidden" />
+          <NearBadge className="hidden lg:block" />
           <ConnectWalletButton variant="nav" />
           <Link
             href="/chat"
