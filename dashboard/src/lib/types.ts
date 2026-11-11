@@ -3,6 +3,7 @@ export type RequestStatus =
   | 'PENDING_APPROVAL'
   | 'BLOCKED_RECIPIENT'
   | 'BLOCKED_BUDGET'
+  | 'BLOCKED_VELOCITY'
   | 'INSUFFICIENT_FUNDS'
   | 'FROZEN'
   | 'DUPLICATE';
@@ -25,6 +26,17 @@ export type WalletStatus = {
   pending_count: number;
   payment_count: number;
   blocked_count: number;
+  guards: Guards;
+  auto_payments_in_window: number;
+  strikes: number;
+  breaker_until: number | null;
+};
+
+export type Guards = {
+  max_auto_payments: number;
+  velocity_window_minutes: number;
+  breaker_strikes: number;
+  breaker_cooldown_minutes: number;
 };
 
 export type PaymentRecord = {

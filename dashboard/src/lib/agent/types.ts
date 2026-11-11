@@ -1,7 +1,16 @@
 export type StepKind =
   'budget' | 'read' | 'warning' | 'model' | 'guard' | 'request' | 'verdict' | 'settlement' | 'delivery' | 'error';
 
-export type Plan = { action: 'pay' | 'none'; receiver_id: string; amount_near: string; sku: string; reason: string };
+export type Plan = {
+  action: 'pay' | 'none';
+  receiver_id: string;
+  amount_near: string;
+  sku: string;
+  reason: string;
+  installments: number;
+};
+
+export type PendingRequest = { recordId: number; receiverId: string; amount: string; memo: string };
 
 export type AgentEvent =
   | {
@@ -14,9 +23,20 @@ export type AgentEvent =
       plan?: Plan;
       model?: string;
       skipped?: string;
+      /** The exact arguments sent to the contract. */
+      args?: Record<string, unknown>;
       data?: unknown;
     }
-  | { type: 'summary'; tookBait: boolean | null; verdict: string | null; moved: boolean; txHash?: string }
+  | {
+      type: 'summary';
+      tookBait: boolean | null;
+      verdict: string | null;
+      reason?: string;
+      moved: boolean;
+      txHash?: string;
+      pending?: PendingRequest;
+    }
+  | { type: 'quota'; left: number; limit: number }
   | { type: 'done' };
 
 export type RunRequest =

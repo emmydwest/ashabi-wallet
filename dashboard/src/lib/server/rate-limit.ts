@@ -11,7 +11,13 @@ let everyone: number[] = [];
 
 const recent = (times: number[], now: number) => times.filter((t) => now - t < WINDOW_MS);
 
-export function takeRun(ip: string): { ok: true } | { ok: false; retryInSec: number } {
+export const RUNS_PER_WINDOW = PER_IP;
+
+export function runsLeft(ip: string) {
+  return Math.max(0, PER_IP - recent(hits.get(ip) ?? [], Date.now()).length);
+}
+
+export function takeRun(ip: string): { ok: true; left: number } | { ok: false; retryInSec: number } {
   const now = Date.now();
   const mine = recent(hits.get(ip) ?? [], now);
   everyone = recent(everyone, now);
@@ -22,7 +28,7 @@ export function takeRun(ip: string): { ok: true } | { ok: false; retryInSec: num
   mine.push(now);
   everyone.push(now);
   hits.set(ip, mine);
-  return { ok: true };
+  return { ok: true, left: PER_IP - mine.length };
 }
 
 export const clientIp = (headers: Headers) =>

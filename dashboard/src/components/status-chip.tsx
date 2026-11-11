@@ -14,6 +14,7 @@ const STATUS_TONE: Record<string, keyof typeof TONES> = {
   TRANSFERRING: 'info',
   BLOCKED_RECIPIENT: 'danger',
   BLOCKED_BUDGET: 'danger',
+  BLOCKED_VELOCITY: 'danger',
   INSUFFICIENT_FUNDS: 'danger',
   FROZEN: 'danger',
   DUPLICATE: 'danger',
