@@ -1,122 +1,125 @@
-# Demo video script (2:55)
+# Demo video script (~2:30)
 
-Record on a phone (or a narrow browser window) at https://guardian-wallet.vercel.app.
+Record from the live production site, https://guardian-wallet.vercel.app.
+Mostly a phone frame (390×844 or 414×896), with a few desktop cuts. Keep
+the mascot in frame on the home, verify, and close shots.
 
-Before recording:
+This version is honest about a spent shared demo budget. Do **not** launch
+a live hijack, 402 purchase, or premium request if "Budget left today" is
+0 NEAR, and do **not** trip the shared demo's kill-switch. Show a real
+on-chain payment, a blocked-payee receipt, and an above-threshold approval
+from the dashboard / verify proofs instead. The daily budget resets at
+00:00 UTC (1:00 AM Lagos). If the shared demo and the boxtest factory
+vault are both spent, wait, or use those existing proof transactions.
 
-- Open `/approve` in the owner's Meteor wallet and sign in.
-- Check `/agent` says nothing about a kill-switch. If it does, tap "Reset the circuit breaker" on
-  `/approve`, or wait out the countdown.
-- Check "Budget left today" is at least 2 NEAR (it resets at 1:00 AM Lagos). Otherwise the 402
-  purchase (0.05 NEAR) still works, but the premium purchase is blocked on budget instead of
-  going to the owner.
+Spoken lines are in quotes. On-screen action is in **bold**.
 
-Spoken lines are in quotes. Taps are in **bold**. The order follows the review: the hijack
-first, then which layer stopped what, then the economy story.
+## 0:00 – 0:30 · Hook and the problem
 
-## 0:00 – 0:30 · The problem
+Screen: landing page `/`, mascot in frame.
 
-Screen: the landing page `/`.
+> "Give your AI an allowance, not your bank password. This is Guardian Wallet."
 
-> "AI agents are starting to pay for things on our behalf. But an agent reads everything it
-> touches, and anything it reads can tell it what to do. One poisoned page and your agent is
-> paying someone else."
+> "AI agents are starting to pay for things on our behalf. But an agent reads
+> everything it touches, and a poisoned page can tell it to drain the wallet."
 
-> "Guardian Wallet assumes the agent will be hijacked and makes that not matter. The agent can
-> only ask for a payment. A NEAR contract holds the money and decides."
+> "Guardian Wallet assumes the agent will be hijacked, and makes that not
+> matter. The agent can only ask. A NEAR contract holds the funds and decides.
+> It's built on NEAR, for the AI Security and Agent Economy tracks."
 
-**Tap "Try the live agent".**
+Scroll just enough to show the Built on NEAR badge and the two tracks.
 
-## 0:30 – 1:05 · The hijack
+## 0:30 – 0:55 · A real purchase over HTTP 402
 
-Screen: `/agent`. **Tap B, "Hijack the agent".**
+Screen: `/chat`. **Type** "Buy me today's weather report." Do not send if
+the shared budget is spent.
 
-> "Say the agent has been fully compromised. I'm skipping the tricking step, so the compromise is
-> simulated, but everything after it is real: the agent's own key, a real transaction."
+> "Here's the live chat agent. You ask it to buy a weather report. The vendor
+> answers with HTTP 402: Payment Required. The agent pays through the
+> guardian — five hundredths of a NEAR — and only then does the data unlock."
 
-Wait for "Agent compromised: trying to send 2 NEAR to attacker.gw-emmy.testnet", then the green
-card "Defense: contract layer - model compromised, contract blocked unapproved payee".
+Cut to `/dashboard` (or a NearBlocks receipt) on a real 402 payment, for
+example `9mJuqaKETPvgvc5ZdUagJPmp2jopZx7YAQCtAZZ1d491` or the MCP payment
+`7NBA3Vfw6bUpX8LydZtByArJJSnJYzDTVjNQDgRNbPE2`.
 
-> "Two NEAR to the attacker. The contract says no: the attacker isn't on my payee list. Contract
-> verdict: blocked, unapproved payee. No money moves, and the attempt is stored on-chain."
+> "Today's shared demo budget is already used; it resets at midnight UTC, so
+> I'm showing a real payment that's already on-chain."
 
-**Tap "View tx"** on the verdict.
+If budget remains, **tap a weather prompt** and **Run the agent**, wait for
+the amber 402, the payment, and the unlocked data, then **Verify intent**.
 
-> "No model, no prompt, no server sits between that request and that refusal."
+## 0:55 – 1:15 · The hijack, blocked on-chain
 
-## 1:05 – 1:40 · Two layers: model, then contract
+Screen: `/agent` Attacks tab, then `/dashboard` blocked-attacks feed, then
+the NearBlocks receipt for `AVTza2m9fpq6KWvUkUpu7Y2dAfoWqRYys4VA64aaLftb`
+(hijacked agent, 2 NEAR to an unapproved payee).
 
-**Tap "Attacks"**, **tap "Poisoned webpage"**, **tap "Reveal hidden injection".**
+> "Now the attack. A hijacked agent tries to send two NEAR to someone who
+> isn't on the approved list. The contract refuses, and stores the attempt.
+> Here's the receipt on NearBlocks. No model sits between that request and
+> that refusal."
 
-> "This is what the agent reads and you don't: a hidden line telling it to pay the attacker."
+Do not tap "Hijack the agent" on the shared demo if budget is 0 — the
+contract would return `BLOCKED_BUDGET` first, which is the wrong story.
+Other blocked-payee proofs: `GMHSVLSGh8wEGAs7pmeMNWh4HLjpmd8QCLRJobVKXkcR`.
 
-**Tap "Careful agent", then "Launch the attack".**
+## 1:15 – 1:28 · Above the threshold, the owner decides
 
-> "A careful model often spots it: defense at the model layer."
+Screen: `/approve`, or the proof of an owner approval
+(`5Egz99BbvHEe7hBkek1JCd6pxZRwGTQch2h9H7ac1iTz`) / a 1.5 NEAR request that
+waited (`8D6HW9p6eGudHSzNQnThAo7p2D2V3aqmh6KxVvUf46Ye`).
 
-**Tap "Naive agent", then "Launch the attack".**
+> "Anything over one NEAR waits for the owner. You approve from your phone,
+> in your own wallet. The app never sees your key."
 
-> "A small, trusting model falls for it. The step it followed lights up red, and the contract
-> blocks it anyway: defense at the contract layer. The wallet doesn't need the model to be smart."
+Do not complete an Approve in this recording unless the owner's Meteor
+wallet is actually signed in and a pending request exists.
 
-If the careful model also falls for it, say: "This time the model fell for it too, and the
-contract still blocked it."
+## 1:28 – 1:55 · Verify-live, velocity, kill-switch
 
-## 1:40 – 2:15 · A real purchase over HTTP 402
+Screen: `/verify`. Wait for the live checks to finish, then scroll through
+the agent key, code hash, velocity limit, and kill-switch cards.
 
-**Tap "Real jobs"**, the chip "What is the weather in Lagos right now?", then **"Run the agent"**.
+> "You don't have to trust this UI. This verify panel queries a public
+> testnet RPC from your browser: the agent's key, the code hash, the
+> velocity limit, and the kill-switch. Automatic payments are capped at
+> three payments or one NEAR in ten minutes. Three blocked payments to
+> unknown accounts in a row pause spending. We won't trip that on the
+> shared demo today."
 
-Wait for the amber "402 Payment Required".
+## 1:55 – 2:15 · Your own vault, SDK, MCP
 
-> "The vendor answers 402: a price, a payee and a one-time nonce. The agent pays through the
-> guardian, retries with the transaction hash, and the vendor checks that transaction on-chain
-> before it unlocks the data. The same receipt again gets 409."
+Screen: `/start`, then desktop `/docs`.
 
-**Tap "Verify intent".** Wait for "Verified".
+> "Anyone can create their own guarded wallet in one transaction, through a
+> factory on NEAR. Connect a wallet, pick a template, and you own the vault.
+> There's an SDK, and a local MCP server, so other agents can call the same
+> rules."
 
-> "The memo also carries a hash of why the agent paid, an audit trail my browser just checked
-> against the chain."
+Do not submit the factory form without a connected owner wallet.
 
-## 2:15 – 2:45 · The owner
+## 2:15 – 2:30 · Close
 
-**Tap the chip "Buy the premium annual plan.", then "Run the agent".**
+Screen: `/`, mascot, URL on screen.
 
-> "Anything above one NEAR needs me. At most three requests can wait, and one I ignore expires
-> after a day and gives its budget back."
+> "Give AI the freedom to act, never the freedom to overspend. Try it at
+> guardian-wallet.vercel.app."
 
-Switch to the phone with `/approve` open. **Tap "Approve"** and confirm in Meteor.
+## Short cut (30–45s, for X)
 
-> "I approve from my phone, in my own wallet. The app never sees my key. Three attacks in a row
-> trip an automatic kill-switch, and I can freeze everything with one tap."
+Hook on `/`, then the blocked-payee NearBlocks receipt, then the URL.
 
-## 2:45 – 2:55 · Close
-
-Screen: `/dashboard`.
-
-> "A Rust contract, NEAR function-call keys, free models, and an SDK any agent can use. Give AI
-> the freedom to act, never the freedom to overspend. Try to break it at guardian-wallet.vercel.app."
-
-## Optional cut: a scripted attack or another purchase (if there's time)
-
-On `/agent`, Attacks → "Over-budget drain" or "Smurfing / velocity block" (the latter needs
-budget left today). Or on `/chat`, "Get me this morning’s news digest" / "Translate payment
-received into Yoruba".
-
-## Optional cut: your own wallet (if there's time, or for a second video)
-
-Screen: phone, `/start`. Connect, pick "API buyer", name it, 2 NEAR, confirm.
-
-> "Anyone can get their own guarded wallet in one transaction. It runs the same contract, from a
-> global contract on NEAR, so it costs a quarter of a NEAR to set up."
-
-`/chat` → "Renew my API plan for a year" → the card appears → tap Review → Approve.
+> "Give your AI an allowance, not your bank password. Guardian Wallet
+> assumes the agent will be hijacked, and makes that not matter. A NEAR
+> contract holds the funds and blocks a stolen payment on-chain. Try it at
+> guardian-wallet.vercel.app."
 
 ## If something goes wrong while recording
 
-- An amber "as of HH:MM" pill: the testnet RPC is slow. The numbers are the last good on-chain
-  state; keep going, it refreshes on its own.
-- The kill-switch banner on Real jobs: the breaker is doing its job. Reset it on `/approve` (owner
-  only; there is no public reset), or record the hijack anyway; it still gets a real on-chain
-  `FROZEN` block.
-- Out of runs: the public demo allows 5 runs per 10 minutes. Wait it out, or record locally
-  with `npm run dev`.
+- An amber "as of HH:MM" pill: the testnet RPC is slow. Keep going; it
+  refreshes on its own.
+- Shared demo budget is 0, or the breaker is on: use the proofs above.
+  Do not reset or freeze the shared demo from a public recording.
+- Out of public agent runs (5 per 10 minutes): wait, or cut to proofs.
+- A careful-model attack is fine to show later, but it is not required
+  for this cut; the contract layer is the claim we have to show on-chain.
