@@ -1,0 +1,19 @@
+{
+  "name": "@guardian-wallet/sdk",
+  "version": "0.1.0",
+  "description": "Let an AI agent pay through a Guardian Wallet contract on NEAR, including HTTP 402 pay-and-retry.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,6 +1,6 @@
 import 'server-only';
 import { CONTRACT_ID, VENDOR_ID } from '@/lib/config';
-import { nearToYocto, nsToDate, toNear, viewCall } from '@/lib/near';
+import { nearToYocto, nsToDate, toNear } from '@/lib/near';
 import type { PaymentRecord, WalletStatus } from '@/lib/types';
 import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, HIJACK, type Surface } from '@/lib/agent/attacks';
 import { INTENT_PREFIX_LENGTH, intentHash, type IntentLog } from '@/lib/agent/intent';
@@ -8,7 +8,8 @@ import type { AgentEvent, Plan, RunRequest } from '@/lib/agent/types';
 import { CATALOG, forecast, itemFor } from '@/vendor/catalog';
 import { receiptProblem } from '@/vendor/receipt';
 import { askModel, type ModelChoice } from './models';
-import { requestPayment } from './agent-key';
+import type { PaymentArgs, PaymentResult } from '@guardian-wallet/sdk';
+import { guardianAgent } from './agent-key';
 import { put } from './store';
 
 // Anything this console sends to an approved payee could really move funds, so cap it
@@ -91,16 +92,7 @@ function fallbackPlan(task: string): Plan {
   };
 }
 
-async function waitForRecord(id: number, timeoutMs = 25_000) {
-  const end = Date.now() + timeoutMs;
-  let record: PaymentRecord | null = null;
-  while (Date.now() < end) {
-    record = await viewCall<PaymentRecord | null>('get_payment', { record_id: id });
-    if (record && record.status !== 'TRANSFERRING') return record;
-    await new Promise((r) => setTimeout(r, 1500));
-  }
-  return record;
-}
+const waitForRecord = (id: number) => guardianAgent().waitForSettlement(id) as Promise<PaymentRecord | null>;
 
 function walletNote(status: WalletStatus) {
   if (status.frozen)
@@ -116,7 +108,7 @@ function walletNote(status: WalletStatus) {
 }
 
 export async function runAgent(input: RunRequest, emit: Emit, context: Context) {
-  const status = await viewCall<WalletStatus>('get_wallet_status');
+  const status = (await guardianAgent().getStatus()) as WalletStatus;
   emit({
     type: 'step',
     kind: 'budget',
@@ -318,105 +310,137 @@ async function recordIntent(plan: Plan, why: Why, emit: Emit) {
   return `intent:${id}`;
 }
 
-async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string[] = []) {
-  const intent = await recordIntent(plan, why, emit);
+function requestStep(plan: Plan, request: PaymentArgs): AgentEvent {
   const args = {
-    request_id: `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-    receiver_id: plan.receiver_id,
-    amount: nearToYocto(plan.amount_near).toString(),
-    memo: memoFor(plan, [...tags, intent]),
+    request_id: request.requestId,
+    receiver_id: request.receiverId,
+    amount: request.amount.toString(),
+    memo: request.memo,
   };
-  emit({
+  return {
     type: 'step',
     kind: 'request',
     title: `request_payment(${plan.amount_near} NEAR → ${plan.receiver_id})`,
     body: `Signed with the agent's limited key. It can call request_payment on ${CONTRACT_ID} and nothing else.`,
     args,
-  });
-  const call = await requestPayment(args);
-  if (!call.outcome) {
+  };
+}
+
+// Reports the contract's answer; returns null when the transaction itself failed.
+function contractAnswer(payment: PaymentResult, emit: Emit) {
+  if (!payment.status) {
     emit({
       type: 'step',
       kind: 'error',
       title: 'The transaction did not go through',
-      body: call.error,
-      txHash: call.txHash,
+      body: payment.error,
+      txHash: payment.txHash,
     });
-    emit({ type: 'summary', tookBait: null, verdict: null, moved: false, txHash: call.txHash });
+    emit({ type: 'summary', tookBait: null, verdict: null, moved: false, txHash: payment.txHash });
     return null;
   }
-  const { status: verdict, reason, record_id: recordId } = call.outcome;
-  emit({ type: 'step', kind: 'verdict', title: `Contract: ${readable(reason)}`, status: verdict, txHash: call.txHash });
-  return { verdict, recordId, reason: readable(reason), txHash: call.txHash, memo: args.memo };
+  const reason = readable(payment.reason);
+  emit({ type: 'step', kind: 'verdict', title: `Contract: ${reason}`, status: payment.status, txHash: payment.txHash });
+  return {
+    verdict: payment.status,
+    recordId: payment.recordId,
+    reason,
+    txHash: payment.txHash,
+    memo: payment.args.memo,
+  };
 }
 
-// The vendor's 402 loop: ask, get a price and nonce, pay through the guardian, retry with the
-// receipt. The vendor checks the transaction on-chain before it hands over anything.
+async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string[] = []) {
+  const intent = await recordIntent(plan, why, emit);
+  const request = {
+    requestId: `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    receiverId: plan.receiver_id,
+    amount: nearToYocto(plan.amount_near),
+    memo: memoFor(plan, [...tags, intent]),
+  };
+  emit(requestStep(plan, request));
+  return contractAnswer(await guardianAgent().requestPayment(request), emit);
+}
+
+// The vendor's 402 loop, run by the SDK: ask, get a price and nonce, pay through the guardian,
+// retry with the receipt. The vendor checks the transaction on-chain before it hands over anything.
 async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin }: Context) {
   const url = `${origin}/api/vendor/${plan.sku}`;
-  const first = await fetch(url, { cache: 'no-store' });
-  const offer = await first.json();
-  if (first.status !== 402 || offer.payee !== plan.receiver_id || offer.price !== itemFor(plan.sku)?.price_near) {
-    emit({
-      type: 'step',
-      kind: 'error',
-      title: `Vendor answered ${first.status} with an unexpected offer`,
-      args: offer,
-    });
+  const intent = await recordIntent(plan, why, emit);
+  // Set by onPayment; a cast keeps TypeScript from narrowing it to null across the callbacks.
+  let answer = null as ReturnType<typeof contractAnswer>;
+
+  const result = await guardianAgent().pay402(url, {
+    maxPrice: nearToYocto(plan.amount_near),
+    allowedPayees: [plan.receiver_id],
+    memoTags: [intent],
+    reason: plan.reason || 'web console',
+    onChallenge: (offer) =>
+      emit({
+        type: 'step',
+        kind: 'http',
+        title: `GET /api/vendor/${plan.sku}`,
+        body: `${offer.price} NEAR to ${offer.payee}, single-use nonce ${offer.nonce}. Pay through the guardian, then retry with the receipt.`,
+        badge: { text: '402 Payment Required', tone: 'amber' },
+        args: offer,
+        argsLabel: 'View 402 response',
+      }),
+    onRequest: (request) => emit(requestStep(plan, request)),
+    onPayment: (payment) => {
+      answer = contractAnswer(payment, emit);
+    },
+    onSettled: (record) => {
+      const moved = record?.status === 'COMPLETED';
+      emit({
+        type: 'step',
+        kind: 'settlement',
+        title: moved
+          ? `Payment #${record.id}: ${plan.amount_near} NEAR reached ${plan.receiver_id}`
+          : `Payment #${record?.id ?? '?'} is ${record?.status ?? 'still settling'}`,
+        status: record?.status,
+        badge: moved ? { text: 'Paid on-chain', tone: 'emerald' } : undefined,
+        txHash: answer?.txHash,
+      });
+    },
+  });
+
+  if (result.kind === 'free' || result.kind === 'refused') {
+    const detail = result.kind === 'refused' ? result.reason : `answered ${result.response.status} without a price`;
+    emit({ type: 'step', kind: 'error', title: `Vendor offer refused: ${detail}` });
     emit({ type: 'summary', tookBait: null, verdict: null, moved: false });
     return;
   }
-  emit({
-    type: 'step',
-    kind: 'http',
-    title: `GET /api/vendor/${plan.sku}`,
-    body: `${offer.price} NEAR to ${offer.payee}, single-use nonce ${offer.nonce}. Pay through the guardian, then retry with the receipt.`,
-    badge: { text: '402 Payment Required', tone: 'amber' },
-    args: offer,
-    argsLabel: 'View 402 response',
-  });
-
-  const call = await sendRequest(plan, emit, why, [`nonce:${offer.nonce}`]);
-  if (!call) return;
-  const { verdict, recordId, reason, txHash } = call;
-  if (verdict !== 'APPROVED' || recordId === null || !txHash) {
-    emit({ type: 'summary', tookBait: null, verdict, reason, moved: false, txHash });
+  // A failed transaction already reported its own summary.
+  if (!answer) return;
+  const { verdict, reason, txHash } = answer;
+  if (result.kind === 'not-paid') {
+    const moved = false;
+    emit({
+      type: 'summary',
+      tookBait: null,
+      verdict,
+      reason: verdict === 'APPROVED' ? undefined : reason,
+      moved,
+      txHash,
+    });
     return;
   }
 
-  const record = await waitForRecord(recordId);
-  const moved = record?.status === 'COMPLETED';
-  emit({
-    type: 'step',
-    kind: 'settlement',
-    title: moved
-      ? `Payment #${recordId}: ${plan.amount_near} NEAR reached ${plan.receiver_id}`
-      : `Payment #${recordId} is ${record?.status ?? 'still settling'}`,
-    status: record?.status,
-    badge: moved ? { text: 'Paid on-chain', tone: 'emerald' } : undefined,
-    txHash,
-  });
-  if (!moved) {
-    emit({ type: 'summary', tookBait: null, verdict, moved, txHash });
-    return;
-  }
-
-  const retry = await fetch(url, { cache: 'no-store', headers: { 'X-NEAR-Receipt-Tx': txHash } });
-  const unlocked = await retry.json();
-  if (!retry.ok) {
+  const unlocked = await result.response.json();
+  if (result.kind === 'receipt-refused') {
     emit({
       type: 'step',
       kind: 'error',
-      title: `Vendor refused the receipt (${retry.status}): ${unlocked.detail ?? unlocked.error}`,
+      title: `Vendor refused the receipt (${result.response.status}): ${unlocked.detail ?? unlocked.error}`,
       checks: unlocked.checks,
     });
-    emit({ type: 'summary', tookBait: null, verdict, moved, txHash });
+    emit({ type: 'summary', tookBait: null, verdict, moved: true, txHash });
     return;
   }
   emit({
     type: 'step',
     kind: 'http',
-    title: `GET /api/vendor/${plan.sku} · X-NEAR-Receipt-Tx: ${txHash.slice(0, 8)}…`,
+    title: `GET /api/vendor/${plan.sku} · X-NEAR-Receipt-Tx: ${txHash!.slice(0, 8)}…`,
     body: 'The vendor fetched the transaction from a testnet RPC and checked:',
     checks: unlocked.receipt.checks,
     badge: { text: 'Receipt verified', tone: 'emerald' },
@@ -431,7 +455,7 @@ async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin }: Conte
   });
 
   // Same receipt again, as a thief who copied it would: the vendor has to say no.
-  const replay = await fetch(url, { cache: 'no-store', headers: { 'X-NEAR-Receipt-Tx': txHash } });
+  const replay = await fetch(url, { cache: 'no-store', headers: { 'X-NEAR-Receipt-Tx': txHash! } });
   const replayBody = await replay.json().catch(() => ({}));
   emit({
     type: 'step',
@@ -443,7 +467,7 @@ async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin }: Conte
     badge:
       replay.status === 409 ? { text: 'Replay refused', tone: 'emerald' } : { text: 'Replay accepted', tone: 'rose' },
   });
-  emit({ type: 'summary', tookBait: null, verdict, moved, txHash });
+  emit({ type: 'summary', tookBait: null, verdict, moved: true, txHash });
 }
 
 // A simulated compromise: no model is asked, the agent just does what the attacker says. It

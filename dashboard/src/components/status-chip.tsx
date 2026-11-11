@@ -18,8 +18,10 @@ const STATUS_TONE: Record<string, keyof typeof TONES> = {
   INSUFFICIENT_FUNDS: 'danger',
   FROZEN: 'danger',
   DUPLICATE: 'danger',
+  TOO_MANY_PENDING: 'danger',
   FAILED: 'danger',
   REJECTED: 'muted',
+  EXPIRED: 'muted',
 };
 
 export function StatusChip({ status }: { status: string }) {
