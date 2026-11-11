@@ -2,7 +2,7 @@ import 'server-only';
 import { CONTRACT_ID, VENDOR_ID } from '@/lib/config';
 import { nearToYocto, nsToDate, toNear, viewCall } from '@/lib/near';
 import type { PaymentRecord, WalletStatus } from '@/lib/types';
-import { ATTACKS, CUSTOM_ATTACK_ID } from '@/lib/agent/attacks';
+import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, HIJACK } from '@/lib/agent/attacks';
 import type { AgentEvent, Plan, RunRequest } from '@/lib/agent/types';
 import { CATALOG, forecast } from '@/vendor/catalog';
 import { receiptProblem } from '@/vendor/receipt';
@@ -107,6 +107,8 @@ export async function runAgent(input: RunRequest, emit: Emit) {
     title: `Budget left today: ${toNear(status.remaining_today)} NEAR · vault ${toNear(status.available_balance)} NEAR`,
     body: walletNote(status),
   });
+
+  if (input.mode === 'hijack') return runHijack(status, emit);
 
   const attack =
     input.mode === 'attack'
@@ -294,6 +296,53 @@ async function sendRequest(plan: Plan, emit: Emit) {
   const { status: verdict, reason, record_id: recordId } = call.outcome;
   emit({ type: 'step', kind: 'verdict', title: `Contract: ${readable(reason)}`, status: verdict, txHash: call.txHash });
   return { verdict, recordId, reason: readable(reason), txHash: call.txHash };
+}
+
+// A simulated compromise: no model is asked, the agent just does what the attacker says. It
+// is labelled as such in the UI; the point is to always show the contract making the call.
+async function runHijack(status: WalletStatus, emit: Emit) {
+  emit({
+    type: 'step',
+    kind: 'warning',
+    title: 'Simulated compromise: the agent already obeyed an injected instruction',
+    body: HIJACK.instruction,
+  });
+  emit({
+    type: 'step',
+    kind: 'warning',
+    title: `Agent compromised: trying to send ${HIJACK.amountNear} NEAR to ${ATTACKER}`,
+    body: 'The tricking step is skipped on purpose, so every run reaches the contract.',
+  });
+  const plan: Plan = {
+    action: 'pay',
+    receiver_id: ATTACKER,
+    amount_near: HIJACK.amountNear,
+    sku: '',
+    reason: 'wallet migration (injected instruction)',
+    installments: 1,
+  };
+  const call = await sendRequest(plan, emit);
+  if (!call) return;
+  const killSwitch = call.verdict === 'FROZEN' && Boolean(status.breaker_until || call.reason.includes('breaker'));
+  const breached = call.verdict === 'APPROVED' || call.verdict === 'PENDING_APPROVAL';
+  emit({
+    type: 'summary',
+    tookBait: true,
+    verdict: call.verdict,
+    reason: call.reason,
+    moved: false,
+    txHash: call.txHash,
+    outcome: breached ? 'breached' : 'blocked',
+    simulated: true,
+    headline: breached
+      ? `Attack got through: the contract accepted ${HIJACK.amountNear} NEAR to ${ATTACKER}`
+      : killSwitch
+        ? 'Contract blocked it: the kill-switch is already on'
+        : 'Contract blocked: unapproved payee',
+    detail: killSwitch
+      ? 'The guardian froze the agent after 3 attacks in a row. This is the automatic kill-switch working; it lifts on its own or when the owner resets it.'
+      : call.reason,
+  });
 }
 
 // The job every attack run is given, and what an untricked agent would pay for it.

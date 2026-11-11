@@ -6,7 +6,8 @@ import { readWalletReturn } from '@/components/approve/wallet-link';
 import { Card, CardHeader } from '@/components/card';
 import { ExplorerLink } from '@/components/explorer-link';
 import { useGuardian } from '@/components/use-guardian';
-import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, JOBS } from '@/lib/agent/attacks';
+import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, HIJACK, JOBS } from '@/lib/agent/attacks';
+import { AsOf } from '@/components/as-of';
 import { CUSTOM_MAX, TASK_MAX, type AgentEvent } from '@/lib/agent/types';
 import { nsToDate, toNear } from '@/lib/near';
 import type { GuardianSnapshot, WalletStatus } from '@/lib/types';
@@ -19,8 +20,8 @@ import { useAgentRun } from './use-agent-run';
 type Mode = 'task' | 'attack';
 type Summary = Extract<AgentEvent, { type: 'summary' }>;
 
-export function AgentConsole({ initial }: { initial: GuardianSnapshot | null }) {
-  const { snapshot, refresh } = useGuardian(5000, initial);
+export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
+  const { snapshot, error: offline, refresh } = useGuardian(5000, initial);
   const { steps, summary, running, error, quota, run } = useAgentRun(refresh);
   const [mode, setMode] = useState<Mode>('task');
   const [task, setTask] = useState(JOBS[0]);
@@ -40,16 +41,27 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot | null }) 
     );
   }, [refresh]);
 
-  const status = snapshot?.status;
-  const start = () => {
+  const status = snapshot.status;
+  const killSwitchOn = status.breaker_until !== null;
+  const showRun = () => {
     // On a phone the run card sits below the form; bring it into view as steps arrive.
     if (window.matchMedia('(max-width: 1023px)').matches) runCard.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+  const start = () => {
+    showRun();
     run(mode === 'task' ? { mode: 'task', task } : { mode: 'attack', attackId, custom, model });
   };
+  const hijack = () => {
+    showRun();
+    run({ mode: 'hijack' });
+  };
   const outOfRuns = quota?.left === 0;
+  // Honest jobs would only bounce off the paused contract; say so instead of letting them try.
+  const pausedForJobs = mode === 'task' && (killSwitchOn || status.frozen);
   const canRun =
     !running &&
     !outOfRuns &&
+    !pausedForJobs &&
     (mode === 'task' ? task.trim().length > 0 : attackId !== CUSTOM_ATTACK_ID || custom.trim());
 
   return (
@@ -57,7 +69,8 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot | null }) 
       <div className="max-w-2xl">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-emerald-300/80">Live agent · NEAR testnet</p>
-          {status && <WalletState status={status} />}
+          <WalletState status={status} />
+          <AsOf snapshot={snapshot} offline={Boolean(offline)} />
         </div>
         <h1 className="mt-3 text-[2.2rem] font-semibold leading-tight tracking-tight text-white sm:text-5xl">
           Give the agent a job. <span className="text-gradient">Or try to rob it.</span>
@@ -67,6 +80,8 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot | null }) 
           The contract decides.
         </p>
       </div>
+
+      <HijackButton onClick={hijack} disabled={running || outOfRuns} />
 
       <Scoreboard status={status} />
 
@@ -92,7 +107,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot | null }) 
           </div>
 
           <div className="space-y-4 p-4 sm:p-5">
-            {status && <RulesBar status={status} />}
+            <RulesBar status={status} />
 
             {mode === 'task' ? (
               <>
@@ -121,6 +136,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot | null }) 
                     </button>
                   ))}
                 </div>
+                {pausedForJobs && <PausedNote status={status} />}
                 <p className="text-xs leading-relaxed text-zinc-400">
                   Small purchases settle on their own. Anything over the auto-pay limit waits for the owner, right here
                   in the run.
@@ -228,7 +244,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot | null }) 
                   {error}
                 </p>
               )}
-              {steps.length === 0 && !running && !error && <RecentVerdicts feed={snapshot?.feed ?? []} />}
+              {steps.length === 0 && !running && !error && <RecentVerdicts feed={snapshot.feed} />}
               <RunTimeline steps={steps} running={running} />
               {summary && <Verdict {...summary} />}
               {summary?.pending && <PendingInline request={summary.pending} snapshot={snapshot} onSigned={refresh} />}
@@ -240,11 +256,78 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot | null }) 
   );
 }
 
+function HijackButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="group mt-7 flex w-full items-center justify-between gap-4 rounded-2xl border border-rose-400/30 bg-gradient-to-r from-rose-500/20 via-rose-500/10 to-transparent px-5 py-4 text-left transition hover:border-rose-300/50 disabled:opacity-50 sm:max-w-2xl"
+    >
+      <span className="min-w-0">
+        <span className="block text-base font-semibold text-white sm:text-lg">
+          Watch a hijacked agent try to rob the wallet
+        </span>
+        <span className="mt-1 block text-xs leading-relaxed text-rose-100/80">
+          One tap. Simulated compromise, real on-chain block: the agent sends {HIJACK.amountNear} NEAR to the attacker
+          with its own key and the contract refuses. Costs only gas.
+        </span>
+      </span>
+      <span
+        aria-hidden
+        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-rose-400 text-lg text-black transition group-hover:translate-x-0.5"
+      >
+        →
+      </span>
+    </button>
+  );
+}
+
+function useNow(active: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [active]);
+  return now;
+}
+
+function PausedNote({ status }: { status: WalletStatus }) {
+  const now = useNow(status.breaker_until !== null);
+  if (status.frozen)
+    return (
+      <p className="rounded-xl border border-rose-400/25 bg-rose-400/[0.06] px-3.5 py-3 text-sm text-rose-100">
+        The owner has frozen spending, so honest jobs are paused. Attacks still run and still get blocked.
+      </p>
+    );
+  const left = Math.max(0, Math.ceil((Number(BigInt(status.breaker_until!) / 1_000_000n) - now) / 1000));
+  const clock = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  return (
+    <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-3.5 py-3 text-sm text-amber-100">
+      <div className="font-semibold">
+        Kill-switch on · honest jobs resume in{' '}
+        <span suppressHydrationWarning className="tabular-nums">
+          {clock}
+        </span>
+      </div>
+      <p className="mt-1 text-xs leading-relaxed text-amber-100/80">
+        The guardian froze the agent after 3 attacks in a row. That is the automatic kill-switch working, not an outage.
+        Attacks still run and still get blocked; the owner can reset it early on{' '}
+        <Link href="/approve" className="underline">
+          /approve
+        </Link>
+        .
+      </p>
+    </div>
+  );
+}
+
 function WalletState({ status }: { status: WalletStatus }) {
   if (!status.frozen && !status.breaker_until) return null;
   const text = status.frozen
     ? 'Frozen by the owner'
-    : `Circuit breaker on until ${nsToDate(status.breaker_until!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    : `Kill-switch on until ${nsToDate(status.breaker_until!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   return (
     <Link
       href="/approve"
@@ -257,14 +340,14 @@ function WalletState({ status }: { status: WalletStatus }) {
   );
 }
 
-function Scoreboard({ status }: { status?: WalletStatus }) {
+function Scoreboard({ status }: { status: WalletStatus }) {
   const items = [
-    { label: 'Attacks blocked on-chain', value: status ? String(status.blocked_count) : '…', tone: 'text-rose-300' },
-    { label: 'Payments recorded', value: status ? String(status.payment_count) : '…', tone: 'text-emerald-300' },
+    { label: 'Attacks blocked on-chain', value: String(status.blocked_count), tone: 'text-rose-300' },
+    { label: 'Payments recorded', value: String(status.payment_count), tone: 'text-emerald-300' },
     {
       label: 'Budget left today',
-      value: status ? (status.frozen ? 'Frozen' : toNear(status.remaining_today)) : '…',
-      unit: status && !status.frozen ? 'NEAR' : undefined,
+      value: status.frozen ? 'Frozen' : toNear(status.remaining_today),
+      unit: status.frozen ? undefined : 'NEAR',
       tone: 'text-white',
     },
   ];
@@ -286,7 +369,7 @@ function Scoreboard({ status }: { status?: WalletStatus }) {
 const BLOCKED = (verdict: string | null) =>
   Boolean(verdict && verdict !== 'APPROVED' && verdict !== 'PENDING_APPROVAL');
 
-function AttackVerdict({ outcome, headline, detail, txHash }: Summary) {
+function AttackVerdict({ outcome, headline, detail, txHash, simulated }: Summary) {
   const tone =
     outcome === 'breached'
       ? 'border-rose-400/40 bg-rose-500/[0.08]'
@@ -299,9 +382,13 @@ function AttackVerdict({ outcome, headline, detail, txHash }: Summary) {
         {outcome === 'failed' && <Badge tone="sky">Attack failed</Badge>}
         {outcome === 'blocked' && (
           <>
-            <Badge tone="amber">Model was tricked</Badge>
+            <Badge tone="amber">{simulated ? 'Agent compromised (simulated)' : 'Model was tricked'}</Badge>
             <Badge tone="emerald">
-              {headline?.includes('vendor') ? 'Vendor check stopped it' : 'Contract blocked it'}
+              {headline?.includes('vendor')
+                ? 'Vendor check stopped it'
+                : headline?.includes('kill-switch')
+                  ? 'Kill-switch on'
+                  : 'Contract blocked it'}
             </Badge>
           </>
         )}

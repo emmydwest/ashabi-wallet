@@ -39,12 +39,16 @@ export type AgentEvent =
       outcome?: 'failed' | 'blocked' | 'breached';
       headline?: string;
       detail?: string;
+      /** The hijack demo: the compromise is staged, the contract call is real. */
+      simulated?: boolean;
     }
   | { type: 'quota'; left: number; limit: number }
   | { type: 'done' };
 
 export type RunRequest =
-  { mode: 'task'; task: string } | { mode: 'attack'; attackId: string; custom?: string; model: 'main' | 'small' };
+  | { mode: 'task'; task: string }
+  | { mode: 'hijack' }
+  | { mode: 'attack'; attackId: string; custom?: string; model: 'main' | 'small' };
 
 export const TASK_MAX = 300;
 export const CUSTOM_MAX = 1500;

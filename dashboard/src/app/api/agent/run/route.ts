@@ -14,6 +14,7 @@ function parse(body: unknown): RunRequest | string {
     if (task.length > TASK_MAX) return `Keep the task under ${TASK_MAX} characters.`;
     return { mode: 'task', task };
   }
+  if (b.mode === 'hijack') return { mode: 'hijack' };
   if (b.mode === 'attack') {
     const attackId = String(b.attackId ?? '');
     const custom = String(b.custom ?? '').trim();
