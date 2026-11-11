@@ -40,7 +40,7 @@ function Header({ pathname }: { pathname: string | null }) {
   const open = openOn !== false && openOn === pathname;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-black/75 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-black/90 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
         <Link href="/" aria-label="Guardian Wallet home" className="shrink-0">
           <Wordmark />

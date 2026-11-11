@@ -129,7 +129,7 @@ export function ChatView() {
 
   return (
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
-      <div className="flex-1 space-y-4 pb-36">
+      <div className="flex-1 space-y-4 pb-44">
         {messages.length === 0 && (
           <div className="pt-6 text-center">
             <div className="relative mx-auto w-fit">
@@ -170,7 +170,7 @@ export function ChatView() {
         <div ref={end} />
       </div>
 
-      <div className="sticky bottom-0 -mx-4 border-t border-white/[0.06] bg-black/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+      <div className="sticky bottom-0 -mx-4 border-t border-white/[0.06] bg-black px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
         <div className="mb-2 flex items-center justify-between gap-3 text-xs text-zinc-500">
           <label className="flex min-w-0 items-center gap-1.5">
             <span className="shrink-0">Paying from</span>
