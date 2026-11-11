@@ -45,11 +45,13 @@ You should see the policy, the attacker's blocked attempts (`BLOCKED_RECIPIENT`,
 |---|---|---|---|
 | 1 | `request_id` already used | `DUPLICATE` | no |
 | 2 | wallet frozen by owner | `FROZEN` | no |
-| 3 | receiver not on approved list | `BLOCKED_RECIPIENT` | no |
-| 4 | spent today + reserved (pending) + amount > daily limit | `BLOCKED_BUDGET` | no |
-| 5 | contract balance (minus storage and 0.1 NEAR reserve) too low | `INSUFFICIENT_FUNDS` | no |
-| 6 | amount > approval threshold | `PENDING_APPROVAL` (amount reserved against budget) | after owner approves |
-| 7 | otherwise | `APPROVED` | yes, native transfer |
+| 3 | circuit breaker cooling down | `FROZEN` | no |
+| 4 | receiver not on approved list | `BLOCKED_RECIPIENT` | no |
+| 5 | spent today + reserved (pending) + amount > daily limit | `BLOCKED_BUDGET` | no |
+| 6 | contract balance (minus storage and 0.1 NEAR reserve) too low | `INSUFFICIENT_FUNDS` | no |
+| 7 | below the threshold, but the velocity limit of automatic payments is used up | `BLOCKED_VELOCITY` | no |
+| 8 | amount > approval threshold | `PENDING_APPROVAL` (amount reserved against budget) | after owner approves |
+| 9 | otherwise | `APPROVED` | yes, native transfer |
 
 Policy violations **do not panic**. The call succeeds, returns
 `{ status, request_id, record_id, reason }`, stores the attempt in `blocked_attempts`, and emits a
@@ -59,6 +61,18 @@ authorization failures: a non-agent calling `request_payment`, or a non-owner ca
 Transfers are native NEAR `Promise` transfers with a callback (`on_transfer_complete`) that marks
 the record `COMPLETED` or `FAILED`; on failure the day's budget is refunded. Payment record
 lifecycle: `PENDING_APPROVAL → TRANSFERRING → COMPLETED | FAILED`, or `PENDING_APPROVAL → REJECTED`.
+
+Two guards catch patterns no single request shows:
+
+- **Velocity limit.** At most 3 automatic payments per rolling 10 minutes. Splitting a big
+  payment into pieces under the approval threshold stops after the third piece.
+- **Circuit breaker.** 3 suspicious blocks in a row (`BLOCKED_RECIPIENT` or `BLOCKED_VELOCITY`)
+  trip it: every request is refused for 10 minutes, or until the owner calls `unfreeze`. Budget,
+  balance and duplicate blocks don't count, and any approved or pending request resets the
+  strikes. The pause is timed rather than permanent so a burst of attacks on the public demo
+  can't lock the owner's wallet for good, while a hijacked agent still gets cut off mid-burst.
+
+Both are owner-tunable with `set_guards`, and `0` turns either off.
 
 Budget days are UTC days from the block timestamp (`block_timestamp / 86400s`); `spent_today`
 resets at the first call of a new day. Pending reservations carry over until approved or rejected.
@@ -72,7 +86,9 @@ resets at the first call of a new day. Pending reservations carry over until app
 | `approve_payment(record_id)` / `reject_payment(record_id)` | owner, 1 yocto | approve refused while frozen |
 | `set_daily_limit(daily_limit)` / `set_approval_threshold(approval_threshold)` | owner, 1 yocto | |
 | `add_payee(account_id)` / `remove_payee(account_id)` | owner, 1 yocto | |
-| `freeze()` / `unfreeze()` | owner, 1 yocto | emergency stop |
+| `freeze()` / `unfreeze()` | owner, 1 yocto | emergency stop; `unfreeze` also resets a tripped breaker |
+| `set_guards({max_auto_payments, velocity_window_minutes, breaker_strikes, breaker_cooldown_minutes})` | owner, 1 yocto | 0 disables a guard |
+| `migrate()` | contract itself | one-off upgrade from the pre-guards state layout |
 | `set_agent(agent_id)` | owner, 1 yocto | rotate a compromised agent |
 | `set_owner(new_owner)` | owner, 1 yocto | hand ownership to another wallet; must differ from the agent |
 | `withdraw(amount)` | owner, 1 yocto | owner takes funds back |
@@ -91,7 +107,8 @@ policy; a leaked function-call key cannot.
 Every outcome logs `EVENT_JSON:{"standard":"guardian_wallet","version":"1.0.0","event":...}` with
 event one of `wallet_initialized`, `payment_approved`, `payment_pending`, `payment_blocked`,
 `payment_completed`, `payment_failed`, `payment_rejected`, `policy_updated`, `payee_added`,
-`payee_removed`, `wallet_frozen`, `wallet_unfrozen`, `agent_changed`, `deposit`, `withdraw`.
+`payee_removed`, `wallet_frozen`, `wallet_unfrozen`, `agent_changed`, `owner_changed`,
+`guards_updated`, `breaker_tripped`, `breaker_reset`, `deposit`, `withdraw`.
 
 ### Reproduce
 
@@ -99,7 +116,7 @@ Requires Rust, [`cargo-near`](https://github.com/near/cargo-near) and
 [`near-cli-rs`](https://github.com/near/near-cli-rs). Testnet NEAR is free.
 
 ```sh
-# 1. unit tests (16)
+# 1. unit tests (31)
 cd contract && cargo test
 
 # 2. build the wasm
