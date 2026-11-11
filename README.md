@@ -13,6 +13,33 @@ every refusal is written on-chain.
 - **Contract:** [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) on NEAR testnet
 - **Owner view (phone):** https://guardian-wallet.vercel.app/approve
 
+## For judges: try it in 2 minutes
+
+No wallet, no sign-up, no testnet NEAR. Everything runs on the project's own testnet vault,
+with the agent's own limited key. Open https://guardian-wallet.vercel.app/agent on any phone or laptop.
+
+1. **Tap "Watch a hijacked agent try to rob the wallet".** The agent sends 2 NEAR to the
+   attacker; the contract refuses it on-chain. Tap "View tx" for the NearBlocks record.
+2. **Real jobs tab → "What is the weather in Lagos right now?" → Run.** The vendor answers
+   402, the agent pays 0.05 NEAR through the guardian, retries with the receipt, and the data
+   unlocks. Then tap **Verify intent**: your browser recomputes the hash and matches the memo on-chain.
+3. **Attacks tab → pick a preset → Reveal hidden injection.** That's the text only the agent
+   reads. Choose Naive or Careful agent and launch; if the model falls for it, the step is
+   outlined in red and the contract blocks the payment.
+4. **Real jobs → "Buy the premium annual plan."** At 1.5 NEAR it's over the 1 NEAR threshold,
+   so it waits as pending on `/approve`. Only the owner's wallet can approve it; you can watch it wait.
+
+What you might see:
+
+- **"Kill-switch on" with a countdown.** Three attacks in a row from anyone trip the circuit
+  breaker. That's the defence working. Attacks still run and still get blocked, and honest jobs resume in 10 minutes.
+- **Budget used up.** The daily budget resets at 1:00 AM Lagos (00:00 UTC).
+- **Out of runs.** Each visitor gets 5 runs per 10 minutes, so the shared vault and the agent key's gas last.
+
+Want to try the owner side (approve, freeze, change rules, the policy writer)? Deploy your own
+copy with yourself as owner: see [Reproduce](#reproduce). The payout wallet in our submission
+is a separate mainnet account and has nothing to do with this demo.
+
 Built at NEAR HACKATHON, Nov 2026. Tracks: AI Security & Defense, Agent Economy.
 
 ## Proof on-chain

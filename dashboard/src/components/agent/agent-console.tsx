@@ -16,6 +16,7 @@ import { RecentVerdicts } from './recent-verdicts';
 import { RulesBar } from './rules-bar';
 import { RunTimeline } from './run-timeline';
 import { AttackPreview } from './attack-preview';
+import { HowToTry } from './how-to-try';
 import { useAgentRun } from './use-agent-run';
 import { VerifyIntent } from './verify-intent';
 
@@ -90,6 +91,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
       </div>
 
       <HijackButton onClick={hijack} disabled={running || outOfRuns} />
+      <HowToTry />
 
       <Scoreboard status={status} />
 
