@@ -50,7 +50,7 @@ const ACCOUNTS = [
   ['Approved demo vendor', VENDOR_ID],
 ];
 
-const SDK = `import { accountSigner, GuardianAgent, nearToYocto } from '@guardian-wallet/sdk';
+const SDK = `import { accountSigner, GuardianAgent, nearToYocto } from 'guardian-wallet-sdk';
 
 const agent = new GuardianAgent({
   contractId: '${CONTRACT_ID}',
@@ -120,7 +120,7 @@ export default function DocsPage() {
 
       <Section
         title="Use it from your agent"
-        hint="@guardian-wallet/sdk: no dependencies, reads go straight to NEAR RPC."
+        hint="guardian-wallet-sdk: no dependencies, reads go straight to NEAR RPC."
       >
         <pre className="glass max-w-full overflow-x-auto rounded-card p-5 font-mono text-[13px] leading-relaxed text-zinc-200">
           <code>{SDK}</code>

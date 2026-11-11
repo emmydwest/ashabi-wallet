@@ -1,10 +1,10 @@
-# @guardian-wallet/mcp-server
+# guardian-wallet-mcp
 
-A local [MCP](https://modelcontextprotocol.io) server that wraps [`@guardian-wallet/sdk`](../sdk). An assistant can read a Guardian Wallet and ask it to pay; the NEAR contract still decides whether money moves.
+A local [MCP](https://modelcontextprotocol.io) server that wraps [`guardian-wallet-sdk`](../sdk). An assistant can read a Guardian Wallet and ask it to pay; the NEAR contract still decides whether money moves.
 
-This package is **not published to npm**. Run it from this repo after `npm install` and `npm run build`.
+This package is **not published to npm** yet. Run it from this repo after `npm install` and `npm run build`. Once it is published, the same server will start with `npx -y guardian-wallet-mcp`.
 
-## Setup
+## Setup (today, from the repo)
 
 ```sh
 cd packages/mcp-server
@@ -24,22 +24,26 @@ Environment (required unless noted):
 
 The key never leaves the process and is never written to stdout.
 
+```sh
+export GUARDIAN_CONTRACT=guardian.gw-emmy.testnet
+export AGENT_ACCOUNT=gw-emmy-agent.testnet
+export AGENT_PRIVATE_KEY=ed25519:...   # function-call key only
+node dist/index.js
+```
+
 Claude Code, from the repo root:
 
 ```sh
 export GUARDIAN_CONTRACT=guardian.gw-emmy.testnet
 export AGENT_ACCOUNT=gw-emmy-agent.testnet
-export AGENT_PRIVATE_KEY=ed25519:...   # function-call key only
+export AGENT_PRIVATE_KEY=ed25519:...
 claude mcp add guardian --env GUARDIAN_CONTRACT --env AGENT_ACCOUNT --env AGENT_PRIVATE_KEY -- node packages/mcp-server/dist/index.js
 ```
 
-Or a generic MCP client:
+After publish (not yet):
 
 ```sh
-GUARDIAN_CONTRACT=guardian.gw-emmy.testnet \
-AGENT_ACCOUNT=gw-emmy-agent.testnet \
-AGENT_PRIVATE_KEY=ed25519:... \
-node packages/mcp-server/dist/index.js
+npx -y guardian-wallet-mcp
 ```
 
 ## Tools

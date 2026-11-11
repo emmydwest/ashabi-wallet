@@ -8,7 +8,7 @@ import type { AgentEvent, Plan, RunRequest } from '@/lib/agent/types';
 import { CATALOG, deliver, itemFor } from '@/vendor/catalog';
 import { receiptProblem } from '@/vendor/receipt';
 import { askModel, type ModelChoice } from './models';
-import type { GuardianAgent, PaymentArgs, PaymentResult } from '@guardian-wallet/sdk';
+import type { GuardianAgent, PaymentArgs, PaymentResult } from 'guardian-wallet-sdk';
 import { guardianAgent } from './agent-key';
 import { put } from './store';
 

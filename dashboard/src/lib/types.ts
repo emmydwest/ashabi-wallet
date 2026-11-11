@@ -1,5 +1,5 @@
 // The contract's own types come from the SDK, so the dashboard and agents read the same shapes.
-import type { PaymentRecord, RequestStatus, WalletStatus } from '@guardian-wallet/sdk';
+import type { PaymentRecord, RequestStatus, WalletStatus } from 'guardian-wallet-sdk';
 
 export type {
   Guards,
@@ -8,7 +8,7 @@ export type {
   PendingRules,
   RequestStatus,
   WalletStatus,
-} from '@guardian-wallet/sdk';
+} from 'guardian-wallet-sdk';
 
 export type BlockedAttempt = {
   seq: number;

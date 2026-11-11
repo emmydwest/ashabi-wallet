@@ -1,12 +1,26 @@
-# @guardian-wallet/sdk
+# guardian-wallet-sdk
 
-The agent's side of a [Guardian Wallet](../../README.md). The agent can only ask for a payment; the contract on NEAR checks the payee allowlist, daily budget, approval threshold, velocity limit and kill-switch, then pays or refuses.
+The agent's side of a [Guardian Wallet](https://guardian-wallet.vercel.app). The agent can only ask for a payment; the contract on NEAR checks the payee allowlist, daily budget, approval threshold, velocity limit and kill-switch, then pays or refuses.
 
-No dependencies. Reads go straight to NEAR RPC. Signing is a function you pass in, so the key can live in near-api-js, a KMS or a TEE.
+No runtime dependencies. Reads go straight to NEAR RPC. Signing is a function you pass in, so the key can live in near-api-js, a KMS or a TEE.
+
+## Install
+
+This package is not on npm yet. From a clone of the repo:
+
+```sh
+npm install ./packages/sdk
+```
+
+After it is published:
+
+```sh
+npm install guardian-wallet-sdk
+```
 
 ```ts
 import { Account, JsonRpcProvider } from 'near-api-js';
-import { accountSigner, GuardianAgent, nearToYocto } from '@guardian-wallet/sdk';
+import { accountSigner, GuardianAgent, nearToYocto } from 'guardian-wallet-sdk';
 
 const agent = new GuardianAgent({
   contractId: 'guardian.gw-emmy.testnet',
@@ -17,7 +31,6 @@ const agent = new GuardianAgent({
   ),
 });
 
-// One payment. The result carries the contract's own status.
 const result = await agent.requestPayment({
   receiverId: 'api-vendor.gw-emmy.testnet',
   amount: nearToYocto('0.05'),
@@ -32,7 +45,6 @@ const paid = await agent.pay402('https://guardian-wallet.vercel.app/api/vendor/w
 });
 if (paid.kind === 'paid') console.log(await paid.response.json());
 
-// Reads need no key.
 const policy = await agent.getPolicy();
 const status = await agent.getStatus();
 ```
@@ -50,5 +62,3 @@ const status = await agent.getStatus();
 `RequestStatus` is the contract's enum: `APPROVED`, `PENDING_APPROVAL`, `BLOCKED_RECIPIENT`, `BLOCKED_BUDGET`, `BLOCKED_VELOCITY`, `INSUFFICIENT_FUNDS`, `FROZEN`, `DUPLICATE`, `TOO_MANY_PENDING`. A transaction that failed before the contract answered has `status: null` and an `error`.
 
 `pay402` hooks (`onChallenge`, `onRequest`, `onPayment`, `onSettled`) let you log each step or veto a challenge. The live dashboard's agent uses exactly these hooks to stream its runs.
-
-The package ships TypeScript source. In Next.js add it to `transpilePackages`.

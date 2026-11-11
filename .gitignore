@@ -15,3 +15,6 @@ data/redeemed.json
 next-env.d.ts
 *.tsbuildinfo
 .vercel
+
+*.tgz
+packages/*/dist/

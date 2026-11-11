@@ -1,4 +1,4 @@
-import { accountSigner, GuardianAgent, nearToYocto, TESTNET_RPCS } from '@guardian-wallet/sdk';
+import { accountSigner, GuardianAgent, nearToYocto, TESTNET_RPCS } from 'guardian-wallet-sdk';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { Account, JsonRpcProvider } from 'near-api-js';

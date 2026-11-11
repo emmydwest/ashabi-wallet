@@ -1,125 +1,108 @@
-# Demo video script (~2:30)
+# Demo video script (~2:00–2:15)
 
-Record from the live production site, https://guardian-wallet.vercel.app.
-Mostly a phone frame (390×844 or 414×896), with a few desktop cuts. Keep
-the mascot in frame on the home, verify, and close shots.
+Record from the live production site, https://guardian-wallet.vercel.app, **on desktop**
+(1440×900 or 1920×1080). Use large captions. Keep the mascot in frame on the home, heist,
+verify, and close shots.
 
-This version is honest about a spent shared demo budget. Do **not** launch
-a live hijack, 402 purchase, or premium request if "Budget left today" is
-0 NEAR, and do **not** trip the shared demo's kill-switch. Show a real
-on-chain payment, a blocked-payee receipt, and an above-threshold approval
-from the dashboard / verify proofs instead. The daily budget resets at
-00:00 UTC (1:00 AM Lagos). If the shared demo and the boxtest factory
-vault are both spent, wait, or use those existing proof transactions.
+This version is honest about a spent shared demo budget. Do **not** launch a live hijack, 402
+purchase, or premium request if "Budget left today" is 0 NEAR, and do **not** trip the shared
+demo's kill-switch. Show a real on-chain payment, a blocked-payee receipt, and an
+above-threshold approval from the dashboard / live feed / verify proofs instead. The daily
+budget resets at 00:00 UTC (1:00 AM Lagos). If the shared demo and the boxtest factory vault
+are both spent, wait, or use those existing proof transactions.
 
 Spoken lines are in quotes. On-screen action is in **bold**.
 
-## 0:00 – 0:30 · Hook and the problem
+## 0:00 – 0:20 · Hook
 
-Screen: landing page `/`, mascot in frame.
+Screen: landing page `/`, mascot in frame. The live feed and the Built on NEAR badge can appear
+as you scroll a little.
 
 > "Give your AI an allowance, not your bank password. This is Guardian Wallet."
 
-> "AI agents are starting to pay for things on our behalf. But an agent reads
-> everything it touches, and a poisoned page can tell it to drain the wallet."
+> "AI agents are starting to pay for things on our behalf. A poisoned page can tell an agent
+> to drain the wallet. We assume the agent will be hijacked, and make that not matter."
 
-> "Guardian Wallet assumes the agent will be hijacked, and makes that not
-> matter. The agent can only ask. A NEAR contract holds the funds and decides.
-> It's built on NEAR, for the AI Security and Agent Economy tracks."
+## 0:20 – 0:50 · The public heist, blocked on-chain
 
-Scroll just enough to show the Built on NEAR badge and the two tracks.
+Screen: `/agent`, the **Public heist challenge** banner (live vault balance from the contract,
+not a baked-in number).
 
-## 0:30 – 0:55 · A real purchase over HTTP 402
+> "Here is the public heist challenge. The number is the live balance in the demo vault, on
+> NEAR testnet. Try to make the agent steal it. The agent can only ask. The contract decides."
 
-Screen: `/chat`. **Type** "Buy me today's weather report." Do not send if
-the shared budget is spent.
+**Show** the Attacks list, with each preset labelled for what it tests: hidden webpage
+injection, look-alike payee spoofing (`gw-ernmy` vs `gw-emmy`), payment splitting, the
+kill-switch (don't confirm it), over-budget drain, a fake owner instruction. **Do not** launch
+the kill-switch on the shared demo.
 
-> "Here's the live chat agent. You ask it to buy a weather report. The vendor
-> answers with HTTP 402: Payment Required. The agent pays through the
-> guardian — five hundredths of a NEAR — and only then does the data unlock."
+Cut to a real blocked-payee receipt (the in-app "Refused · 2.00 NEAR" card, the live feed, or
+the public explorer). A known proof is `AVTza2m9fpq6KWvUkUpu7Y2dAfoWqRYys4VA64aaLftb`.
 
-Cut to `/dashboard` (or a NearBlocks receipt) on a real 402 payment, for
-example `9mJuqaKETPvgvc5ZdUagJPmp2jopZx7YAQCtAZZ1d491` or the MCP payment
-`7NBA3Vfw6bUpX8LydZtByArJJSnJYzDTVjNQDgRNbPE2`.
+> "A hijacked agent tries to send two NEAR to someone who isn't on the approved list. The
+> contract refuses, and stores the attempt. No model sits between that request and that refusal."
 
-> "Today's shared demo budget is already used; it resets at midnight UTC, so
-> I'm showing a real payment that's already on-chain."
+If budget is 0, do not tap "Hijack the agent" — the contract would return `BLOCKED_BUDGET`
+first, which is the wrong story.
 
-If budget remains, **tap a weather prompt** and **Run the agent**, wait for
-the amber 402, the payment, and the unlocked data, then **Verify intent**.
+## 0:50 – 1:10 · A real purchase over HTTP 402
 
-## 0:55 – 1:15 · The hijack, blocked on-chain
+Screen: `/chat` or the live feed on `/` / `/dashboard`, showing a completed 0.05 NEAR
+`weather-now` payment, for example `9mJuqaKETPvgvc5ZdUagJPmp2jopZx7YAQCtAZZ1d491`.
 
-Screen: `/agent` Attacks tab, then `/dashboard` blocked-attacks feed, then
-the NearBlocks receipt for `AVTza2m9fpq6KWvUkUpu7Y2dAfoWqRYys4VA64aaLftb`
-(hijacked agent, 2 NEAR to an unapproved payee).
+> "A provider agent sells data over HTTP 402. A buyer agent pays through the vault — five
+> hundredths of a NEAR — and only then does the data unlock. Today's shared demo budget may
+> already be used; it resets at midnight UTC, so show a real payment that's already on-chain."
 
-> "Now the attack. A hijacked agent tries to send two NEAR to someone who
-> isn't on the approved list. The contract refuses, and stores the attempt.
-> Here's the receipt on NearBlocks. No model sits between that request and
-> that refusal."
+If budget remains, run the weather job live and **Verify intent**. That check is a
+16-character prefix of the SHA-256 of the run log, written into the payment memo — not a
+separate commitment scheme. The hidden-injection toggle on Attacks is "Reveal hidden
+injection"; do not call it an X-Ray viewer.
 
-Do not tap "Hijack the agent" on the shared demo if budget is 0 — the
-contract would return `BLOCKED_BUDGET` first, which is the wrong story.
-Other blocked-payee proofs: `GMHSVLSGh8wEGAs7pmeMNWh4HLjpmd8QCLRJobVKXkcR`.
+## 1:10 – 1:25 · Above the threshold, the owner decides
 
-## 1:15 – 1:28 · Above the threshold, the owner decides
+Screen: `/approve`, or a 1.5 NEAR payment the owner already approved
+(`5Egz99BbvHEe7hBkek1JCd6pxZRwGTQch2h9H7ac1iTz`, or the in-app "Approved by the owner, then
+paid" row).
 
-Screen: `/approve`, or the proof of an owner approval
-(`5Egz99BbvHEe7hBkek1JCd6pxZRwGTQch2h9H7ac1iTz`) / a 1.5 NEAR request that
-waited (`8D6HW9p6eGudHSzNQnThAo7p2D2V3aqmh6KxVvUf46Ye`).
+> "Anything over one NEAR waits for the owner. You approve from your phone, in your own
+> wallet. The app never sees your key."
 
-> "Anything over one NEAR waits for the owner. You approve from your phone,
-> in your own wallet. The app never sees your key."
+Do not complete an Approve in this recording unless the owner's wallet is actually signed in
+and a pending request exists.
 
-Do not complete an Approve in this recording unless the owner's Meteor
-wallet is actually signed in and a pending request exists.
+## 1:25 – 1:50 · Verify-live
 
-## 1:28 – 1:55 · Verify-live, velocity, kill-switch
+Screen: `/verify`. Wait for the live checks, then scroll through the agent key scope, the
+vault full-access key count (honestly "still present, removed at code freeze" until it is
+zero), owner control, code hash and balance, velocity, and kill-switch.
 
-Screen: `/verify`. Wait for the live checks to finish, then scroll through
-the agent key, code hash, velocity limit, and kill-switch cards.
+> "You don't have to trust this UI. These checks query a public testnet RPC from your
+> browser. The agent's key is limited to request_payment. Owner methods need the owner's
+> signature and one yoctoNEAR. We will not trip the kill-switch on the shared demo today."
 
-> "You don't have to trust this UI. This verify panel queries a public
-> testnet RPC from your browser: the agent's key, the code hash, the
-> velocity limit, and the kill-switch. Automatic payments are capped at
-> three payments or one NEAR in ten minutes. Three blocked payments to
-> unknown accounts in a row pause spending. We won't trip that on the
-> shared demo today."
+Do not delete any keys during the recording.
 
-## 1:55 – 2:15 · Your own vault, SDK, MCP
+## 1:50 – 2:15 · Settlement layer, then close
 
-Screen: `/start`, then desktop `/docs`.
+Screen: the homepage "safe settlement layer for the agent economy" section, then `/docs` or
+the MCP snippet, then `/` with the URL.
 
-> "Anyone can create their own guarded wallet in one transaction, through a
-> factory on NEAR. Connect a wallet, pick a template, and you own the vault.
-> There's an SDK, and a local MCP server, so other agents can call the same
-> rules."
-
-Do not submit the factory form without a connected owner wallet.
-
-## 2:15 – 2:30 · Close
-
-Screen: `/`, mascot, URL on screen.
-
-> "Give AI the freedom to act, never the freedom to overspend. Try it at
-> guardian-wallet.vercel.app."
+> "A provider sells, a buyer pays through the vault. There's an SDK, and a local MCP server
+> you run from the repo today. Give AI the freedom to act, never the freedom to overspend.
+> Try it at guardian-wallet.vercel.app."
 
 ## Short cut (30–45s, for X)
 
-Hook on `/`, then the blocked-payee NearBlocks receipt, then the URL.
+Hook on `/`, the heist banner and a blocked-payee receipt, then the URL.
 
-> "Give your AI an allowance, not your bank password. Guardian Wallet
-> assumes the agent will be hijacked, and makes that not matter. A NEAR
-> contract holds the funds and blocks a stolen payment on-chain. Try it at
-> guardian-wallet.vercel.app."
+> "Give your AI an allowance, not your bank password. Guardian Wallet assumes the agent will
+> be hijacked, and makes that not matter. A NEAR contract holds the funds and blocks a stolen
+> payment on-chain. Try it at guardian-wallet.vercel.app."
 
 ## If something goes wrong while recording
 
-- An amber "as of HH:MM" pill: the testnet RPC is slow. Keep going; it
-  refreshes on its own.
-- Shared demo budget is 0, or the breaker is on: use the proofs above.
-  Do not reset or freeze the shared demo from a public recording.
+- An amber "as of HH:MM" pill: the testnet RPC is slow. Keep going; it refreshes on its own.
+- Shared demo budget is 0, or the breaker is on: use the proofs above. Do not reset or freeze
+  the shared demo from a public recording.
 - Out of public agent runs (5 per 10 minutes): wait, or cut to proofs.
-- A careful-model attack is fine to show later, but it is not required
-  for this cut; the contract layer is the claim we have to show on-chain.

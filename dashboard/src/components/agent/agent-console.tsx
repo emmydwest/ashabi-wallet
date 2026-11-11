@@ -20,7 +20,9 @@ import { RulesBar } from './rules-bar';
 import { RunTimeline } from './run-timeline';
 import { AttackPreview } from './attack-preview';
 import { HowToTry } from './how-to-try';
+import { HeistBanner } from './heist-banner';
 import { useAgentRun } from './use-agent-run';
+import { OnChainFeed } from '@/components/on-chain-feed';
 import { ProofFlow, proofBlocker, type ProofKind } from '@/components/proof/proof-flow';
 import { BudgetMeter } from '@/components/stats/budget-meter';
 import { killSwitch } from '@/lib/stats';
@@ -40,6 +42,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
   const [walletNotice, setWalletNotice] = useState<string | null>(null);
   const [confirmBreaker, setConfirmBreaker] = useState(false);
   const runCard = useRef<HTMLDivElement>(null);
+  const attacksCard = useRef<HTMLDivElement>(null);
 
   // Back from a MyNearWallet approval: say what happened, then tidy the URL.
   useEffect(() => {
@@ -129,6 +132,14 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
         <ProofFlow snapshot={snapshot} onRun={tryProof} busy={running || outOfRuns} />
       </div>
 
+      <HeistBanner
+        snapshot={snapshot}
+        onAttack={() => {
+          setMode('attack');
+          setTimeout(() => attacksCard.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+        }}
+      />
+
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
         <HowToTry />
         <Scoreboard status={status} />
@@ -139,6 +150,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
       </div>
 
       <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
+        <div ref={attacksCard} className="min-w-0 scroll-mt-20">
         <Card className="min-w-0">
           <div className="flex gap-1 p-4 pb-0 sm:p-5 sm:pb-0">
             {(['task', 'attack'] as const).map((m) => (
@@ -213,6 +225,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
                         setConfirmBreaker(false);
                       }}
                       title={a.name}
+                      tests={a.tests}
                     >
                       {a.blurb}
                     </Option>
@@ -308,6 +321,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
             </p>
           </div>
         </Card>
+        </div>
 
         <div ref={runCard} className="min-w-0 scroll-mt-20">
           <Card className="min-w-0">
@@ -337,6 +351,10 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
             </div>
           </Card>
         </div>
+      </div>
+
+      <div className="mt-10">
+        <OnChainFeed initial={snapshot} title="What the contract just recorded" />
       </div>
     </div>
   );
@@ -568,10 +586,11 @@ type OptionProps = {
   onClick: () => void;
   title: string;
   tone: 'rose' | 'white';
+  tests?: string;
   children: React.ReactNode;
 };
 
-function Option({ active, onClick, title, tone, children }: OptionProps) {
+function Option({ active, onClick, title, tone, tests, children }: OptionProps) {
   const on = tone === 'rose' ? 'border-rose-400/40 bg-rose-400/[0.08]' : 'border-white/25 bg-white/[0.07]';
   return (
     <button
@@ -583,6 +602,7 @@ function Option({ active, onClick, title, tone, children }: OptionProps) {
     >
       <div className="text-sm font-medium text-white">{title}</div>
       <div className="mt-0.5 text-xs leading-relaxed text-zinc-400">{children}</div>
+      {tests && <div className="mt-1.5 text-[11px] leading-relaxed text-emerald-200/80">Tests: {tests}</div>}
     </button>
   );
 }

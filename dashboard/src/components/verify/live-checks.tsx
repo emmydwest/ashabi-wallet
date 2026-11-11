@@ -59,7 +59,7 @@ export function LiveChecks({ compact = false }: { compact?: boolean }) {
             Don’t trust this UI. Check the chain yourself.
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
-            These five checks run in your browser against a public testnet RPC. A green tick means the call succeeded
+            These checks run in your browser against a public testnet RPC. A green tick means the call succeeded
             and the claim held. If something fails, you’ll see the error, not a mock.
           </p>
         </div>

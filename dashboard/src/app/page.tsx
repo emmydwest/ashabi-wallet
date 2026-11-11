@@ -9,6 +9,8 @@ import { LiveStatus, LiveStatusSkeleton } from '@/components/landing/live-status
 import { ScreensStrip } from '@/components/landing/screens-strip';
 import { StatsStrip } from '@/components/landing/stats-strip';
 import { Trust } from '@/components/landing/trust';
+import { Economy } from '@/components/landing/economy';
+import { HomeFeed } from '@/components/landing/home-feed';
 import { LiveChecks } from '@/components/verify/live-checks';
 import { Mascot } from '@/components/mascot/mascot';
 import { accountUrl, CONTRACT_ID } from '@/lib/config';
@@ -193,6 +195,12 @@ export default function Home() {
         </div>
       </section>
 
+      <section id="activity" className="pt-24">
+        <Suspense fallback={<div className="glass h-64 animate-pulse rounded-card" aria-hidden />}>
+          <HomeFeed />
+        </Suspense>
+      </section>
+
       <section id="verify" className="pt-24">
         <LiveChecks compact />
       </section>
@@ -277,6 +285,10 @@ export default function Home() {
             </table>
           </div>
         </div>
+      </section>
+
+      <section className="pt-24">
+        <Economy />
       </section>
 
       <section className="pt-24">

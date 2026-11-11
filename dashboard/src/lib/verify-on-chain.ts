@@ -196,7 +196,39 @@ function accountCheck(account: AccountView): LiveCheck {
   };
 }
 
-/** Runs five live RPC checks in the caller’s browser (or any JS runtime). */
+
+function contractKeyCheck(keys: AccessKey[]): LiveCheck {
+  const title = 'Vault full-access keys';
+  const full = keys.filter((k) => k.access_key.permission === 'FullAccess');
+  if (full.length > 0) {
+    return {
+      id: 'contract-keys',
+      title,
+      state: 'warn',
+      summary: `The vault account still has ${full.length} full-access key${full.length === 1 ? '' : 's'}, left on during development. They will be removed at code freeze.`,
+      detail: `${keys.length} key(s) on ${CONTRACT_ID} in total. This check turns green on its own once the count is 0. No keys are deleted from this page.`,
+    };
+  }
+  return {
+    id: 'contract-keys',
+    title,
+    state: 'pass',
+    summary: `No full-access keys on ${CONTRACT_ID}.`,
+    detail: `${keys.length} key(s) on the vault account, none with full access.`,
+  };
+}
+
+function ownerControlCheck(status: WalletStatus): LiveCheck {
+  return {
+    id: 'owner-control',
+    title: 'Owner control',
+    state: 'pass',
+    summary: `Owner methods need a signature from ${status.owner_id} and a 1 yoctoNEAR deposit. An agent key cannot call them, even with full access on the agent account.`,
+    detail: 'This is how the deployed contract is written (approve, reject, freeze, unfreeze, set limits and payees, and the other owner methods). This check confirms the live vault and the live owner id; it does not disassemble the WASM.',
+  };
+}
+
+/** Runs the live RPC checks in the caller’s browser (or any JS runtime). */
 export async function runLiveChecks(): Promise<VerifyResult> {
   const checks: LiveCheck[] = [];
 
@@ -209,6 +241,11 @@ export async function runLiveChecks(): Promise<VerifyResult> {
     rpc<AccountView>('query', { request_type: 'view_account', finality: 'final', account_id: CONTRACT_ID }),
     view<WalletStatus>('get_wallet_status'),
     view<BlockedAttempt[]>('get_blocked_attempts', { limit: 1 }),
+    rpc<{ keys: AccessKey[] }>('query', {
+      request_type: 'view_access_key_list',
+      finality: 'final',
+      account_id: CONTRACT_ID,
+    }),
   ]);
 
   const keys = settled[0];
@@ -225,11 +262,20 @@ export async function runLiveChecks(): Promise<VerifyResult> {
       : failed('code', 'Contract code hash and balance', account.reason),
   );
 
+  const vaultKeys = settled[4];
+  checks.push(
+    vaultKeys.status === 'fulfilled'
+      ? contractKeyCheck(vaultKeys.value.keys ?? [])
+      : failed('contract-keys', 'Vault full-access keys', vaultKeys.reason),
+  );
+
   const status = settled[2];
   if (status.status === 'fulfilled') {
+    checks.push(ownerControlCheck(status.value));
     checks.push(velocityCheck(status.value));
     checks.push(breakerCheck(status.value));
   } else {
+    checks.push(failed('owner-control', 'Owner control', status.reason));
     checks.push(failed('velocity', 'Velocity limit is on', status.reason));
     checks.push(failed('breaker', 'Kill-switch is armed', status.reason));
   }

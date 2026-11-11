@@ -10,15 +10,17 @@
 
 Prompt-inject the agent, swap its model, steal its key: the worst it can do is file requests the
 contract refuses. Owner view for phones: https://guardian-wallet.vercel.app/approve. Agents can
-plug in with the [`@guardian-wallet/sdk`](packages/sdk) package.
+plug in with the [`guardian-wallet-sdk`](packages/sdk) package (not on npm yet; install from `./packages/sdk`).
 
 ## For judges: try it in 2 minutes
 
 No wallet, no sign-up, no testnet NEAR. Everything runs on the project's own testnet vault,
 with the agent's own limited key. Open https://guardian-wallet.vercel.app/agent on any phone or laptop.
 
-1. **Tap B, "Hijack the agent".** The agent sends 2 NEAR to the
-   attacker; the contract refuses it on-chain. Tap "View tx" for the NearBlocks record.
+1. **The public heist challenge** at the top of `/agent` shows the live vault balance from the
+   contract (not a baked-in figure). **Tap B, "Hijack the agent".** The agent sends 2 NEAR to the
+   attacker; the contract refuses it on-chain. Tap "View tx" for the NearBlocks record. A live
+   feed on `/` and below the arena lists recent purchases and blocked attempts from the same vault.
 2. **Real jobs tab → "What is the weather in Lagos right now?" → Run.** The vendor answers
    402, the agent pays 0.05 NEAR through the guardian, retries with the receipt, and the data
    unlocks. Then tap **Verify intent**: your browser recomputes the hash and matches the memo on-chain.
@@ -33,9 +35,11 @@ with the agent's own limited key. Open https://guardian-wallet.vercel.app/agent 
    "Renew my API plan for a year" files a 1.5 NEAR request that waits on a card at
    `/vault/<your wallet>/request/<id>`, which you approve from your phone.
 
-6. **Open `/verify`.** Five checks run in your browser against a public testnet RPC: the agent
-   key’s restrictions, the contract code hash and balance, the velocity limit, the kill-switch,
-   and the latest blocked attempt. Under that is every proof transaction with a NearBlocks link.
+6. **Open `/verify`.** The checks run in your browser against a public testnet RPC: the agent
+   key’s scope, the vault’s full-access key count (currently present, removed at code freeze),
+   owner control (owner methods need the owner’s signature and 1 yoctoNEAR), the contract code
+   hash and balance, the velocity limit, the kill-switch, and the latest blocked attempt. Under
+   that is every proof transaction with a NearBlocks link.
 
 What you might see:
 
@@ -303,7 +307,7 @@ Each row is a real attack the contract (and, where noted, the live demo) is buil
 ## Use it from your agent
 
 ```ts
-import { accountSigner, GuardianAgent, nearToYocto } from '@guardian-wallet/sdk';
+import { accountSigner, GuardianAgent, nearToYocto } from 'guardian-wallet-sdk';
 
 const agent = new GuardianAgent({ contractId: 'guardian.gw-emmy.testnet', agentId, signer: accountSigner(account) });
 const result = await agent.requestPayment({ receiverId: 'api-vendor.gw-emmy.testnet', amount: nearToYocto('0.05') });
@@ -320,8 +324,9 @@ agent, `run-agent.ts` calls `requestPayment` and `pay402`). Full API in
 
 ### MCP server
 
-`packages/mcp-server` is a local stdio MCP server around the same SDK. It is **not published to
-npm**; run it from this repo. Tools: `guardian_wallet_status`, `guardian_get_payment`,
+`packages/mcp-server` (`guardian-wallet-mcp`) is a local stdio MCP server around the same SDK. It is
+**not published to npm yet**; run it from this repo. After it is published, the same server will
+start with `npx -y guardian-wallet-mcp`. Tools: `guardian_wallet_status`, `guardian_get_payment`,
 `guardian_request_payment`, `guardian_fetch_402`. Status and `get_payment` need no key; the
 payment tools need a function-call key. The contract still decides whether money moves.
 
@@ -335,6 +340,13 @@ claude mcp add guardian --env GUARDIAN_CONTRACT --env AGENT_ACCOUNT --env AGENT_
 ```
 
 More in [packages/mcp-server/README.md](packages/mcp-server/README.md).
+
+### The agent economy, as this repo actually implements it
+
+`api-vendor.gw-emmy.testnet` is a provider that sells testnet data and services over HTTP 402.
+`gw-emmy-agent.testnet` is a buyer agent that can only ask the vault to pay. The vendor does not
+unlock a payload until it sees a matching on-chain payment. Guardian Wallet is the settlement
+layer between them: the contract still enforces the owner’s rules.
 
 ## Why NEAR
 

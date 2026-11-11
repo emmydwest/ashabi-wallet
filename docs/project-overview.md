@@ -115,7 +115,7 @@ The vault holds about 17 testnet NEAR. As of writing the contract has recorded 2
 3. **Agent runtime** (server route `/api/agent/run`, streams NDJSON). It reads the vendor catalog
    and docs, asks a model for a JSON payment plan, sends `request_payment` through the SDK, and
    streams every step to the browser.
-3b. **SDK** (`packages/sdk`, `@guardian-wallet/sdk`). A dependency-free TypeScript package with a
+3b. **SDK** (`packages/sdk`, `guardian-wallet-sdk`). A dependency-free TypeScript package with a
    `GuardianAgent` class: `requestPayment`, `getPolicy`, `getStatus`, `getPayment`,
    `waitForSettlement` and `pay402(url)` (fetch, pay the 402 challenge, retry with the receipt).
    Results use the contract's status enum. Signing is injected (`accountSigner(account)` wraps a
@@ -327,8 +327,10 @@ happened".
 
 Five live RPC checks run in the visitor's browser: the agent key is a function-call key limited
 to `request_payment` on the vault (with an honest warning if a full-access key is still present),
-the contract's `view_account` code hash and balance, the velocity guards from `get_wallet_status`,
-the kill-switch threshold, and the latest blocked attempt. Failures and caveats are shown as
+the contract's `view_account` code hash and balance, the vault account's full-access key count
+(warns while keys remain, turns green at 0; nothing on this page deletes keys), owner control
+(owner methods need the owner's signature and 1 yoctoNEAR — this is how the contract is written),
+the velocity guards from `get_wallet_status`, the kill-switch threshold, and the latest blocked attempt. Failures and caveats are shown as
 such. Below that is every published proof transaction, grouped, with NearBlocks links. The same
 checks also sit on `/` and `/agent`.
 
@@ -397,6 +399,19 @@ agent log and its trap page sit in a collapsed "Recorded reference run" section.
     compromised, contract blocked unapproved payee", followed by "Contract verdict: …".
 - **Verdict badges** on every run, and **View args**, which shows the exact JSON sent to the
   contract. HTTP steps show the raw 402 response the same way.
+- **Public heist challenge.** The `/agent` banner reads the vault's live `balance` from
+  `get_wallet_status` (the account's NEAR, not a hardcoded figure) and invites visitors to try to
+  make the agent steal it. Rules are stated honestly: testnet, the agent can only ask, the contract
+  decides. A counter shows payments to unknown accounts blocked, and the all-time blocked request
+  total (which also includes budget and speed limits).
+- **Live on-chain feed.** The homepage and the area below the attack arena list recent payments,
+  pending owner approvals, and blocked attempts from the demo vault, with NearBlocks links when the
+  explorer API has a matching `request_payment` transaction. The list refreshes every few seconds
+  and says so when the RPC is stale or empty.
+- **Agent economy framing.** The homepage section "The safe settlement layer for the agent economy"
+  describes `api-vendor.gw-emmy.testnet` as a provider selling over HTTP 402 and `gw-emmy-agent.testnet`
+  as a buyer agent. The MCP drop-in shows the local `node dist/index.js` command that works today,
+  and notes that `npx -y guardian-wallet-mcp` applies only after the package is published.
 - **Intent hash + Verify intent.** Every request's memo includes `intent:<16 hex>`. That is the
   start of a SHA-256 over sorted-key JSON of the task, model, the model's reasoning, SKU, amount,
   payee, installments and timestamp. The run returns the full log, and it is also kept for 7 days
@@ -483,7 +498,7 @@ Each hash opens at `https://testnet.nearblocks.io/txns/<hash>`.
 | Naive agent follows a hidden `display:none` instruction (memo has its intent hash) | `BLOCKED_RECIPIENT` | `F3ycvuJCmQomwbM6AiiLhBrcb2CzvBJ7MpCEG6WA7N54` |
 | Hijacked agent sends 2 NEAR to the attacker | `BLOCKED_RECIPIENT` | `AVTza2m9fpq6KWvUkUpu7Y2dAfoWqRYys4VA64aaLftb` |
 | Contract upgrade to pending expiry and the pending cap (`migrate`, owner unchanged) | deployed | `6CCtDzZobQz5og1RUpBgkH7TrdfJjQmy1EjRLJtfBai6` |
-| First 402 purchase run through `@guardian-wallet/sdk` (`pay402`) | `APPROVED`, receipt verified | `8fRFcf6dJqJg9GbEkfMMDcU62m5VRHUb24aoyseSaVgn` |
+| First 402 purchase run through `guardian-wallet-sdk` (`pay402`) | `APPROVED`, receipt verified | `8fRFcf6dJqJg9GbEkfMMDcU62m5VRHUb24aoyseSaVgn` |
 | Hijack after the upgrade, with the new "Defense: contract layer" verdict | `BLOCKED_RECIPIENT` | `FDsnyvAKGoCdmmj3GcGdRVYyR8gNaLa99KbNuxeJQd4p` |
 | Poisoned docs trick the model into paying a look-alike vendor | `BLOCKED_RECIPIENT` | `GMHSVLSGh8wEGAs7pmeMNWh4HLjpmd8QCLRJobVKXkcR` |
 | Agent splits a 1.5 NEAR purchase into small pieces | `BLOCKED_VELOCITY` | `E1WH3RiMuBSb8tGR6ZbSa5My4to3ap38yCp66jJ2mocm` |
@@ -641,7 +656,7 @@ sometimes gullible models. When one of them falls for an injection, the contract
 - Contract: pending approvals expire after 24 hours and release their budget (`EXPIRED`,
   `payment_expired`, `expire_pending()`), at most 3 wait at once (`TOO_MANY_PENDING`), owner-tunable
   with `set_pending_rules`. Migrated in place; owner still `realfile1618.testnet`.
-- `packages/sdk` (`@guardian-wallet/sdk`) with `GuardianAgent` and `pay402`; the live console
+- `packages/sdk` (`guardian-wallet-sdk`) with `GuardianAgent` and `pay402`; the live console
   uses it.
 
 ---

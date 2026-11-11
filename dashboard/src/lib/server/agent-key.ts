@@ -1,5 +1,5 @@
 import 'server-only';
-import { accountSigner, GuardianAgent } from '@guardian-wallet/sdk';
+import { accountSigner, GuardianAgent } from 'guardian-wallet-sdk';
 import { Account, JsonRpcProvider } from 'near-api-js';
 import { AGENT_ID, CONTRACT_ID, FACTORY_ID, isVaultId, RPC_URL } from '@/lib/config';
 import { viewCall } from '@/lib/near';
