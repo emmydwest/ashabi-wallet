@@ -67,7 +67,7 @@ function Header({ pathname }: { pathname: string | null }) {
         </nav>
 
         <div className="flex items-center gap-2">
-          <NearBadge className="hidden lg:block" />
+          <span className="hidden lg:inline-flex"><NearBadge /></span>
           <ConnectWalletButton variant="nav" />
           <Link
             href="/chat"
@@ -82,7 +82,7 @@ function Header({ pathname }: { pathname: string | null }) {
             aria-expanded={open}
             aria-controls="mobile-nav"
             aria-label={open ? 'Close menu' : 'Open menu'}
-            className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-200 lg:hidden"
+            className="grid size-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-200 lg:hidden"
           >
             {open ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>

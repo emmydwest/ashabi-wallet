@@ -10,19 +10,17 @@ export function DemoWalletLabel({ className = '' }: { className?: string }) {
 
   return (
     <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 ${className}`}>
-      <span className="inline-flex min-w-0 items-center gap-1.5">
-        <span>
-          Public demo wallet ·{' '}
-          <a
-            href={accountUrl(CONTRACT_ID)}
-            target="_blank"
-            rel="noreferrer"
-            className="whitespace-nowrap font-mono text-emerald-300/90 hover:text-emerald-200"
-          >
-            {CONTRACT_ID}
-          </a>
-        </span>
-        <span className="group relative inline-flex">
+      <span>
+        Public demo wallet ·{' '}
+        <a
+          href={accountUrl(CONTRACT_ID)}
+          target="_blank"
+          rel="noreferrer"
+          className="whitespace-nowrap font-mono text-emerald-300/90 hover:text-emerald-200"
+        >
+          {CONTRACT_ID}
+        </a>
+        <span className="group relative ml-1 inline-flex align-middle">
           <button
             type="button"
             aria-label="About these numbers"
@@ -32,7 +30,7 @@ export function DemoWalletLabel({ className = '' }: { className?: string }) {
           </button>
           <span
             role="tooltip"
-            className="pointer-events-none invisible absolute bottom-full right-0 z-20 mb-2 w-56 rounded-lg border border-white/10 bg-zinc-950 px-3 py-2 text-left text-xs leading-relaxed text-zinc-200 opacity-0 shadow-xl group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+            className="pointer-events-none invisible absolute top-full left-0 z-20 mt-1.5 w-56 rounded-lg border border-white/10 bg-zinc-950 px-3 py-2 text-left text-xs leading-relaxed text-zinc-200 opacity-0 shadow-xl group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
           >
             These numbers are live on the NEAR testnet contract, not mocked.
           </span>
