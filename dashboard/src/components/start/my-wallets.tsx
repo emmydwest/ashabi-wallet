@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useWallet } from '@/components/approve/wallet';
+import { Mascot } from '@/components/mascot/mascot';
 import { CONTRACT_ID } from '@/lib/config';
 import { factory, vaultName, type VaultInfo } from '@/lib/factory';
 
@@ -25,7 +26,8 @@ export function MyWallets() {
   if (!accountId)
     return (
       <div className="glass rounded-card px-5 py-10 text-center">
-        <p className="text-white">Connect to see the wallets you own</p>
+        <Mascot size={120} decorative className="mx-auto" />
+        <p className="mt-2 text-white">Connect to see the wallets you own</p>
         <button
           type="button"
           onClick={() => signIn()}
@@ -60,7 +62,8 @@ export function MyWallets() {
         {error && <p className="text-sm text-danger">Couldn’t reach NEAR testnet. Refresh to try again.</p>}
         {vaults?.length === 0 && (
           <div className="glass rounded-card px-5 py-10 text-center">
-            <p className="text-white">You don’t have a guarded wallet yet</p>
+            <Mascot mood="thinking" size={120} decorative className="mx-auto" />
+            <p className="mt-2 text-white">You don’t have a guarded wallet yet</p>
             <p className="mt-1 text-sm text-zinc-400">It takes one transaction and a little testnet NEAR.</p>
           </div>
         )}
@@ -80,7 +83,7 @@ export function MyWallets() {
       </div>
       <Link
         href="/start"
-        className="mt-5 block rounded-xl bg-brand py-3.5 text-center text-[15px] font-semibold text-on-brand hover:bg-brand-strong"
+        className="btn-brand mt-5 block rounded-full py-3.5 text-center text-[15px] font-semibold transition-shadow"
       >
         Create {vaults?.length ? 'another' : 'my'} guarded wallet
       </Link>

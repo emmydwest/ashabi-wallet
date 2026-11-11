@@ -6,6 +6,7 @@ import { ApprovalCard } from '@/components/approve/approval-card';
 import { useWallet } from '@/components/approve/wallet';
 import { readWalletReturn, walletLinkFor } from '@/components/approve/wallet-link';
 import { ExplorerLink } from '@/components/explorer-link';
+import { Mascot, type Mood } from '@/components/mascot/mascot';
 import { useGuardian } from '@/components/use-guardian';
 import { CONTRACT_ID } from '@/lib/config';
 import { viewCall } from '@/lib/near';
@@ -14,12 +15,12 @@ import type { GuardianSnapshot, PaymentRecord } from '@/lib/types';
 
 type Props = { vaultId: string; recordId: number; initial: GuardianSnapshot };
 
-const OUTCOME: Record<string, { title: string; tone: string }> = {
-  TRANSFERRING: { title: 'Approved, paying now', tone: 'text-safe' },
-  COMPLETED: { title: 'Approved and paid', tone: 'text-safe' },
-  REJECTED: { title: 'Rejected', tone: 'text-zinc-200' },
-  EXPIRED: { title: 'Expired without an answer', tone: 'text-zinc-300' },
-  FAILED: { title: 'Approved, but the transfer failed', tone: 'text-danger' },
+const OUTCOME: Record<string, { title: string; tone: string; mood: Mood }> = {
+  TRANSFERRING: { title: 'Approved, paying now', tone: 'text-safe', mood: 'thinking' },
+  COMPLETED: { title: 'Approved and paid', tone: 'text-safe', mood: 'approved' },
+  REJECTED: { title: 'Rejected', tone: 'text-zinc-200', mood: 'blocked' },
+  EXPIRED: { title: 'Expired without an answer', tone: 'text-zinc-300', mood: 'alert' },
+  FAILED: { title: 'Approved, but the transfer failed', tone: 'text-danger', mood: 'alert' },
 };
 
 // The page a phone opens from a shared link: one request, the two buttons, and its outcome.
@@ -89,7 +90,8 @@ export function RequestView({ vaultId, recordId, initial }: Props) {
         {record === undefined && <div className="glass h-72 animate-pulse rounded-card" aria-label="Loading" />}
         {record === null && (
           <div className="glass rounded-card px-5 py-10 text-center">
-            <div className="text-white">No request #{recordId} on this wallet</div>
+            <Mascot mood="thinking" size={120} decorative className="mx-auto" />
+            <div className="mt-2 text-white">No request #{recordId} on this wallet</div>
             <p className="mt-1 text-sm text-zinc-400">The link may be for another wallet, or it was mistyped.</p>
           </div>
         )}
@@ -151,10 +153,11 @@ export function RequestView({ vaultId, recordId, initial }: Props) {
 
 function Outcome({ record }: { record: PaymentRecord }) {
   const { amount, what } = describeRequest(record);
-  const outcome = OUTCOME[record.status] ?? { title: record.status, tone: 'text-zinc-200' };
+  const outcome = OUTCOME[record.status] ?? { title: record.status, tone: 'text-zinc-200', mood: 'happy' };
   return (
     <div className="glass rounded-card px-5 py-8 text-center">
-      <div className={`font-display text-xl font-semibold ${outcome.tone}`}>{outcome.title}</div>
+      <Mascot mood={outcome.mood} size={128} decorative className="mx-auto" />
+      <div className={`mt-2 font-display text-xl font-semibold ${outcome.tone}`}>{outcome.title}</div>
       <p className="mt-2 text-sm text-zinc-400">
         {amount} NEAR for {what} · request #{record.id}
       </p>

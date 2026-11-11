@@ -1,7 +1,7 @@
 # Swapping in the brand
 
-The product pages (`/`, `/start`, `/wallet`, `/vault/...`, `/chat`) take their look from a
-handful of tokens, so a new logo, palette and typeface is a short change in four places.
+Every page takes its look from a handful of tokens: black, a neon mint brand colour, glass cards
+and a soft glow. A new logo, palette and typeface is a short change in a few places.
 
 ## 1. Colours: `dashboard/src/app/globals.css`
 
@@ -20,11 +20,13 @@ In the `@theme inline` block:
 Leave `--color-safe`, `--color-pending` and `--color-danger` alone unless you mean it: they carry
 meaning (paid, waiting for you, blocked) across every page, including the Arena.
 
-The older Arena and dashboard screens still use Tailwind's emerald and rose directly as status
-colours. They look right next to any brand colour, but if you want them on-brand too, search
-`dashboard/src` for `emerald-`.
+The older Arena and dashboard screens use Tailwind's `emerald-*` classes. The same `@theme`
+block redefines that scale as the mint brand, so they follow it; change both together.
 
-The headline gradient is `.text-gradient` in the same file.
+Also in `globals.css`: `.glass` (card surface), `.glass-glow` (the one lit card on a page),
+`.btn-brand` (primary button), `.glow-text`, the headline gradient `.text-gradient`, and the
+motion utilities (`animate-float`, `animate-glow`, `animate-blink`, `animate-dot-wait`), all
+switched off under `prefers-reduced-motion`.
 
 ## 2. Fonts: `dashboard/src/app/layout.tsx`
 
@@ -44,9 +46,20 @@ Body text stays on `--font-sans`; change that variable too if the brand has a te
 
 ## 3. Logo: `dashboard/src/components/logo.tsx`
 
-One component, an inline SVG sized by `className` (`size-7` in the header). Replace the SVG
-with the new mark and keep the same props. The favicon is `dashboard/src/app/icon.svg`.
+`Logo` is the shield mark, an inline SVG sized by `className`; `Wordmark` pairs it with the name
+and `NearBadge` is the "Built on NEAR" pill. The favicon, Apple touch icon and social card are
+`dashboard/src/app/icon.png`, `apple-icon.png` and `opengraph-image.png`.
 
-## 4. Name and copy
+## 4. Mascot: `dashboard/src/components/mascot/mascot.tsx`
+
+`<Mascot mood="happy | thinking | alert | blocked | approved" size={…} />`. From 112 px up it
+draws the blank helmet (`public/mascot/blank.webp`) with the eyes as an SVG dot matrix over the
+visor, so they blink and change between moods. Smaller copies (chat avatar, verdict chips) use
+the pre-rendered `public/mascot/<mood>-128.webp`. The NEAR logo never goes on the mascot; NEAR
+appears only as the "Built on NEAR" / "Powered by NEAR" badges.
+
+Icons are `lucide-react`, at `size-4` or `size-5`, in the brand colour inside a tinted tile.
+
+## 5. Name and copy
 
 The product name appears in `site-header.tsx`, page `metadata` titles and the home page hero.

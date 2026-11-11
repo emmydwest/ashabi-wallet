@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useWallet } from '@/components/approve/wallet';
 import { readWalletReturn } from '@/components/approve/wallet-link';
 import { ExplorerLink } from '@/components/explorer-link';
+import { Mascot } from '@/components/mascot/mascot';
 import { parseNear } from '@/lib/amount';
 import { FACTORY_ID, FAUCET_URL } from '@/lib/config';
 import { factory, nameProblem, vaultIdFor, type Template, type VaultInfo } from '@/lib/factory';
@@ -117,7 +118,7 @@ export function StartFlow() {
   if (creating)
     return (
       <Panel>
-        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-brand" />
+        <Mascot mood="thinking" size={120} decorative className="mx-auto" />
         <h2 className="mt-5 text-center font-display text-xl font-semibold text-white">Setting up your wallet</h2>
         <p className="mt-2 text-center text-sm text-zinc-400">
           Creating <span className="font-mono text-zinc-200">{creating.vaultId}</span> and its agent account. This takes
@@ -236,7 +237,7 @@ export function StartFlow() {
         type="button"
         onClick={create}
         disabled={!canCreate}
-        className="w-full rounded-xl bg-brand py-4 text-base font-semibold text-on-brand transition hover:bg-brand-strong disabled:opacity-40"
+        className="w-full rounded-xl btn-brand py-4 text-base font-semibold text-on-brand transition disabled:opacity-40"
       >
         Create my guarded wallet
       </button>
@@ -254,7 +255,7 @@ const suggestName = (accountId: string) =>
 function Ready({ vault, tx }: { vault: VaultInfo; tx?: string }) {
   return (
     <Panel>
-      <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-brand-soft text-2xl text-brand">✓</div>
+      <Mascot mood="approved" size={128} className="mx-auto" />
       <h2 className="mt-4 text-center font-display text-2xl font-semibold text-white">Your agent is ready</h2>
       <p className="mt-2 text-center text-sm text-zinc-400">
         {vault.state === 'READY'
@@ -274,7 +275,7 @@ function Ready({ vault, tx }: { vault: VaultInfo; tx?: string }) {
       <div className="mt-6 grid gap-3">
         <Link
           href={`/chat?vault=${vault.vault_id}`}
-          className="rounded-xl bg-brand py-3.5 text-center text-[15px] font-semibold text-on-brand hover:bg-brand-strong"
+          className="rounded-xl btn-brand py-3.5 text-center text-[15px] font-semibold text-on-brand"
         >
           Ask it to buy something
         </Link>

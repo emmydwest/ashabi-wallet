@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ExplorerLink } from '@/components/explorer-link';
+import { Mascot } from '@/components/mascot/mascot';
 import { useGuardian } from '@/components/use-guardian';
 import { nsToDate, toNear } from '@/lib/near';
 import { AsOf } from '@/components/as-of';
@@ -180,7 +181,8 @@ export function ApproveView({ initial, vaultId = CONTRACT_ID, header, footer }: 
       <div className="mt-3 space-y-3">
         {snapshot.pending.length === 0 && (
           <div className="glass rounded-2xl px-5 py-10 text-center">
-            <div className="text-white">Nothing needs your approval</div>
+            <Mascot size={112} decorative className="mx-auto" />
+            <div className="mt-2 text-white">Nothing needs your approval</div>
             <p className="mt-1 text-sm text-zinc-400">
               Payments above {toNear(snapshot.status.approval_threshold)} NEAR will show up here.
             </p>

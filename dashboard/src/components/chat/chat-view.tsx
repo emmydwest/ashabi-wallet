@@ -1,10 +1,12 @@
 'use client';
 
+import { ArrowUp, LoaderCircle, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useWallet } from '@/components/approve/wallet';
 import { ExplorerLink } from '@/components/explorer-link';
+import { Mascot, type Mood } from '@/components/mascot/mascot';
 import type { AgentEvent, PendingRequest } from '@/lib/agent/types';
 import { TASK_MAX } from '@/lib/agent/types';
 import { CONTRACT_ID, isVaultId } from '@/lib/config';
@@ -106,7 +108,11 @@ export function ChatView() {
       <div className="flex-1 space-y-4 pb-4">
         {messages.length === 0 && (
           <div className="pt-6 text-center">
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-white">What should I buy?</h1>
+            <div className="relative mx-auto w-fit">
+              <div aria-hidden className="animate-glow absolute inset-4 rounded-full bg-emerald-400/25 blur-2xl" />
+              <Mascot size={148} priority decorative className="animate-float relative" />
+            </div>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-white">What should I buy?</h1>
             <p className="mx-auto mt-2 max-w-sm text-zinc-400">
               I pay from your guarded wallet, inside the budget you set. Anything big waits for your OK.
             </p>
@@ -116,8 +122,9 @@ export function ChatView() {
                   key={idea}
                   type="button"
                   onClick={() => ask(idea)}
-                  className="glass rounded-xl px-4 py-3 text-left text-[15px] text-zinc-200 hover:bg-white/[0.05]"
+                  className="glass flex items-center gap-3 rounded-xl px-4 py-3 text-left text-[15px] text-zinc-200 transition hover:border-emerald-400/30"
                 >
+                  <Sparkles className="size-4 shrink-0 text-emerald-300" aria-hidden />
                   {idea}
                 </button>
               ))}
@@ -138,7 +145,7 @@ export function ChatView() {
         <div ref={end} />
       </div>
 
-      <div className="sticky bottom-0 -mx-4 border-t border-white/[0.06] bg-ink/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+      <div className="sticky bottom-0 -mx-4 border-t border-white/[0.06] bg-black/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
         <div className="mb-2 flex items-center justify-between gap-3 text-xs text-zinc-500">
           <label className="flex min-w-0 items-center gap-1.5">
             <span className="shrink-0">Paying from</span>
@@ -168,14 +175,15 @@ export function ChatView() {
             onChange={(e) => setText(e.target.value)}
             maxLength={TASK_MAX}
             placeholder="Ask me to buy something…"
-            className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-base text-white outline-none placeholder:text-zinc-500 focus:border-brand"
+            className="min-w-0 flex-1 rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-base text-white outline-none placeholder:text-zinc-500 focus:border-emerald-400/60"
           />
           <button
             type="submit"
+            aria-label="Send"
             disabled={running || !text.trim()}
-            className="rounded-xl bg-brand px-4 font-semibold text-on-brand disabled:opacity-40"
+            className="btn-brand grid size-12 shrink-0 place-items-center rounded-full disabled:opacity-40 disabled:shadow-none"
           >
-            {running ? '…' : 'Send'}
+            {running ? <LoaderCircle className="size-5 animate-spin" /> : <ArrowUp className="size-5" />}
           </button>
         </form>
       </div>
@@ -189,43 +197,54 @@ function Reply({ message }: { message: Extract<Message, { role: 'assistant' }> }
   const last = steps.at(-1);
 
   return (
-    <div className="max-w-[92%] space-y-2">
-      <div className="rounded-2xl rounded-bl-md border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-[15px] text-zinc-200">
-        {!done && !summary && (
-          <span className="flex items-center gap-2 text-zinc-400">
-            <span className="size-2 animate-pulse rounded-full bg-brand" />
-            {last ? last.title : 'Thinking…'}
-          </span>
+    <div className="flex max-w-[94%] items-start gap-2.5">
+      <Mascot mood={replyMood(message)} size={36} decorative className="mt-0.5 shrink-0" />
+      <div className="min-w-0 flex-1 space-y-2">
+        <div className="rounded-2xl rounded-tl-md border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-[15px] text-zinc-200">
+          {!done && !summary && (
+            <span className="flex items-center gap-2 text-zinc-400" role="status">
+              <span className="size-2 animate-pulse rounded-full bg-brand" />
+              {last ? last.title : 'Thinking…'}
+            </span>
+          )}
+          {error && <span className="text-danger">{error}</span>}
+          {summary && <SummaryText summary={summary} delivered={Boolean(delivery)} />}
+          {done && !summary && !error && <span className="text-zinc-400">I stopped before paying anyone.</span>}
+        </div>
+
+        {delivery?.data != null && <Delivered data={delivery.data} />}
+        {summary?.pending && <PendingChip vault={vault} pending={summary.pending} />}
+
+        {steps.length > 0 && (
+          <details className="px-1 text-xs text-zinc-500">
+            <summary className="cursor-pointer select-none hover:text-zinc-300">
+              What happened ({steps.length} steps)
+            </summary>
+            <ol className="mt-2 space-y-1.5 border-l border-white/10 pl-3">
+              {steps.map((s, i) => (
+                <li key={i} className="text-zinc-400">
+                  {s.title}
+                  {s.txHash && (
+                    <span className="ml-2 inline-block align-middle">
+                      <ExplorerLink txHash={s.txHash} />
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </details>
         )}
-        {error && <span className="text-danger">{error}</span>}
-        {summary && <SummaryText summary={summary} delivered={Boolean(delivery)} />}
-        {done && !summary && !error && <span className="text-zinc-400">I stopped before paying anyone.</span>}
       </div>
-
-      {delivery?.data != null && <Delivered data={delivery.data} />}
-      {summary?.pending && <PendingChip vault={vault} pending={summary.pending} />}
-
-      {steps.length > 0 && (
-        <details className="px-1 text-xs text-zinc-500">
-          <summary className="cursor-pointer select-none hover:text-zinc-300">
-            What happened ({steps.length} steps)
-          </summary>
-          <ol className="mt-2 space-y-1.5 border-l border-white/10 pl-3">
-            {steps.map((s, i) => (
-              <li key={i} className="text-zinc-400">
-                {s.title}
-                {s.txHash && (
-                  <span className="ml-2 inline-block align-middle">
-                    <ExplorerLink txHash={s.txHash} />
-                  </span>
-                )}
-              </li>
-            ))}
-          </ol>
-        </details>
-      )}
     </div>
   );
+}
+
+function replyMood({ summary, error, done }: Extract<Message, { role: 'assistant' }>): Mood {
+  if (summary?.pending) return 'alert';
+  if (summary?.verdict === 'APPROVED') return 'approved';
+  if (summary?.verdict) return 'blocked';
+  if (error) return 'alert';
+  return done ? 'happy' : 'thinking';
 }
 
 function SummaryText({ summary, delivered }: { summary: Summary; delivered: boolean }) {

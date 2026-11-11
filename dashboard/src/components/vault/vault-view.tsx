@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ApproveView } from '@/components/approve/approve-view';
 import { useWallet } from '@/components/approve/wallet';
+import { Mascot } from '@/components/mascot/mascot';
 import { PaymentFeed } from '@/components/dashboard/payment-feed';
 import { ExplorerLink } from '@/components/explorer-link';
 import { BudgetMeter } from '@/components/stats/budget-meter';
@@ -70,7 +71,7 @@ function VaultSummary({ vaultId, snapshot }: { vaultId: string; snapshot: Guardi
       <div className="mt-3 grid grid-cols-2 gap-3">
         <Link
           href={`/chat?vault=${encodeURIComponent(vaultId)}`}
-          className="rounded-xl bg-brand py-3 text-center text-[15px] font-semibold text-on-brand hover:bg-brand-strong"
+          className="rounded-xl btn-brand py-3 text-center text-[15px] font-semibold text-on-brand"
         >
           Ask my AI to buy
         </Link>
@@ -171,7 +172,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 export function VaultMissing({ vaultId }: { vaultId: string }) {
   return (
     <main className="mx-auto w-full max-w-md px-4 py-16 text-center">
-      <h1 className="font-display text-2xl font-semibold text-white">We couldn’t open this wallet</h1>
+      <Mascot mood="alert" size={140} className="mx-auto" />
+      <h1 className="mt-2 font-display text-2xl font-semibold text-white">We couldn’t open this wallet</h1>
       <p className="mt-2 text-sm text-zinc-400">
         <span className="font-mono">{vaultId}</span> doesn’t exist yet, is still being created, or the network didn’t
         answer. Give it a few seconds and refresh.
@@ -180,7 +182,7 @@ export function VaultMissing({ vaultId }: { vaultId: string }) {
         <Link href="/wallet" className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-zinc-100">
           My wallets
         </Link>
-        <Link href="/start" className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-on-brand">
+        <Link href="/start" className="rounded-xl btn-brand px-4 py-2.5 text-sm font-semibold text-on-brand">
           Create one
         </Link>
       </div>

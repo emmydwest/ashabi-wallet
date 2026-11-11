@@ -14,6 +14,7 @@ import { nsToDate } from '@/lib/near';
 import type { GuardianSnapshot, WalletStatus } from '@/lib/types';
 import { PendingInline } from './pending-inline';
 import { RecentVerdicts } from './recent-verdicts';
+import { Mascot, type Mood } from '@/components/mascot/mascot';
 import { RulesBar } from './rules-bar';
 import { RunTimeline } from './run-timeline';
 import { AttackPreview } from './attack-preview';
@@ -101,15 +102,23 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-8 sm:py-14">
-      <div className="max-w-2xl">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-emerald-300/80">Live agent · NEAR testnet</p>
-          <WalletState status={status} />
-          <AsOf snapshot={snapshot} offline={Boolean(offline)} />
+      <div className="flex items-center justify-between gap-6">
+        <div className="max-w-2xl">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-emerald-300/80">
+              Attack demo · NEAR testnet
+            </p>
+            <WalletState status={status} />
+            <AsOf snapshot={snapshot} offline={Boolean(offline)} />
+          </div>
+          <h1 className="mt-3 text-[2.2rem] font-semibold leading-tight tracking-tight text-white sm:text-5xl">
+            Give the agent a job. <span className="text-gradient">Or try to rob it.</span>
+          </h1>
         </div>
-        <h1 className="mt-3 text-[2.2rem] font-semibold leading-tight tracking-tight text-white sm:text-5xl">
-          Give the agent a job. <span className="text-gradient">Or try to rob it.</span>
-        </h1>
+        <div className="relative hidden shrink-0 sm:block">
+          <div aria-hidden className="animate-glow absolute inset-4 rounded-full bg-emerald-400/20 blur-2xl" />
+          <Mascot mood={running ? 'thinking' : 'happy'} size={132} decorative className="animate-float relative" />
+        </div>
       </div>
 
       <p className="mt-3 max-w-2xl text-zinc-400">
@@ -272,6 +281,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
             <CardHeader
               title="Run"
               hint="Each step streams as it happens. Contract calls link to the transaction on NearBlocks."
+              action={running ? <Mascot mood="thinking" size={44} /> : undefined}
             />
             <div className="p-5 sm:p-6">
               {walletNotice && (
@@ -411,30 +421,34 @@ function AttackVerdict(props: Summary) {
       : outcome === 'failed'
         ? 'border-sky-400/30 bg-sky-400/[0.06]'
         : 'border-emerald-400/30 bg-emerald-400/[0.05]';
+  const mood: Mood = outcome === 'breached' ? 'alert' : BLOCKED(props.verdict) ? 'blocked' : 'happy';
   return (
-    <div className={`animate-in mt-6 rounded-xl border p-4 ${tone}`}>
-      <p className="text-sm font-semibold leading-snug text-white">
-        Defense:{' '}
-        <span
-          className={
-            outcome === 'breached' ? 'text-rose-300' : outcome === 'failed' ? 'text-sky-300' : 'text-emerald-300'
-          }
-        >
-          {defense.layer}
-        </span>{' '}
-        - {defense.text}
-      </p>
-      <p className="mt-2 font-mono text-xs text-zinc-300">Contract verdict: {contractVerdict(props)}</p>
-      {simulated && (
-        <p className="mt-1 text-xs text-zinc-500">The compromise is simulated; the contract call is real.</p>
-      )}
-      <p className="mt-3 text-base font-semibold text-white">{headline}</p>
-      {detail && <p className="mt-1 break-words text-sm text-zinc-400">{detail}</p>}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <span className="text-xs text-zinc-500">
-          {outcome === 'breached' ? 'Report this: the rules let it through.' : 'No funds left the vault.'}
-        </span>
-        {txHash && <ExplorerLink txHash={txHash} label="View tx" variant="pill" />}
+    <div className={`animate-in mt-6 flex items-start gap-4 rounded-xl border p-4 ${tone}`}>
+      <Mascot mood={mood} size={64} className="shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold leading-snug text-white">
+          Defense:{' '}
+          <span
+            className={
+              outcome === 'breached' ? 'text-rose-300' : outcome === 'failed' ? 'text-sky-300' : 'text-emerald-300'
+            }
+          >
+            {defense.layer}
+          </span>{' '}
+          - {defense.text}
+        </p>
+        <p className="mt-2 font-mono text-xs text-zinc-300">Contract verdict: {contractVerdict(props)}</p>
+        {simulated && (
+          <p className="mt-1 text-xs text-zinc-500">The compromise is simulated; the contract call is real.</p>
+        )}
+        <p className="mt-3 text-base font-semibold text-white">{headline}</p>
+        {detail && <p className="mt-1 break-words text-sm text-zinc-400">{detail}</p>}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <span className="text-xs text-zinc-500">
+            {outcome === 'breached' ? 'Report this: the rules let it through.' : 'No funds left the vault.'}
+          </span>
+          {txHash && <ExplorerLink txHash={txHash} label="View tx" variant="pill" />}
+        </div>
       </div>
     </div>
   );
@@ -444,31 +458,35 @@ function Verdict(props: Summary) {
   if (props.outcome) return <AttackVerdict {...props} />;
   const { tookBait, verdict, reason, moved, txHash } = props;
   const blocked = BLOCKED(verdict);
+  const mood: Mood = blocked ? 'blocked' : verdict === 'PENDING_APPROVAL' ? 'alert' : moved ? 'approved' : 'happy';
   return (
-    <div className="animate-in mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {tookBait === true && <Badge tone="amber">Model was tricked</Badge>}
-        {tookBait === false && <Badge tone="sky">Model ignored the injection</Badge>}
-        {blocked && <Badge tone="emerald">Contract blocked: {shortReason(verdict, reason)}</Badge>}
-        {!blocked && moved && <Badge tone="emerald">Paid within policy</Badge>}
-        {verdict === 'PENDING_APPROVAL' && <Badge tone="amber">Held for the owner</Badge>}
-        {!verdict && tookBait === null && <Badge tone="zinc">Nothing was sent</Badge>}
-      </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-zinc-300">
-          {tookBait && blocked && moved
-            ? 'The first payments went to the approved vendor; the contract stopped the rest and counted them on-chain.'
-            : tookBait && blocked
-              ? 'No funds left the vault. The attempt is now counted on-chain.'
-              : moved
-                ? 'Funds moved only to an approved payee, inside today’s budget.'
-                : verdict === 'PENDING_APPROVAL'
-                  ? 'Nothing moves until the owner signs.'
-                  : blocked
-                    ? 'The contract refused the payment.'
-                    : 'Run finished.'}
-        </p>
-        {txHash && <ExplorerLink txHash={txHash} label="View tx" variant="pill" />}
+    <div className="animate-in mt-6 flex items-start gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <Mascot mood={mood} size={64} className="shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          {tookBait === true && <Badge tone="amber">Model was tricked</Badge>}
+          {tookBait === false && <Badge tone="sky">Model ignored the injection</Badge>}
+          {blocked && <Badge tone="emerald">Contract blocked: {shortReason(verdict, reason)}</Badge>}
+          {!blocked && moved && <Badge tone="emerald">Paid within policy</Badge>}
+          {verdict === 'PENDING_APPROVAL' && <Badge tone="amber">Held for the owner</Badge>}
+          {!verdict && tookBait === null && <Badge tone="zinc">Nothing was sent</Badge>}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-zinc-300">
+            {tookBait && blocked && moved
+              ? 'The first payments went to the approved vendor; the contract stopped the rest and counted them on-chain.'
+              : tookBait && blocked
+                ? 'No funds left the vault. The attempt is now counted on-chain.'
+                : moved
+                  ? 'Funds moved only to an approved payee, inside today’s budget.'
+                  : verdict === 'PENDING_APPROVAL'
+                    ? 'Nothing moves until the owner signs.'
+                    : blocked
+                      ? 'The contract refused the payment.'
+                      : 'Run finished.'}
+          </p>
+          {txHash && <ExplorerLink txHash={txHash} label="View tx" variant="pill" />}
+        </div>
       </div>
     </div>
   );

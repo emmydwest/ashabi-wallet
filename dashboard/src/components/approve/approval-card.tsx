@@ -85,7 +85,7 @@ export function ApprovalCard(props: Props) {
           type="button"
           onClick={onApprove}
           disabled={disabled}
-          className="rounded-xl bg-brand py-3.5 text-[15px] font-semibold text-on-brand transition hover:bg-brand-strong disabled:opacity-40"
+          className="rounded-xl btn-brand py-3.5 text-[15px] font-semibold text-on-brand transition disabled:opacity-40"
         >
           {busy === `approve-${record.id}` ? 'Waiting…' : 'Approve'}
         </button>

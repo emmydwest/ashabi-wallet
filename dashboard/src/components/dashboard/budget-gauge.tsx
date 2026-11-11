@@ -51,16 +51,15 @@ export function BudgetGauge({ status }: { status: WalletStatus }) {
             strokeLinecap="round"
             strokeDasharray={`${ARC} ${CIRCUMFERENCE}`}
           />
-          <Arc from={0} to={spentEnd} color="#34d399" />
+          <Arc from={0} to={spentEnd} color="#3df2a6" />
           {reserved > 0 && <Arc from={spentEnd} to={reservedEnd} color="#fbbf24" />}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
           <span className="tabular font-mono text-3xl font-semibold tracking-tight text-white">
             {remaining.toFixed(2)}
           </span>
-          <span className={`mt-0.5 text-xs ${remaining > 0 ? 'text-zinc-400' : 'text-rose-300'}`}>
-            {remaining > 0 ? 'NEAR remaining today' : 'NEAR remaining today · limit reached'}
-          </span>
+          <span className="mt-0.5 text-xs text-zinc-400">NEAR remaining today</span>
+          {remaining <= 0 && <span className="text-xs text-rose-300">limit reached</span>}
         </div>
       </div>
       <dl className="grid w-full grid-cols-3 gap-3 text-sm sm:grid-cols-1">
