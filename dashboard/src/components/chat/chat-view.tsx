@@ -158,7 +158,7 @@ export function ChatView() {
         )}
         {messages.map((m, i) =>
           m.role === 'user' ? (
-            <div key={i} className="flex justify-end">
+            <div key={i} className="flex scroll-mt-20 justify-end">
               <p className="max-w-[85%] wrap-ids text-pretty rounded-2xl rounded-br-md bg-white/[0.09] px-4 py-2.5 text-[15px] text-white">
                 {m.text}
               </p>
@@ -222,7 +222,7 @@ function Reply({ message }: { message: Extract<Message, { role: 'assistant' }> }
   const last = steps.at(-1);
 
   return (
-    <div className="flex max-w-[94%] items-start gap-2.5">
+    <div className="flex max-w-[94%] scroll-mt-20 items-start gap-2.5">
       <Mascot mood={replyMood(message)} size={36} decorative className="mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1 space-y-2">
         <div className="rounded-2xl rounded-tl-md border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-[15px] text-pretty text-zinc-200">
