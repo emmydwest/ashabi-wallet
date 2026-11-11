@@ -24,6 +24,8 @@ pub const DEFAULT_MAX_AUTO_PAYMENTS: u32 = 3;
 pub const DEFAULT_VELOCITY_WINDOW_MINUTES: u32 = 10;
 pub const DEFAULT_BREAKER_STRIKES: u32 = 3;
 pub const DEFAULT_BREAKER_COOLDOWN_MINUTES: u32 = 10;
+pub const DEFAULT_MAX_PENDING: u32 = 3;
+pub const DEFAULT_PENDING_TTL_MINUTES: u32 = 24 * 60;
 const EVENT_STANDARD: &str = "guardian_wallet";
 const EVENT_VERSION: &str = "1.0.0";
 
@@ -49,6 +51,9 @@ pub enum RequestStatus {
     InsufficientFunds,
     Frozen,
     Duplicate,
+    /// Too many requests already wait for the owner. New variants go last: blocked attempts
+    /// are stored with Borsh, which encodes the variant index.
+    TooManyPending,
 }
 
 #[near(serializers = [json, borsh])]
@@ -60,6 +65,8 @@ pub enum PaymentStatus {
     Completed,
     Failed,
     Rejected,
+    /// The owner did not decide in time; the reserved budget was released.
+    Expired,
 }
 
 #[near(serializers = [json, borsh])]
@@ -126,6 +133,7 @@ pub struct WalletStatus {
     pub strikes: u32,
     /// Block timestamp (ns) the breaker cools down at, if it has tripped.
     pub breaker_until: Option<u64>,
+    pub pending_rules: PendingRules,
 }
 
 /// Limits that catch patterns a single request cannot show. Zero turns a guard off.
@@ -152,10 +160,29 @@ impl Default for Guards {
     }
 }
 
-/// The previous state layout, kept so `migrate` can read it. It tracked a timestamp list
-/// for the velocity guard; the guard now reads the payment records instead.
+/// Limits on requests waiting for the owner, so a hijacked agent can't tie up the budget
+/// with requests nobody approves. Zero turns either off.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug)]
+pub struct PendingRules {
+    /// Most requests that may wait for the owner at once.
+    pub max_pending: u32,
+    /// A waiting request expires after this long and its reserved budget is released.
+    pub pending_ttl_minutes: u32,
+}
+
+impl Default for PendingRules {
+    fn default() -> Self {
+        Self {
+            max_pending: DEFAULT_MAX_PENDING,
+            pending_ttl_minutes: DEFAULT_PENDING_TTL_MINUTES,
+        }
+    }
+}
+
+/// The previous state layout, kept so `migrate` can read it. It had no pending rules.
 #[near(serializers = [borsh])]
-pub struct GuardianWalletV2 {
+pub struct GuardianWalletV3 {
     owner_id: AccountId,
     agent_id: AccountId,
     daily_limit: u128,
@@ -171,7 +198,6 @@ pub struct GuardianWalletV2 {
     blocked_total: u64,
     used_request_ids: LookupSet<String>,
     guards: Guards,
-    recent_auto_payments: Vec<u64>,
     strikes: u32,
     breaker_until: Option<u64>,
 }
@@ -198,6 +224,7 @@ pub struct GuardianWallet {
     guards: Guards,
     strikes: u32,
     breaker_until: Option<u64>,
+    pending_rules: PendingRules,
 }
 
 fn emit(event: &str, data: near_sdk::serde_json::Value) {
@@ -243,6 +270,7 @@ impl GuardianWallet {
             guards: Guards::default(),
             strikes: 0,
             breaker_until: None,
+            pending_rules: PendingRules::default(),
         };
         for p in approved_payees.unwrap_or_default() {
             c.approved_payees.insert(p);
@@ -257,11 +285,12 @@ impl GuardianWallet {
         c
     }
 
-    /// One-off upgrade from the V2 layout; keeps every record, the guards and the current owner.
+    /// One-off upgrade from the V3 layout; keeps every record, the guards and the current owner,
+    /// and starts the pending rules at their defaults.
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let old: GuardianWalletV2 = env::state_read().expect("no state to migrate");
+        let old: GuardianWalletV3 = env::state_read().expect("no state to migrate");
         Self {
             owner_id: old.owner_id,
             agent_id: old.agent_id,
@@ -280,6 +309,7 @@ impl GuardianWallet {
             guards: old.guards,
             strikes: old.strikes,
             breaker_until: old.breaker_until,
+            pending_rules: PendingRules::default(),
         }
     }
 
@@ -311,6 +341,7 @@ impl GuardianWallet {
         let memo = memo.unwrap_or_default();
         require!(memo.len() <= MAX_MEMO_LEN, "memo too long (max 256 bytes)");
         self.roll_day();
+        self.expire_stale(env::block_timestamp());
 
         if self.used_request_ids.contains(&request_id) {
             return self.block(
@@ -362,6 +393,21 @@ impl GuardianWallet {
                 ),
             );
         }
+        let needs_approval = amount.0 > self.approval_threshold;
+        let max_pending = self.pending_rules.max_pending;
+        if needs_approval && max_pending > 0 && self.pending.len() >= max_pending {
+            return self.block(
+                request_id,
+                receiver_id,
+                amount,
+                memo,
+                RequestStatus::TooManyPending,
+                format!(
+                    "{} requests already wait for the owner; approve or reject one first",
+                    self.pending.len()
+                ),
+            );
+        }
         let committed = self.spent_today + self.reserved;
         if committed
             .checked_add(amount.0)
@@ -391,7 +437,6 @@ impl GuardianWallet {
             );
         }
 
-        let needs_approval = amount.0 > self.approval_threshold;
         if let Some(reason) = self.velocity_problem(now, amount.0, needs_approval) {
             return self.block(
                 request_id,
@@ -473,6 +518,10 @@ impl GuardianWallet {
             .get(record_id as u32)
             .cloned()
             .expect("record missing");
+        require!(
+            !self.is_stale(&rec, env::block_timestamp()),
+            "this request has expired; the agent has to ask again"
+        );
         require!(
             rec.amount.0
                 <= self
@@ -595,6 +644,18 @@ impl GuardianWallet {
     }
 
     #[payable]
+    pub fn set_pending_rules(&mut self, rules: PendingRules) {
+        self.assert_owner();
+        emit("pending_rules_updated", json!({ "rules": rules }));
+        self.pending_rules = rules;
+    }
+
+    /// Releases the budget held by expired requests. Anyone may call it; requests also do it.
+    pub fn expire_pending(&mut self) -> u32 {
+        self.expire_stale(env::block_timestamp())
+    }
+
+    #[payable]
     pub fn set_agent(&mut self, agent_id: AccountId) {
         self.assert_owner();
         require!(agent_id != self.owner_id, "owner and agent must differ");
@@ -668,6 +729,9 @@ impl GuardianWallet {
         } else {
             0
         };
+        let stale = self.stale_pending(now);
+        let held: u128 = stale.iter().map(|r| r.amount.0).sum();
+        let reserved = self.reserved.saturating_sub(held);
         WalletStatus {
             owner_id: self.owner_id.clone(),
             agent_id: self.agent_id.clone(),
@@ -675,13 +739,13 @@ impl GuardianWallet {
             daily_limit: U128(self.daily_limit),
             approval_threshold: U128(self.approval_threshold),
             spent_today: U128(spent),
-            reserved: U128(self.reserved),
-            remaining_today: U128(self.daily_limit.saturating_sub(spent + self.reserved)),
+            reserved: U128(reserved),
+            remaining_today: U128(self.daily_limit.saturating_sub(spent + reserved)),
             current_day: today,
             balance: U128(env::account_balance().as_yoctonear()),
             available_balance: U128(self.available_balance()),
             approved_payees: self.approved_payees.iter().cloned().collect(),
-            pending_count: self.pending.len(),
+            pending_count: self.pending.len() - stale.len() as u32,
             payment_count: self.payment_records.len(),
             blocked_count: self.blocked_total,
             guards: self.guards.clone(),
@@ -689,6 +753,7 @@ impl GuardianWallet {
             auto_paid_in_window: U128(self.auto_paid_in_window(now).1),
             strikes: self.strikes,
             breaker_until: self.breaker_until.filter(|until| now < *until),
+            pending_rules: self.pending_rules.clone(),
         }
     }
 
@@ -724,15 +789,23 @@ impl GuardianWallet {
         all.into_iter().skip(from).take(limit).collect()
     }
 
+    /// Requests the owner can still decide on; expired ones are left out.
     pub fn get_pending(&self) -> Vec<PaymentRecord> {
+        let now = env::block_timestamp();
         self.pending
             .iter()
             .filter_map(|id| self.payment_records.get(*id as u32).cloned())
+            .filter(|rec| !self.is_stale(rec, now))
             .collect()
     }
 
+    /// Shows a request past its deadline as expired even before a call has released it.
     pub fn get_payment(&self, record_id: u64) -> Option<PaymentRecord> {
-        self.payment_records.get(record_id as u32).cloned()
+        let mut rec = self.payment_records.get(record_id as u32).cloned()?;
+        if self.pending.contains(&record_id) && self.is_stale(&rec, env::block_timestamp()) {
+            rec.status = PaymentStatus::Expired;
+        }
+        Some(rec)
     }
 
     pub fn is_request_id_used(&self, request_id: String) -> bool {
@@ -750,6 +823,37 @@ impl GuardianWallet {
             env::attached_deposit() == NearToken::from_yoctonear(1),
             "Requires attached deposit of exactly 1 yoctoNEAR"
         );
+    }
+
+    fn is_stale(&self, rec: &PaymentRecord, now: u64) -> bool {
+        let ttl = self.pending_rules.pending_ttl_minutes as u64 * NANOS_PER_MINUTE;
+        ttl > 0 && now >= rec.created_at + ttl
+    }
+
+    fn stale_pending(&self, now: u64) -> Vec<PaymentRecord> {
+        self.pending
+            .iter()
+            .filter_map(|id| self.payment_records.get(*id as u32))
+            .filter(|rec| self.is_stale(rec, now))
+            .cloned()
+            .collect()
+    }
+
+    /// The pending set is capped by `max_pending`, so this stays cheap.
+    fn expire_stale(&mut self, now: u64) -> u32 {
+        let stale = self.stale_pending(now);
+        for mut rec in stale.iter().cloned() {
+            self.pending.remove(&rec.id);
+            self.reserved = self.reserved.saturating_sub(rec.amount.0);
+            rec.status = PaymentStatus::Expired;
+            rec.updated_at = now;
+            emit(
+                "payment_expired",
+                json!({ "record_id": rec.id, "receiver_id": rec.receiver_id, "amount": rec.amount }),
+            );
+            self.payment_records.replace(rec.id as u32, rec);
+        }
+        stale.len() as u32
     }
 
     fn roll_day(&mut self) {

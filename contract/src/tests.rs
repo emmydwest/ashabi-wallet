@@ -597,29 +597,63 @@ fn agent_cannot_change_guards() {
     c.set_guards(Guards::default());
 }
 
+fn record(id: u64, amount: u128, status: PaymentStatus, at: u64) -> PaymentRecord {
+    PaymentRecord {
+        id,
+        request_id: format!("old-{id}"),
+        receiver_id: vendor(),
+        amount: U128(amount),
+        memo: "sku:weather-basic".into(),
+        status,
+        created_at: at,
+        updated_at: at,
+        budget_day: day_of(at),
+        approved_by_owner: false,
+    }
+}
+
 #[test]
-fn migrate_keeps_v2_state() {
+fn migrate_keeps_v3_state() {
     testing_env!(ctx(contract_id(), 0, T0).build());
     let mut payees = IterableSet::new(StorageKey::Payees);
     payees.insert(vendor());
     payees.flush();
-    let old = GuardianWalletV2 {
+    let mut records = Vector::new(StorageKey::Records);
+    records.push(record(0, NEAR / 2, PaymentStatus::Completed, T0));
+    records.push(record(1, 2 * NEAR, PaymentStatus::PendingApproval, T0));
+    records.flush();
+    let mut pending = IterableSet::new(StorageKey::Pending);
+    pending.insert(1);
+    pending.flush();
+    let mut blocked = Vector::new(StorageKey::Blocked);
+    blocked.push(BlockedAttempt {
+        seq: 0,
+        request_id: "evil".into(),
+        caller: agent(),
+        receiver_id: attacker(),
+        amount: U128(NEAR),
+        memo: "injected".into(),
+        status: RequestStatus::BlockedRecipient,
+        reason: "not approved".into(),
+        timestamp: T0,
+    });
+    blocked.flush();
+    let old = GuardianWalletV3 {
         owner_id: owner(),
         agent_id: agent(),
         daily_limit: 5 * NEAR,
         approval_threshold: NEAR,
-        spent_today: NEAR,
+        spent_today: NEAR / 2,
         current_day: day_of(T0),
-        reserved: 0,
+        reserved: 2 * NEAR,
         frozen: false,
         approved_payees: payees,
-        payment_records: Vector::new(StorageKey::Records),
-        pending: IterableSet::new(StorageKey::Pending),
-        blocked_attempts: Vector::new(StorageKey::Blocked),
+        payment_records: records,
+        pending,
+        blocked_attempts: blocked,
         blocked_total: 24,
         used_request_ids: LookupSet::new(StorageKey::UsedRequestIds),
         guards: Guards::default(),
-        recent_auto_payments: vec![T0],
         strikes: 2,
         breaker_until: None,
     };
@@ -628,8 +662,137 @@ fn migrate_keeps_v2_state() {
     let s = c.get_wallet_status();
     assert_eq!(s.owner_id, owner());
     assert_eq!(s.blocked_count, 24);
-    assert_eq!(s.spent_today.0, NEAR);
+    assert_eq!((s.spent_today.0, s.reserved.0), (NEAR / 2, 2 * NEAR));
     assert_eq!(s.approved_payees, vec![vendor()]);
-    assert_eq!(s.guards.max_auto_payments, DEFAULT_MAX_AUTO_PAYMENTS);
     assert_eq!(s.strikes, 2);
+    assert_eq!(s.pending_rules.max_pending, DEFAULT_MAX_PENDING);
+    assert_eq!(s.pending_rules.pending_ttl_minutes, DEFAULT_PENDING_TTL_MINUTES);
+    assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Completed);
+    assert_eq!(c.get_pending().len(), 1);
+    assert_eq!(c.get_blocked_attempts(None, None)[0].status, RequestStatus::BlockedRecipient);
+}
+
+#[test]
+fn migrated_pending_request_still_expires_and_can_be_approved_in_time() {
+    testing_env!(ctx(contract_id(), 0, T0).build());
+    let mut records = Vector::new(StorageKey::Records);
+    records.push(record(0, 2 * NEAR, PaymentStatus::PendingApproval, T0));
+    records.flush();
+    let mut pending = IterableSet::new(StorageKey::Pending);
+    pending.insert(0);
+    pending.flush();
+    let mut payees = IterableSet::new(StorageKey::Payees);
+    payees.insert(vendor());
+    payees.flush();
+    env::state_write(&GuardianWalletV3 {
+        owner_id: owner(),
+        agent_id: agent(),
+        daily_limit: 5 * NEAR,
+        approval_threshold: NEAR,
+        spent_today: 0,
+        current_day: day_of(T0),
+        reserved: 2 * NEAR,
+        frozen: false,
+        approved_payees: payees,
+        payment_records: records,
+        pending,
+        blocked_attempts: Vector::new(StorageKey::Blocked),
+        blocked_total: 0,
+        used_request_ids: LookupSet::new(StorageKey::UsedRequestIds),
+        guards: Guards::default(),
+        strikes: 0,
+        breaker_until: None,
+    });
+    let mut c = GuardianWallet::migrate();
+    as_owner(T0 + 60 * MINUTE);
+    c.approve_payment(0);
+    assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Transferring);
+}
+
+#[test]
+fn pending_request_expires_and_releases_budget() {
+    let mut c = setup();
+    as_agent(T0);
+    assert_eq!(pay(&mut c, "big", vendor(), 2 * NEAR), RequestStatus::PendingApproval);
+    assert_eq!(c.get_wallet_status().reserved.0, 2 * NEAR);
+
+    let later = T0 + DEFAULT_PENDING_TTL_MINUTES as u64 * MINUTE;
+    as_agent(later);
+    // The view already treats it as expired before any call releases it.
+    let s = c.get_wallet_status();
+    assert_eq!((s.reserved.0, s.pending_count), (0, 0));
+    assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Expired);
+    assert!(c.get_pending().is_empty());
+
+    assert_eq!(pay(&mut c, "small", vendor(), NEAR / 2), RequestStatus::Approved);
+    assert_eq!(events("payment_expired"), 1);
+    assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Expired);
+    assert_eq!(c.get_wallet_status().reserved.0, 0);
+}
+
+#[test]
+#[should_panic(expected = "this request has expired")]
+fn owner_cannot_approve_an_expired_request() {
+    let mut c = setup();
+    as_agent(T0);
+    pay(&mut c, "big", vendor(), 2 * NEAR);
+    as_owner(T0 + DEFAULT_PENDING_TTL_MINUTES as u64 * MINUTE + 1);
+    c.approve_payment(0);
+}
+
+#[test]
+fn anyone_can_release_expired_requests() {
+    let mut c = setup();
+    as_agent(T0);
+    pay(&mut c, "big", vendor(), 2 * NEAR);
+    testing_env!(ctx(attacker(), 0, T0 + DEFAULT_PENDING_TTL_MINUTES as u64 * MINUTE).build());
+    assert_eq!(c.expire_pending(), 1);
+    assert_eq!(c.expire_pending(), 0);
+    assert_eq!(c.get_wallet_status().reserved.0, 0);
+}
+
+#[test]
+fn too_many_pending_requests_are_refused() {
+    let mut c = setup();
+    as_agent(T0);
+    for i in 0..DEFAULT_MAX_PENDING {
+        assert_eq!(
+            pay(&mut c, &format!("big-{i}"), vendor(), NEAR + 1),
+            RequestStatus::PendingApproval
+        );
+    }
+    let r = c.request_payment("one-more".into(), vendor(), U128(NEAR + 1), None);
+    assert_eq!(r.status, RequestStatus::TooManyPending);
+    assert!(r.reason.contains("approve or reject"));
+    // Not a sign of a stranger being paid, so no strike; small payments still go through.
+    assert_eq!(c.get_wallet_status().strikes, 0);
+    assert_eq!(pay(&mut c, "small", vendor(), NEAR / 2), RequestStatus::Approved);
+
+    as_owner(T0 + 1);
+    c.reject_payment(0);
+    as_agent(T0 + 2);
+    assert_eq!(pay(&mut c, "now-fits", vendor(), NEAR + 1), RequestStatus::PendingApproval);
+}
+
+#[test]
+fn owner_can_tune_or_disable_pending_rules() {
+    let mut c = setup();
+    as_owner(T0);
+    c.set_pending_rules(PendingRules { max_pending: 0, pending_ttl_minutes: 0 });
+    assert_eq!(events("pending_rules_updated"), 1);
+    as_agent(T0);
+    for i in 0..5 {
+        pay(&mut c, &format!("big-{i}"), vendor(), NEAR + 1);
+    }
+    assert_eq!(c.get_wallet_status().pending_count, 4); // the fifth hits the daily budget
+    as_agent(T0 + 365 * 24 * 60 * MINUTE);
+    assert_eq!(c.get_pending().len(), 4);
+}
+
+#[test]
+#[should_panic(expected = "Unauthorized")]
+fn agent_cannot_change_pending_rules() {
+    let mut c = setup();
+    testing_env!(ctx(agent(), 1, T0).build());
+    c.set_pending_rules(PendingRules { max_pending: 0, pending_ttl_minutes: 0 });
 }
