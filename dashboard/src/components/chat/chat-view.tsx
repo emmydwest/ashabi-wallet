@@ -113,7 +113,7 @@ export function ChatView() {
 
   return (
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
-      <div className="flex-1 space-y-4 pb-4">
+      <div className="flex-1 space-y-4 pb-36">
         {messages.length === 0 && (
           <div className="pt-6 text-center">
             <div className="relative mx-auto w-fit">

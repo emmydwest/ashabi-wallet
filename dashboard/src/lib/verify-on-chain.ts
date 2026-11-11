@@ -153,6 +153,10 @@ function breakerCheck(status: WalletStatus): LiveCheck {
   };
 }
 
+function readableReason(reason: string) {
+  return reason.replace(/(\d+) yocto/g, (_m, n: string) => `${toNear(n)} NEAR`);
+}
+
 function blockedCheck(latest: BlockedAttempt | null, count: number): LiveCheck {
   const title = 'Latest blocked attempt, from the chain';
   if (!latest) {
@@ -162,7 +166,7 @@ function blockedCheck(latest: BlockedAttempt | null, count: number): LiveCheck {
     id: 'blocked',
     title,
     state: 'pass',
-    summary: `#${latest.seq} ${latest.status}: ${latest.reason}`,
+    summary: `#${latest.seq} ${latest.status}: ${readableReason(latest.reason)}`,
     detail: `${toNear(latest.amount)} NEAR to ${latest.receiver_id}. ${count} blocked attempt(s) stored. The contract record does not include a transaction hash.`,
   };
 }
