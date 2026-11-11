@@ -3,9 +3,9 @@ import Link from 'next/link';
 
 const SCREENS = [
   {
-    src: '/screens/chat-approval.webp',
-    alt: 'The assistant asking for approval before a 1.5 NEAR purchase',
-    caption: 'The assistant asks before anything big',
+    src: '/screens/chat-paid.webp',
+    alt: 'The assistant buying a weather report and showing the forecast it paid for',
+    caption: 'Ask for something; it pays inside your rules',
     href: '/chat',
   },
   {
@@ -16,7 +16,7 @@ const SCREENS = [
   },
   {
     src: '/screens/attack-blocked.webp',
-    alt: 'The arena showing a hijacked agent’s payment refused by the contract',
+    alt: 'The attack demo showing a hijacked agent’s payment refused by the contract',
     caption: 'A hijacked agent, refused on-chain',
     href: '/agent',
   },
