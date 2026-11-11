@@ -29,7 +29,12 @@ export function budgetToday(status: WalletStatus) {
 export function killSwitch(status: WalletStatus) {
   const max = status.guards.breaker_strikes;
   if (max === 0) return { on: false, text: 'Kill-switch off' };
-  if (status.breaker_until) return { on: true, text: 'Kill-switch on: payments paused' };
+  if (status.breaker_until)
+    return {
+      on: true,
+      text: `Kill-switch on: ${max} blocked payments to unknown accounts in a row paused all payments`,
+      detail: `It lifts by itself after ${status.guards.breaker_cooldown_minutes} min, or when the owner resets it.`,
+    };
   return {
     on: false,
     text: `Kill-switch: ${status.strikes} of ${max} blocked payments to unknown accounts in a row`,
