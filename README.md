@@ -543,9 +543,18 @@ model reasoning.
 
 ### Dashboard (`dashboard/`, Next.js 16, Tailwind 4)
 
-- `/` explains it for people: an allowance, not your bank password, in three steps, then the same
-  three proof cards as `/agent`, real screenshots, what happens above your limit, a who-can-do-what
-  diagram, and a trust section (contract links, source, test counts, testnet limitations).
+- `/` explains it for people: an allowance, not your bank password. The hero has a live status
+  card for the demo wallet (budget left today, approved recipients, the approval threshold,
+  all-time accepted and blocked counts), then a live stats strip (payments accepted, requests
+  blocked, spent today, wallets the factory has created), how it works, the same three proof
+  cards as `/agent`, real screenshots, what happens above your limit, a who-can-do-what diagram,
+  and a trust section (contract links, source, test counts, testnet limitations). Every number is
+  read from the chain and says what it counts.
+- The nav is Home, Live Agent (`/chat`), Attack Demo (`/agent`), Wallet and Docs (`/docs`, a
+  short guide to the rules, the SDK and the accounts). The Guardian mascot's visor is an SVG dot
+  matrix that changes with the outcome: thinking while the agent runs, an X when the contract
+  blocks a payment, a check when one is approved, amber while it waits for you. Motion follows
+  `prefers-reduced-motion`.
 - Stats say what they count: "Spent today X of Y NEAR · Remaining today Z", with the reset time
   (00:00 UTC, 1:00 AM WAT); "Payments accepted" and "Requests blocked" are all-time totals on the
   shared demo wallet (blocked includes budget and speed limits); the kill-switch reads "2 of 3

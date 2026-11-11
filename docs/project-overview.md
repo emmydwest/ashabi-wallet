@@ -133,7 +133,7 @@ The vault holds about 17 testnet NEAR. As of writing the contract has recorded 2
    endpoint that uses HTTP 402.
 6. **Dashboard app** (Next.js 16 with cache components, Tailwind 4, NEAR Wallet Selector),
    deployed on Vercel. Pages: `/`, `/start`, `/wallet`, `/vault/<id>`, `/vault/<id>/request/<n>`,
-   `/chat`, `/agent` (the Arena), `/dashboard`, `/approve`.
+   `/chat` (Live Agent), `/agent` (Attack Demo), `/dashboard`, `/approve`, `/docs`.
 6b. **Factory** (`factory/`, Rust, 15 unit tests). `create_vault` makes `<name>.factory.gw-emmy.testnet`
    with the caller as owner and a template's rules, running the guardian code published once as a
    NEP-591 global contract (code hash `3Rh6iyiZbmi3gQjsWZMGyB7YmNovekeegaQaHBiskmaA`, about 23 NEAR
@@ -293,7 +293,7 @@ or "…". The UI is dark, designed mobile-first and tested in iPhone WebKit.
 
 For people, not judges: "Give your AI an allowance, not your bank password." Three steps (set a
 budget, pick who it can pay, approve big payments from your phone), "Create your guarded wallet"
-and "See it survive an attack" (the Arena). The contract details sit below the fold.
+and "See it survive an attack" (the attack demo). The contract details sit below the fold.
 
 ### `/start`, `/wallet`, `/vault/<id>`
 
@@ -578,7 +578,6 @@ sometimes gullible models. When one of them falls for an injection, the contract
 - Make the GitHub repo public.
 - Delete the full-access keys on `guardian.gw-emmy.testnet` and `factory.gw-emmy.testnet`, after
   a final check that no more upgrades are needed.
-- Swap in the final brand (logo, colours, fonts) following `docs/brand.md`.
 - Final pass: refresh the README proof table and the screenshots.
 
 ### Product build (11 Nov)
@@ -588,6 +587,16 @@ sometimes gullible models. When one of them falls for an injection, the contract
   renamed to Home · Assistant · Arena · My wallet.
 - Approval cards say "Your AI wants to spend X NEAR on Y" with Approve / Reject.
 - Brand colours and display font are tokens (`docs/brand.md`) so the final brand drops in.
+
+### UI overhaul (11 Nov)
+
+- Black and neon mint with glass cards; nav is Home · Live Agent · Attack Demo · Wallet · Docs,
+  with a "Built on NEAR" pill and a "Try the Agent" button.
+- A Guardian mascot (white helmet, dot-matrix visor) whose eyes are drawn in SVG and change with
+  the outcome: thinking, blocked, approved, waiting. It is the chat avatar, the verdict face, the
+  empty and loading states, the favicon and the social card.
+- Home hero with a live status card for the demo wallet and a live stats strip; every number
+  is read from the chain and says what it counts. New `/docs` page.
 
 ### Changes after the Antigravity review (11 Nov)
 
