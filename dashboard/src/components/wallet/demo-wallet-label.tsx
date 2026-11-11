@@ -31,7 +31,7 @@ export function DemoWalletLabel({ className = '' }: { className?: string }) {
             </button>
             <span
               role="tooltip"
-              className="pointer-events-none invisible absolute top-full left-0 z-20 mt-1.5 w-56 rounded-lg border border-white/10 bg-zinc-950 px-3 py-2 text-left text-xs leading-relaxed text-zinc-200 opacity-0 shadow-xl group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+              className="pointer-events-none invisible absolute top-full right-0 z-20 mt-1.5 w-56 rounded-lg border border-white/10 bg-zinc-950 px-3 py-2 text-left text-xs leading-relaxed text-zinc-200 opacity-0 shadow-xl group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
             >
               These numbers are live on the NEAR testnet contract, not mocked.
             </span>
