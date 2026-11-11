@@ -19,3 +19,5 @@ export function isVaultId(id: string) {
 
 export const txUrl = (hash: string) => `${EXPLORER}/txns/${hash}`;
 export const accountUrl = (id: string) => `${EXPLORER}/address/${id}`;
+
+export const REPO_URL = 'https://github.com/emmydwest/guardian-wallet';

@@ -6,10 +6,11 @@ import { readWalletReturn } from '@/components/approve/wallet-link';
 import { Card, CardHeader } from '@/components/card';
 import { ExplorerLink } from '@/components/explorer-link';
 import { useGuardian } from '@/components/use-guardian';
-import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, HIJACK, JOBS } from '@/lib/agent/attacks';
+import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, JOBS } from '@/lib/agent/attacks';
 import { AsOf } from '@/components/as-of';
+import { CONTRACT_ID } from '@/lib/config';
 import { CUSTOM_MAX, TASK_MAX, type AgentEvent } from '@/lib/agent/types';
-import { nsToDate, toNear } from '@/lib/near';
+import { nsToDate } from '@/lib/near';
 import type { GuardianSnapshot, WalletStatus } from '@/lib/types';
 import { PendingInline } from './pending-inline';
 import { RecentVerdicts } from './recent-verdicts';
@@ -18,6 +19,9 @@ import { RunTimeline } from './run-timeline';
 import { AttackPreview } from './attack-preview';
 import { HowToTry } from './how-to-try';
 import { useAgentRun } from './use-agent-run';
+import { ProofFlow, proofBlocker, type ProofKind } from '@/components/proof/proof-flow';
+import { BudgetMeter } from '@/components/stats/budget-meter';
+import { killSwitch } from '@/lib/stats';
 import { VerifyIntent } from './verify-intent';
 
 type Mode = 'task' | 'attack';
@@ -58,6 +62,28 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
     showRun();
     run({ mode: 'hijack' });
   };
+  const tryProof = (kind: ProofKind) => {
+    if (kind === 'hijack') return hijack();
+    const job = kind === 'paid' ? JOBS[0] : JOBS[3];
+    setMode('task');
+    setTask(job);
+    showRun();
+    run({ mode: 'task', task: job });
+  };
+
+  // Arriving from a proof button on the home page: run it, unless the contract would refuse it.
+  const tried = useRef(false);
+  useEffect(() => {
+    if (tried.current) return;
+    tried.current = true;
+    const kind = new URLSearchParams(window.location.search).get('try') as ProofKind | null;
+    if (!kind || !['paid', 'hijack', 'approval'].includes(kind)) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    // Runs once on arrival, with the server's snapshot; the query string only exists in the browser.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!proofBlocker(initial, kind)) tryProof(kind);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const outOfRuns = quota?.left === 0;
   const preview =
     attackId === CUSTOM_ATTACK_ID
@@ -86,7 +112,12 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
         </h1>
       </div>
 
-      <HijackButton onClick={hijack} disabled={running || outOfRuns} />
+      <p className="mt-3 max-w-2xl text-zinc-400">
+        Three things to see for yourself, each a real transaction on the demo wallet.
+      </p>
+      <div className="mt-5">
+        <ProofFlow snapshot={snapshot} onRun={tryProof} busy={running || outOfRuns} />
+      </div>
 
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
         <HowToTry />
@@ -268,33 +299,6 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
   );
 }
 
-function HijackButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="group mt-7 flex w-full items-center justify-between gap-4 rounded-2xl border border-rose-400/30 bg-gradient-to-r from-rose-500/20 via-rose-500/10 to-transparent px-5 py-4 text-left transition hover:border-rose-300/50 disabled:opacity-50 sm:max-w-2xl"
-    >
-      <span className="min-w-0">
-        <span className="block text-base font-semibold text-white sm:text-lg">
-          Watch a hijacked agent try to rob the wallet
-        </span>
-        <span className="mt-1 block text-xs leading-relaxed text-rose-100/80">
-          One tap. Simulated compromise, real on-chain block: the agent sends {HIJACK.amountNear} NEAR to the attacker
-          with its own key and the contract refuses. Costs only gas.
-        </span>
-      </span>
-      <span
-        aria-hidden
-        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-rose-400 text-lg text-black transition group-hover:translate-x-0.5"
-      >
-        →
-      </span>
-    </button>
-  );
-}
-
 function useNow(active: boolean) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -343,28 +347,33 @@ function WalletState({ status }: { status: WalletStatus }) {
   );
 }
 
+// Everything here is the demo wallet's live on-chain state, shared by every visitor.
 function Scoreboard({ status }: { status: WalletStatus }) {
-  const items = [
-    { label: 'Attacks blocked on-chain', value: String(status.blocked_count), tone: 'text-rose-300' },
-    { label: 'Payments recorded', value: String(status.payment_count), tone: 'text-emerald-300' },
-    {
-      label: 'Budget left today',
-      value: status.frozen ? 'Frozen' : toNear(status.remaining_today),
-      unit: status.frozen ? undefined : 'NEAR',
-      tone: 'text-white',
-    },
-  ];
+  const breaker = killSwitch(status);
   return (
-    <div className="grid flex-1 grid-cols-3 gap-2 sm:gap-3">
-      {items.map((item) => (
-        <div key={item.label} className="glass min-w-0 rounded-2xl px-3 py-3 sm:px-4">
-          <div className={`truncate text-lg font-semibold tabular-nums sm:text-2xl ${item.tone}`}>
-            {item.value}
-            {item.unit && <span className="ml-1 text-xs font-normal text-zinc-400">{item.unit}</span>}
-          </div>
-          <div className="mt-1 text-xs leading-snug text-zinc-400">{item.label}</div>
-        </div>
-      ))}
+    <section className="glass min-w-0 flex-1 rounded-2xl p-4">
+      <div className="text-xs text-zinc-500">Demo wallet · live from {CONTRACT_ID} · shared by every visitor</div>
+      <BudgetMeter status={status} className="mt-3" />
+      <dl className="mt-4 grid grid-cols-2 gap-2">
+        <Count value={status.payment_count} label="Payments accepted" tone="text-safe" />
+        <Count value={status.blocked_count} label="Requests blocked" tone="text-danger" />
+      </dl>
+      <p className="mt-2 text-xs text-zinc-500">
+        All-time totals, since the contract was deployed. Blocked includes budget and speed limits, not just attacks.
+      </p>
+      <p className={`mt-3 text-xs ${breaker.on ? 'text-danger' : 'text-zinc-300'}`}>
+        {breaker.text}
+        {breaker.detail && <span className="text-zinc-500"> · {breaker.detail}</span>}
+      </p>
+    </section>
+  );
+}
+
+function Count({ value, label, tone }: { value: number; label: string; tone: string }) {
+  return (
+    <div className="rounded-xl bg-black/25 px-3 py-2.5">
+      <dt className="text-xs text-zinc-400">{label}</dt>
+      <dd className={`mt-0.5 font-mono text-xl font-semibold tabular ${tone}`}>{value}</dd>
     </div>
   );
 }
