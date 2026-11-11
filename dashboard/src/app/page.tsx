@@ -1,5 +1,11 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
+import { AboveLimit } from '@/components/landing/above-limit';
+import { Architecture } from '@/components/landing/architecture';
 import { HeroPreview } from '@/components/landing/hero-preview';
+import { HomeProof, HomeProofSkeleton } from '@/components/landing/home-proof';
+import { ScreensStrip } from '@/components/landing/screens-strip';
+import { Trust } from '@/components/landing/trust';
 import { accountUrl, CONTRACT_ID } from '@/lib/config';
 
 const STEPS = [
@@ -44,17 +50,21 @@ export default function Home() {
             Let an AI assistant buy things for you with a budget you set. It can spend what you allow, with the people
             you allow, and it has to ask you before anything big.
           </p>
-          <div className="mt-9 flex flex-wrap items-center gap-3">
+          <div className="mt-9 grid gap-3 sm:flex sm:flex-wrap sm:items-center">
             <Link
               href="/start"
-              className="rounded-full bg-brand px-6 py-3 text-[15px] font-semibold text-on-brand transition hover:bg-brand-strong"
+              className="rounded-full bg-brand px-6 py-3.5 text-center text-base font-semibold text-on-brand transition hover:bg-brand-strong"
             >
               Create your guarded wallet
             </Link>
             <Link
-              href="/agent"
-              className="rounded-full border border-white/12 px-5 py-3 text-[15px] text-zinc-200 transition hover:border-white/25 hover:text-white"
+              href="/agent?try=hijack"
+              className="inline-flex items-center justify-center gap-2.5 rounded-full bg-white px-6 py-3.5 text-base font-semibold text-ink transition hover:bg-zinc-200"
             >
+              <span className="relative flex size-2.5" aria-hidden>
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-danger opacity-70" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-danger" />
+              </span>
               See it survive an attack
             </Link>
           </div>
@@ -69,7 +79,32 @@ export default function Home() {
         <HeroPreview />
       </section>
 
-      <section className="border-t border-white/[0.06] pt-20">
+      <section id="proof" className="border-t border-white/[0.06] pt-20">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">Proof, not promises</p>
+        <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          Three things to see for yourself.
+        </h2>
+        <p className="mt-3 max-w-2xl text-zinc-400">
+          Each one is a real transaction on the demo wallet. Tap to run it live, or open the latest one on NearBlocks.
+        </p>
+        <div className="mt-8">
+          <Suspense fallback={<HomeProofSkeleton />}>
+            <HomeProof />
+          </Suspense>
+        </div>
+      </section>
+
+      <section className="pt-24">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">The app</p>
+        <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          Built for your phone.
+        </h2>
+        <div className="mt-8">
+          <ScreensStrip />
+        </div>
+      </section>
+
+      <section className="pt-24">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">How it works</p>
         <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Three rules. Your AI can’t talk its way past any of them.
@@ -90,6 +125,26 @@ export default function Home() {
             See the demo contract ↗
           </a>
         </p>
+      </section>
+
+      <section className="pt-24">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-pending/90">Above your limit</p>
+        <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          What happens when your AI wants to spend more.
+        </h2>
+        <div className="mt-8">
+          <AboveLimit />
+        </div>
+      </section>
+
+      <section className="pt-24">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">Who can do what</p>
+        <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          The AI can ask. Only the contract can pay.
+        </h2>
+        <div className="mt-8">
+          <Architecture />
+        </div>
       </section>
 
       <section className="pt-24">
@@ -141,6 +196,16 @@ export default function Home() {
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <section className="pt-24">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">Trust</p>
+        <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          Open, tested, and honest about its limits.
+        </h2>
+        <div className="mt-8">
+          <Trust />
         </div>
       </section>
 

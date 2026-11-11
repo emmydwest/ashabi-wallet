@@ -1,0 +1,45 @@
+import Image from 'next/image';
+import Link from 'next/link';
+
+const SCREENS = [
+  {
+    src: '/screens/chat-approval.webp',
+    alt: 'The assistant asking for approval before a 1.5 NEAR purchase',
+    caption: 'The assistant asks before anything big',
+    href: '/chat',
+  },
+  {
+    src: '/screens/wallet.webp',
+    alt: 'A guarded wallet page with today’s spending and the freeze button',
+    caption: 'Your wallet: what’s left today, one-tap freeze',
+    href: '/wallet',
+  },
+  {
+    src: '/screens/attack-blocked.webp',
+    alt: 'The arena showing a hijacked agent’s payment refused by the contract',
+    caption: 'A hijacked agent, refused on-chain',
+    href: '/agent',
+  },
+];
+
+// Real captures of the current app on an iPhone, not mock-ups.
+export function ScreensStrip() {
+  return (
+    <div className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
+      {SCREENS.map((s) => (
+        <Link key={s.src} href={s.href} className="group w-[72%] shrink-0 snap-center sm:w-auto">
+          <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-black shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)]">
+            <Image
+              src={s.src}
+              alt={s.alt}
+              width={600}
+              height={1024}
+              className="h-auto w-full transition duration-500 group-hover:scale-[1.02]"
+            />
+          </div>
+          <p className="mt-3 text-center text-sm text-zinc-300">{s.caption}</p>
+        </Link>
+      ))}
+    </div>
+  );
+}
