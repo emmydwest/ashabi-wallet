@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { DecisionStream } from '@/components/landing/decision-stream';
+import { HeroPreview } from '@/components/landing/hero-preview';
 import { accountUrl, CONTRACT_ID } from '@/lib/config';
 
 const STEPS = [
@@ -66,7 +66,7 @@ export default function Home() {
             first.
           </p>
         </div>
-        <DecisionStream />
+        <HeroPreview />
       </section>
 
       <section className="border-t border-white/[0.06] pt-20">
