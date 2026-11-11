@@ -2,16 +2,14 @@
 
 **An AI agent that can be fully hijacked and still can't steal your money.**
 
-The agent on this wallet only gets to *ask* for payments. A NEAR contract holds the funds and
-decides every request against rules the owner set: approved payees, a daily budget, a threshold
-above which a human approves, a velocity limit and a circuit breaker. Prompt-inject the agent,
-swap its model, steal its key: the worst it can do is file requests the contract refuses, and
-every refusal is written on-chain.
+- **Problem:** AI agents that hold a wallet can be talked into paying anyone. One poisoned web page, invoice or tool result is enough, and a better prompt is a promise, not a lock.
+- **Solution:** the agent can only *ask* for payments. A NEAR contract holds the funds and checks every request against the owner's rules (approved payees, daily budget, human approval above a threshold, velocity limit, kill-switch), and records every refusal on-chain.
+- **Live demo:** https://guardian-wallet.vercel.app/agent · **Contract:** [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) (NEAR testnet)
+- **Track:** AI Security & Defense (primary) · Agent Economy (secondary)
 
-- **Live site:** https://guardian-wallet.vercel.app
-- **Try it:** https://guardian-wallet.vercel.app/agent (one tap: "Watch a hijacked agent try to rob the wallet")
-- **Contract:** [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) on NEAR testnet
-- **Owner view (phone):** https://guardian-wallet.vercel.app/approve
+Prompt-inject the agent, swap its model, steal its key: the worst it can do is file requests the
+contract refuses. Owner view for phones: https://guardian-wallet.vercel.app/approve. Agents can
+plug in with the [`@guardian-wallet/sdk`](packages/sdk) package.
 
 ## For judges: try it in 2 minutes
 
@@ -32,7 +30,7 @@ with the agent's own limited key. Open https://guardian-wallet.vercel.app/agent 
 What you might see:
 
 - **"Kill-switch on" with a countdown.** Three attacks in a row from anyone trip the circuit
-  breaker. That's the defence working. Attacks still run and still get blocked, and honest jobs resume in 10 minutes.
+  breaker. That's the defence working. Attacks still run and still get blocked, and honest jobs resume when the cooldown ends.
 - **Budget used up.** The daily budget resets at 1:00 AM Lagos (00:00 UTC).
 - **Out of runs.** Each visitor gets 5 runs per 10 minutes, so the shared vault and the agent key's gas last.
 
@@ -86,6 +84,23 @@ flowchart LR
 The model decides *what* to buy. The contract decides *whether money moves*. Nothing between
 them is trusted.
 
+### Why not a TEE or a prompt firewall?
+
+TEEs prove what code ran and keep keys confidential, but an LLM inside an enclave that reads
+poisoned data will still sign a bad transaction with its attested key; Guardian enforces
+deterministic rules at NEAR consensus, so it needs no trust in enclave hardware and complements a
+TEE rather than replacing it.
+
+| Approach | Under indirect prompt injection | Where trust lives |
+|---|---|---|
+| Prompt guardrails / LLM judges | Lower the odds; a new phrasing can still get through, and the agent keeps full signing power | Another model's judgement |
+| TEE agent wallets | The enclave faithfully signs whatever the tricked model decided | Enclave hardware and the code it attests |
+| EVM smart-account session keys | Can cap spend per key, much like this; needs a smart account, bundler, paymaster and policy modules, so more moving parts | The account implementation and each module |
+| Guardian Wallet | Payee, budget, threshold, velocity and kill-switch checks hold whatever the model decided | The contract's code and NEAR consensus |
+
+Track 06 themes it covers: scoped function-call keys, an on-chain policy engine and a sandboxed
+agent wallet. Signing the intent hash inside a TEE is future work (see the threat model).
+
 ### Paying for an API over HTTP 402
 
 The vendor's paid endpoint, `GET /api/vendor/<sku>` (`/api/vendor/weather` for the basic plan),
@@ -110,8 +125,8 @@ Every `request_payment` the console sends carries `intent:<16 hex>` in its memo.
 first 16 hex characters of the SHA-256 of the run's intent log (task, model, the model's reasoning, SKU,
 amount, payee, installments, timestamp, as sorted-key JSON). The full log comes back with the
 run and is kept for 7 days at `/api/intent/<id>`. "Verify intent" on `/agent` recomputes the hash
-in the browser and compares it with the memo it reads straight from a testnet RPC. "Tamper" changes the
-amount in the log so you can watch the check fail.
+in the browser and compares it with the memo it reads straight from a testnet RPC. It is an
+audit-trail commitment: it proves the log wasn't edited after the payment, not who wrote it.
 
 ## Security guarantees
 
@@ -123,8 +138,10 @@ What holds even if the agent, its model and its server are fully compromised:
 - **No salami slicing.** Automatic payments in any 10 minutes can't add up past the 1 NEAR
   threshold (and at most 3 of them), so splitting a big payment just produces `BLOCKED_VELOCITY`.
 - **Automatic kill-switch.** 3 payments to unknown accounts in a row trip a circuit breaker that
-  refuses every request for 10 minutes, or until the owner resets it.
+  refuses every request for a cooldown (10 minutes by default), or until the owner resets it.
 - **No replays.** A `request_id` works once.
+- **Approvals can't pile up.** At most 3 requests wait for the owner at once (`TOO_MANY_PENDING`
+  after that), and a request nobody approves expires after 24 hours and gives its reserved budget back.
 - **The agent's key can't change the rules.** It is a NEAR function-call key that may call
   `request_payment` on this contract and nothing else, with no deposit. Every policy method needs
   1 yoctoNEAR attached, which only a full-access key (the owner's wallet) can send.
@@ -137,6 +154,68 @@ What holds even if the agent, its model and its server are fully compromised:
   contract has blocked before comes with a warning.
 - **No secrets in the browser.** Model keys and the agent key live in Vercel server-only env vars;
   the owner signs in their own wallet and the app never sees that key.
+
+## Verify the claims
+
+Every claim, where it lives, and the test that pins it (`cd contract && cargo test`).
+
+| Claim | Code | Test |
+|---|---|---|
+| Only the registered agent can request a payment | `contract/src/lib.rs:333` | `non_agent_cannot_request` |
+| Unknown payees are refused and the attempt is stored | `contract/src/lib.rs:389`, `:981` | `attacker_recipient_is_blocked_and_persisted` |
+| Replayed `request_id` is refused | `contract/src/lib.rs:352` | `duplicate_request_id_is_rejected` |
+| Freeze and the kill-switch stop everything | `contract/src/lib.rs:364`, `:376`, `:926` | `freeze_blocks_everything`, `breaker_trips_after_three_suspicious_blocks_then_cools_down` |
+| At most 3 requests wait for the owner | `contract/src/lib.rs:404` | `too_many_pending_requests_are_refused` |
+| Daily budget counts pending reservations | `contract/src/lib.rs:422` | `budget_counts_pending_reservations` |
+| Splitting a payment is caught | `contract/src/lib.rs:446` | `splitting_below_threshold_is_capped_by_the_window_total` |
+| Unapproved requests expire after 24 h and free the budget | `contract/src/lib.rs:828`, `:843` | `pending_request_expires_and_releases_budget`, `owner_cannot_approve_an_expired_request` |
+| Rule changes need the owner and 1 yoctoNEAR | `contract/src/lib.rs:815` | `agent_cannot_add_payee`, `agent_cannot_change_guards`, `agent_cannot_change_pending_rules` |
+| Upgrades keep existing state | `contract/src/lib.rs:292` | `migrate_keeps_v3_state` |
+| The agent key can only call `request_payment` | on-chain: `near account list-keys gw-emmy-agent.testnet network-config testnet now` | |
+| The live console uses the SDK | `dashboard/src/app/api/agent/run/route.ts:56` → `dashboard/src/lib/server/run-agent.ts:362`, `:373` → `dashboard/src/lib/server/agent-key.ts:14` | |
+| The vendor checks the receipt on-chain and refuses replays | `dashboard/src/vendor/x402.ts:110`–`138` | run a paid job on `/agent`; the last step shows the `409` |
+| 5 runs per 10 minutes per visitor | `dashboard/src/lib/server/rate-limit.ts:5` | |
+
+## Threat model
+
+- **What it guarantees:** where funds can go and how much, how fast, and when a human has to
+  sign. It does not guarantee that a vendor delivers what it was paid for; the 402 receipt check
+  covers the payment side only.
+- **Gas griefing:** a leaked agent key can only burn its own gas allowance, about 2.99 NEAR on
+  the function-call key, and the public console adds a per-IP limit of 5 runs per 10 minutes.
+  The owner refills or rotates the key with `set_agent`.
+- **Replay cache:** used 402 receipts and nonces live in Vercel's runtime cache. A production
+  vendor should keep them in Redis or a KV store with durable writes.
+- **Intent hash:** an audit-trail commitment in the memo, not a signature. Production would sign
+  the intent log inside a TEE so the hash also proves which agent code produced it.
+- **Contract upgrades:** the contract account keeps a full-access key on testnet for evaluation
+  stability; it will be removed about 2 hours before the deadline. In production you would burn
+  it or hand upgrades to a DAO or multisig with a timelock.
+
+## Sustainability
+
+- **Who it's for:** teams giving agents a budget: API-buying agents, shopping and booking
+  assistants, DAO treasuries that delegate small payments to bots.
+- **Zero protocol rent:** no token, no fee on payments. Each owner deploys their own guardian and
+  pays only NEAR storage and gas.
+- **Roadmap:** a Rust crate alongside the TypeScript SDK, NEAR Intents for cross-chain payouts
+  (mainnet; Intents has no testnet), and adapters for agent frameworks so a tool call becomes
+  `pay402()` with no wallet code.
+
+## Use it from your agent
+
+```ts
+import { accountSigner, GuardianAgent, nearToYocto } from '@guardian-wallet/sdk';
+
+const agent = new GuardianAgent({ contractId: 'guardian.gw-emmy.testnet', agentId, signer: accountSigner(account) });
+const result = await agent.requestPayment({ receiverId: 'api-vendor.gw-emmy.testnet', amount: nearToYocto('0.05') });
+// result.status: 'APPROVED' | 'PENDING_APPROVAL' | 'BLOCKED_RECIPIENT' | ... (the contract's enum)
+const paid = await agent.pay402('https://guardian-wallet.vercel.app/api/vendor/weather-now');
+```
+
+The live `/agent` console runs on this SDK (`dashboard/src/lib/server/agent-key.ts` builds the
+agent, `run-agent.ts` calls `requestPayment` and `pay402`). Full API in
+[packages/sdk/README.md](packages/sdk/README.md).
 
 ## Why NEAR
 
@@ -164,7 +243,7 @@ Requires Node 24, Rust with [`cargo-near`](https://github.com/near/cargo-near), 
 [`near-cli-rs`](https://github.com/near/near-cli-rs). Testnet NEAR is free from the faucet.
 
 ```sh
-# contract: 35 unit tests, then the wasm
+# contract: 42 unit tests, then the wasm
 cd contract && cargo test && cargo near build non-reproducible-wasm
 
 # dashboard + live agent (http://localhost:3000)
@@ -220,6 +299,7 @@ breaker after 3 strikes for 10 min. Scripted scenario run with tx links:
 | 2 | wallet frozen by owner | `FROZEN` | no |
 | 3 | circuit breaker cooling down | `FROZEN` | no |
 | 4 | receiver not on approved list | `BLOCKED_RECIPIENT` | no |
+| 4b | needs owner approval, and 3 requests already wait (`max_pending`) | `TOO_MANY_PENDING` | no |
 | 5 | spent today + reserved (pending) + amount > daily limit | `BLOCKED_BUDGET` | no |
 | 6 | contract balance (minus storage and 0.1 NEAR reserve) too low | `INSUFFICIENT_FUNDS` | no |
 | 7 | below the threshold, but automatic payments in the window would pass the threshold (or the count cap) | `BLOCKED_VELOCITY` | no |
@@ -233,7 +313,10 @@ authorization failures: a non-agent calling `request_payment`, or a non-owner ca
 
 Transfers are native NEAR `Promise` transfers with a callback (`on_transfer_complete`) that marks
 the record `COMPLETED` or `FAILED`; on failure the day's budget is refunded. Payment record
-lifecycle: `PENDING_APPROVAL → TRANSFERRING → COMPLETED | FAILED`, or `PENDING_APPROVAL → REJECTED`.
+lifecycle: `PENDING_APPROVAL → TRANSFERRING → COMPLETED | FAILED`, or `PENDING_APPROVAL → REJECTED`,
+or `PENDING_APPROVAL → EXPIRED` after `pending_ttl_minutes` (24 h). Expiry is lazy: the next
+`request_payment` or anyone calling `expire_pending()` releases the reserved budget, and views
+already leave expired requests out.
 
 Two guards catch patterns no single request shows:
 
@@ -250,7 +333,7 @@ Two guards catch patterns no single request shows:
 Both are owner-tunable with `set_guards`, and `0` turns either off.
 
 Budget days are UTC days from the block timestamp (`block_timestamp / 86400s`); `spent_today`
-resets at the first call of a new day. Pending reservations carry over until approved or rejected.
+resets at the first call of a new day. Pending reservations carry over until approved, rejected or expired.
 
 #### Methods
 
@@ -258,11 +341,13 @@ resets at the first call of a new day. Pending reservations carry over until app
 |---|---|---|
 | `new(owner_id, agent_id, daily_limit, approval_threshold, approved_payees?)` | deploy | init |
 | `request_payment(request_id, receiver_id, amount, memo?)` | agent only | returns status (see above) |
-| `approve_payment(record_id)` / `reject_payment(record_id)` | owner, 1 yocto | approve refused while frozen |
+| `approve_payment(record_id)` / `reject_payment(record_id)` | owner, 1 yocto | approve refused while frozen or once expired |
 | `set_daily_limit(daily_limit)` / `set_approval_threshold(approval_threshold)` | owner, 1 yocto | |
 | `add_payee(account_id)` / `remove_payee(account_id)` | owner, 1 yocto | |
 | `freeze()` / `unfreeze()` | owner, 1 yocto | emergency stop; `unfreeze` also resets a tripped breaker |
 | `set_guards({max_auto_payments, velocity_window_minutes, breaker_strikes, breaker_cooldown_minutes})` | owner, 1 yocto | 0 disables a guard |
+| `set_pending_rules({max_pending, pending_ttl_minutes})` | owner, 1 yocto | 0 disables the cap or the expiry |
+| `expire_pending()` | anyone | releases budget held by expired requests; returns how many |
 | `migrate()` | contract itself | one-off upgrade from the previous state layout |
 | `set_agent(agent_id)` | owner, 1 yocto | rotate a compromised agent |
 | `set_owner(new_owner)` | owner, 1 yocto | hand ownership to another wallet; must differ from the agent |
@@ -283,7 +368,8 @@ Every outcome logs `EVENT_JSON:{"standard":"guardian_wallet","version":"1.0.0","
 event one of `wallet_initialized`, `payment_approved`, `payment_pending`, `payment_blocked`,
 `payment_completed`, `payment_failed`, `payment_rejected`, `policy_updated`, `payee_added`,
 `payee_removed`, `wallet_frozen`, `wallet_unfrozen`, `agent_changed`, `owner_changed`,
-`guards_updated`, `breaker_tripped`, `breaker_reset`, `deposit`, `withdraw`.
+`guards_updated`, `pending_rules_updated`, `payment_expired`, `breaker_tripped`, `breaker_reset`,
+`deposit`, `withdraw`.
 
 ### Reproduce
 
@@ -291,7 +377,7 @@ Requires Rust, [`cargo-near`](https://github.com/near/cargo-near) and
 [`near-cli-rs`](https://github.com/near/near-cli-rs). Testnet NEAR is free.
 
 ```sh
-# 1. unit tests (35)
+# 1. unit tests (42)
 cd contract && cargo test
 
 # 2. build the wasm
@@ -317,7 +403,7 @@ contract directly (panics: unauthorized), agent trying to add a payee (panics: u
 ### Known limitations
 
 - The contract account still has a full-access key during development, so whoever holds it could
-  redeploy the contract. It will be removed before the final demo; exact steps in
+  redeploy the contract. It will be removed about 2 hours before the deadline; exact steps in
   [docs/before-final.md](docs/before-final.md).
 - No NEAR Intents yet: payments are native NEAR transfers. NEAR Intents has no testnet, so any
   Intents integration would have to run on mainnet with tiny amounts.
@@ -375,8 +461,8 @@ model reasoning.
   good snapshot with an "as of HH:MM" note instead of a spinner.
 - `/dashboard` reads the contract live every 6 s: vault balance, daily budget (spent, reserved,
   remaining), policy, every payment and blocked attempt with its NearBlocks link, blocked-attack
-  cards with the memo the agent sent, the three-act agent log, and the Act 2 trap page with a
-  "View raw HTML" toggle.
+  cards with the memo the agent sent. A collapsed "Recorded reference run" holds the scripted
+  three-act log and its trap page.
 - `/agent` lets anyone run the agent for real. Attack presets come with a preview of the
   poisoned docs page, invoice or tool result, and "Reveal hidden injection" lights up the text
   only the agent reads; in the stream, the model step that followed it is outlined in red. The hijack button at the top skips the tricking
@@ -386,10 +472,10 @@ model reasoning.
   asks a free model what to buy, and sends `request_payment` with its limited key; settlement and
   the delivered data stream in. Attack mode poisons the vendor page with a preset or your own
   injection and shows whether the model fell for it and what the contract did, with the tx link.
-- `/approve` also has the policy writer: plain English in, a checked diff out, one wallet
-  signature per change.
+- `/approve` also has an optional, collapsed policy writer: plain English in, a checked diff
+  out, one wallet signature per change.
 - `/approve` is the owner's phone view: pending payments with Approve and Reject, a Freeze
-  button, and the rules (daily limit, approved payees). It signs through NEAR Wallet Selector (Meteor, MyNearWallet, Intear) with 1 yoctoNEAR
+  button, and the rules (daily limit, guards including the kill-switch cooldown, approved payees). It signs through NEAR Wallet Selector (Meteor, MyNearWallet, Intear) with 1 yoctoNEAR
   attached; the app never holds the owner's key.
 
 | Dashboard | Owner approvals (mobile) |
