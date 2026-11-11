@@ -11,6 +11,7 @@ const LINKS = [
   { href: '/chat', label: 'Live Agent', match: ['/chat'] },
   { href: '/agent', label: 'Attack Demo', match: ['/agent', '/dashboard'] },
   { href: '/wallet', label: 'Wallet', match: ['/wallet', '/vault', '/start', '/approve'] },
+  { href: '/verify', label: 'Verify', match: ['/verify'] },
   { href: '/docs', label: 'Docs', match: ['/docs'] },
 ];
 

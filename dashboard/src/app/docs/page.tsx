@@ -34,7 +34,7 @@ const RULES = [
   {
     icon: Zap,
     title: 'Automatic kill-switch',
-    body: '3 payments to unknown accounts in a row pause everything for 10 minutes, or until the owner resets it.',
+    body: '3 payments to unknown accounts in a row pause everything for the cooldown the owner set (default 10 minutes), or until the owner resets it.',
   },
   {
     icon: KeyRound,
@@ -105,10 +105,14 @@ export default function DocsPage() {
             A web page tells the agent to send money to an attacker. The contract blocks it and stores the attempt.
           </Step>
           <Step n="2" href="/chat" label="Ask the live agent to buy something">
-            It pays the demo vendor over HTTP 402 and shows what it bought, with the transaction.
+            Weather, news, a translation, an icon pack, a market report, or a 1.5 NEAR annual plan that waits for you.
+            Each one pays the demo vendor over HTTP 402.
           </Step>
           <Step n="3" href="/start" label="Create your own guarded wallet">
             One transaction through the factory. You become the owner; the AI gets its own limited key.
+          </Step>
+          <Step n="4" href="/verify" label="Verify it live on NEAR">
+            Five checks run in your browser against a public RPC, plus every proof transaction with a NearBlocks link.
           </Step>
         </ol>
       </Section>
@@ -123,6 +127,13 @@ export default function DocsPage() {
         <p className="mt-3 text-sm text-zinc-400">
           <code className="font-mono text-zinc-300">pay402(url)</code> does the whole HTTP 402 dance: fetch, pay the
           challenge through the guardian, and retry with the receipt.
+        </p>
+        <p className="mt-4 text-sm leading-relaxed text-zinc-400">
+          There is also a local MCP server in <code className="font-mono text-zinc-300">packages/mcp-server</code> that
+          wraps the same SDK, so Claude Code or any MCP client can call{' '}
+          <code className="font-mono text-zinc-300">guardian_request_payment</code> and{' '}
+          <code className="font-mono text-zinc-300">guardian_fetch_402</code>. It is not published to npm; build it from
+          this repo. Setup is in the README.
         </p>
       </Section>
 

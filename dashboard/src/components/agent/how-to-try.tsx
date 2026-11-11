@@ -3,6 +3,7 @@ const STEPS = [
   ['A: Run a real purchase.', 'See the 402 pay-then-unlock loop, then tap Verify intent.'],
   ['Attacks → pick a preset.', 'Tap Reveal hidden injection, choose Naive or Careful, launch.'],
   ['C: Ask for 1.5 NEAR.', 'Over 1 NEAR, so it waits for the owner on /approve.'],
+  ['Verify live on NEAR.', 'The checks query a public RPC from your browser. Every proof tx is on /verify.'],
 ];
 
 // A short guide for first-time visitors and judges. Closed by default so the phone view

@@ -1,5 +1,5 @@
 import { connection, type NextRequest } from 'next/server';
-import { forecast, itemFor } from '@/vendor/catalog';
+import { deliver, itemFor } from '@/vendor/catalog';
 import { challenge, RECEIPT_HEADER, SIGNER_HEADER, verifyReceipt } from '@/vendor/x402';
 
 // GET /api/vendor/<sku>, or /api/vendor/weather for the basic plan. Unpaid: 402 with a price
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     {
       sku: item.sku,
       receipt: { tx: receipt, record_id: result.recordId, checks: result.checks },
-      data: forecast(item.sku),
+      data: deliver(item.sku),
     },
     { headers },
   );

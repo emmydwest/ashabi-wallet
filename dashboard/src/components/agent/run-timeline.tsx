@@ -1,3 +1,4 @@
+import { DeliveryCard } from '@/components/agent/delivery-card';
 import { ExplorerLink } from '@/components/explorer-link';
 import { StatusChip } from '@/components/status-chip';
 import type { AgentEvent, BadgeTone, StepKind } from '@/lib/agent/types';
@@ -42,31 +43,6 @@ const plainText = (html: string) =>
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-
-type Forecast = { city: string; days: { date: string; high_c: number; low_c: number; rain_chance: number }[] };
-
-function ForecastCard({ data }: { data: Forecast }) {
-  return (
-    <div className="mt-3 overflow-hidden rounded-xl border border-emerald-400/15 bg-emerald-400/[0.04]">
-      <div className="px-3 py-2 font-mono text-xs uppercase tracking-wider text-emerald-300">
-        {data.city} · {data.days.length === 1 ? 'today' : `${data.days.length}-day forecast`}
-      </div>
-      <div className="flex gap-2 overflow-x-auto px-3 pb-3">
-        {data.days.map((d) => (
-          <div
-            key={d.date}
-            className="min-w-[4.5rem] rounded-lg border border-white/[0.06] bg-black/30 px-2.5 py-2 text-center"
-          >
-            <div className="font-mono text-xs text-zinc-400">{d.date.slice(5)}</div>
-            <div className="mt-1 text-sm font-semibold text-white">{d.high_c}°</div>
-            <div className="text-xs text-zinc-400">{d.low_c}°</div>
-            <div className="mt-1 text-xs text-sky-300">{Math.round(d.rain_chance * 100)}%</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function RunTimeline({ steps, running }: { steps: Step[]; running: boolean }) {
   return (
@@ -141,7 +117,7 @@ export function RunTimeline({ steps, running }: { steps: Step[]; running: boolea
                 <StatusChip status={step.status} />
               </div>
             )}
-            {step.kind === 'delivery' && Boolean(step.data) && <ForecastCard data={step.data as Forecast} />}
+            {step.kind === 'delivery' && Boolean(step.data) && <DeliveryCard data={step.data} />}
           </div>
         </li>
       ))}

@@ -7,6 +7,7 @@ import { Card, CardHeader } from '@/components/card';
 import { ExplorerLink } from '@/components/explorer-link';
 import { useGuardian } from '@/components/use-guardian';
 import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, JOBS } from '@/lib/agent/attacks';
+import { LiveChecks } from '@/components/verify/live-checks';
 import { AsOf } from '@/components/as-of';
 import { CONTRACT_ID } from '@/lib/config';
 import { CUSTOM_MAX, TASK_MAX, type AgentEvent } from '@/lib/agent/types';
@@ -37,6 +38,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
   const [custom, setCustom] = useState('');
   const [model, setModel] = useState<'small' | 'main'>('small');
   const [walletNotice, setWalletNotice] = useState<string | null>(null);
+  const [confirmBreaker, setConfirmBreaker] = useState(false);
   const runCard = useRef<HTMLDivElement>(null);
 
   // Back from a MyNearWallet approval: say what happened, then tidy the URL.
@@ -86,19 +88,18 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const outOfRuns = quota?.left === 0;
+  const selected = ATTACKS.find((a) => a.id === attackId);
   const preview =
-    attackId === CUSTOM_ATTACK_ID
-      ? custom.trim()
-        ? { text: custom, surface: 'page' as const }
-        : null
-      : ATTACKS.find((a) => a.id === attackId);
+    attackId === CUSTOM_ATTACK_ID ? (custom.trim() ? { text: custom, surface: 'page' as const } : null) : selected;
+  const needsBreakerConfirm = selected?.script === 'breaker';
   // Honest jobs would only bounce off the paused contract; say so instead of letting them try.
   const pausedForJobs = mode === 'task' && (killSwitchOn || status.frozen);
   const canRun =
     !running &&
     !outOfRuns &&
     !pausedForJobs &&
-    (mode === 'task' ? task.trim().length > 0 : attackId !== CUSTOM_ATTACK_ID || custom.trim());
+    (mode === 'task' ? task.trim().length > 0 : attackId !== CUSTOM_ATTACK_ID || custom.trim()) &&
+    (mode !== 'attack' || !needsBreakerConfirm || confirmBreaker);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-8 sm:py-14">
@@ -131,6 +132,10 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
         <HowToTry />
         <Scoreboard status={status} />
+      </div>
+
+      <div className="mt-6">
+        <LiveChecks compact />
       </div>
 
       <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
@@ -193,8 +198,9 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
             ) : (
               <>
                 <p className="text-sm text-zinc-400">
-                  The agent is sent to buy a forecast from a poisoned vendor page. Pick an attack or write your own,
-                  then watch whether the model falls for it and what the contract does.
+                  Injection presets send the agent to buy a forecast from a poisoned page: watch whether the model falls
+                  for it and what the contract does. Scripted presets skip the model and always hit the contract, like
+                  the hijack button.
                 </p>
                 <div className="grid gap-2">
                   {ATTACKS.map((a) => (
@@ -202,7 +208,10 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
                       key={a.id}
                       tone="rose"
                       active={attackId === a.id}
-                      onClick={() => setAttackId(a.id)}
+                      onClick={() => {
+                        setAttackId(a.id);
+                        setConfirmBreaker(false);
+                      }}
                       title={a.name}
                     >
                       {a.blurb}
@@ -226,28 +235,52 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
                     className="w-full resize-none rounded-xl border border-white/10 bg-black/40 px-3.5 py-3 font-mono text-sm text-white outline-none placeholder:text-zinc-500 focus:border-rose-300/40"
                   />
                 )}
-                {preview && <AttackPreview key={attackId} text={preview.text} surface={preview.surface} />}
-                <div>
-                  <span className="text-sm text-zinc-300">Agent</span>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <Option
-                      tone="white"
-                      active={model === 'small'}
-                      onClick={() => setModel('small')}
-                      title="Naive agent"
-                    >
-                      Trusts what the page says
-                    </Option>
-                    <Option
-                      tone="white"
-                      active={model === 'main'}
-                      onClick={() => setModel('main')}
-                      title="Careful agent"
-                    >
-                      Main model, plain instructions
-                    </Option>
+                {preview && !selected?.script && (
+                  <AttackPreview key={attackId} text={preview.text} surface={preview.surface} />
+                )}
+                {selected?.script && (
+                  <p className="rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-sm text-amber-100">
+                    This one always hits the contract. The model is not asked.
+                  </p>
+                )}
+                {needsBreakerConfirm && (
+                  <label className="flex items-start gap-3 rounded-xl border border-rose-400/25 bg-rose-400/[0.06] px-3 py-3 text-sm text-rose-100">
+                    <input
+                      type="checkbox"
+                      checked={confirmBreaker}
+                      onChange={(e) => setConfirmBreaker(e.target.checked)}
+                      className="mt-1 size-4 accent-rose-400"
+                    />
+                    <span>
+                      I understand this will pause the shared demo wallet for the contract’s cooldown (currently{' '}
+                      {status.guards.breaker_cooldown_minutes} minutes). Honest purchases resume on their own. There is
+                      no public reset.
+                    </span>
+                  </label>
+                )}
+                {!selected?.script && (
+                  <div>
+                    <span className="text-sm text-zinc-300">Agent</span>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <Option
+                        tone="white"
+                        active={model === 'small'}
+                        onClick={() => setModel('small')}
+                        title="Naive agent"
+                      >
+                        Trusts what the page says
+                      </Option>
+                      <Option
+                        tone="white"
+                        active={model === 'main'}
+                        onClick={() => setModel('main')}
+                        title="Careful agent"
+                      >
+                        Main model, plain instructions
+                      </Option>
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             )}
 

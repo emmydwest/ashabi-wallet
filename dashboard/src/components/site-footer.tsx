@@ -11,6 +11,9 @@ export function SiteFooter() {
           <NearBadge label="Powered by NEAR · testnet" />
         </div>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
+          <Link href="/verify" className="hover:text-white">
+            Verify
+          </Link>
           <Link href="/docs" className="hover:text-white">
             Docs
           </Link>

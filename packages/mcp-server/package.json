@@ -1,0 +1,30 @@
+{
+  "name": "@guardian-wallet/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stdio MCP server that lets an assistant pay through a Guardian Wallet contract.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "guardian-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --banner:js='#!/usr/bin/env node' --external:near-api-js --external:@modelcontextprotocol/sdk --external:zod",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@guardian-wallet/sdk": "file:../sdk",
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "near-api-js": "^7.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.0"
+  }
+}

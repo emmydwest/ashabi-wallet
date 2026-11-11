@@ -33,6 +33,10 @@ with the agent's own limited key. Open https://guardian-wallet.vercel.app/agent 
    "Renew my API plan for a year" files a 1.5 NEAR request that waits on a card at
    `/vault/<your wallet>/request/<id>`, which you approve from your phone.
 
+6. **Open `/verify`.** Five checks run in your browser against a public testnet RPC: the agent
+   key’s restrictions, the contract code hash and balance, the velocity limit, the kill-switch,
+   and the latest blocked attempt. Under that is every proof transaction with a NearBlocks link.
+
 What you might see:
 
 - **"Kill-switch on" with a countdown.** Three attacks in a row from anyone trip the circuit
@@ -66,6 +70,7 @@ Every row is a real transaction from the live demo.
 | Factory creates `boxtest.factory.gw-emmy.testnet` and its agent from the API-buyer template | `vault_created`, `agent_ready: true` | [2oWi2LgT…](https://testnet.nearblocks.io/txns/2oWi2LgtMzKd8iuHhibr3bweqk3GA2MGpWre6aBaFWP1) |
 | `/chat` buys a 0.05 NEAR report over 402 from that wallet with the hosted agent key | `APPROVED`, receipt verified | [4ZJRLZiA…](https://testnet.nearblocks.io/txns/4ZJRLZiAnLy6FLjBwxmRqdZ3UFbNKWnMRjPW2Ad59w4q) |
 | Its owner approves a 1.5 NEAR plan renewal that waited for them | `approve_payment`, then `COMPLETED` | [8yeSMFez…](https://testnet.nearblocks.io/txns/8yeSMFezUch7WYpWkKGog2hix2qWhNW2tfiTC5S26gQG) |
+| MCP server buys a 0.05 NEAR report over 402 from that same factory wallet | `APPROVED`, receipt verified | [7NBA3Vfw…](https://testnet.nearblocks.io/txns/7NBA3Vfw6bUpX8LydZtByArJJSnJYzDTVjNQDgRNbPE2) |
 
 Read it yourself, no keys needed:
 
@@ -111,10 +116,31 @@ TEE rather than replacing it.
 Track 06 themes it covers: scoped function-call keys, an on-chain policy engine and a sandboxed
 agent wallet. Signing the intent hash inside a TEE is future work (see the threat model).
 
+### How approaches compare
+
+A short look at the usual ways of limiting an agent wallet. This talks about approaches, not
+about any one project, and only lists behaviour that exists in this repo.
+
+| Capability | Model-only guardrails | Basic allowlist wallet | TEE risk check | Guardian Wallet |
+|---|---|---|---|---|
+| Scoped function-call key (`request_payment` only) | No | Typically yes | The key may live in the enclave | Yes |
+| Daily budget and payee allowlist | No | Yes | No: it scores risk, it does not pay | Yes |
+| Rolling velocity cap (threshold splitting) | No | Typically per-transaction and daily only | No | Yes: `BLOCKED_VELOCITY` |
+| Automatic N-strike kill-switch | No | Typically a manual freeze | No | Yes: trips after 3 unknown-payee blocks |
+| Human approval above a threshold, with expiry | No | Sometimes; rules may be locked afterwards | No | Yes: phone signing, 24 h expiry, at most 3 pending |
+| HTTP 402 paywall and nonce receipt | No | Sometimes | No | Yes: challenge → pay → receipt unlock; a replay is `409` |
+| Interactive injection lab and 1-tap hijack | No | Often a static page | Sometimes | Yes: live transactions on `/agent` |
+| SHA-256 intent memo, verified in the browser | No | No | No | Yes |
+| Attests which model ran | No | No | Yes | No; we do not claim this |
+| Rules still hold after the model is tricked | No | Yes, for the rules it has | No: the enclave signs the tricked decision | Yes: consensus-layer checks |
+
+
 ### Paying for an API over HTTP 402
 
 The vendor's paid endpoint, `GET /api/vendor/<sku>` (`/api/vendor/weather` for the basic plan),
 answers an unpaid request with `402 Payment Required` and a price, payee and single-use nonce.
+The live catalog is weather (0.05 / 0.3 / 0.8 NEAR), a news digest (0.08), a translation (0.12),
+an icon pack (0.25), a market report (0.4) and a premium annual plan (1.5, which waits for the owner).
 The agent pays through the guardian with `sku:<sku> | nonce:<nonce>` in the memo, then retries
 with `X-NEAR-Receipt-Tx: <hash>`. Before it returns any data, the vendor fetches that
 transaction from a testnet RPC and checks four things:
@@ -231,6 +257,23 @@ Every claim, where it lives, and the test that pins it (`cd contract && cargo te
 | Only the factory owner changes templates or the code hash, with 1 yoctoNEAR | `factory/src/lib.rs:296`, `:366` | `others_cannot_change_templates`, `owner_changes_need_one_yocto` |
 | 5 runs per 10 minutes per visitor | `dashboard/src/lib/server/rate-limit.ts:5` | |
 
+### Attack coverage
+
+Each row is a real attack the contract (and, where noted, the live demo) is built to stop.
+
+| Attack | What the contract does | Unit test | Live preset |
+|---|---|---|---|
+| Payment to an unknown account | `BLOCKED_RECIPIENT`, stored | `attacker_recipient_is_blocked_and_persisted` | `/agent` → Hijack the agent; also the injection presets below |
+| Poisoned webpage (`display:none`) | `BLOCKED_RECIPIENT` if the model pays the attacker | same | Attacks → Poisoned webpage |
+| Look-alike payee (one letter off) | `BLOCKED_RECIPIENT` | same | Attacks → Look-alike payee |
+| Fake “owner says” / urgent instruction | `BLOCKED_RECIPIENT` | same | Attacks → Owner impersonation, Fake system notice |
+| Poisoned tool output | `BLOCKED_RECIPIENT` | same | Attacks → Poisoned tool output |
+| Threshold splitting, as an injection | The vendor check refuses a split of a catalog price; a contract send is `BLOCKED_VELOCITY` | `splitting_below_threshold_is_capped_by_the_window_total` | Attacks → Threshold splitting (injection) |
+| Smurfing / velocity (scripted) | `BLOCKED_VELOCITY` | `splitting_below_threshold_is_capped_by_the_window_total`, `the_count_cap_still_stops_dust` | Attacks → Smurfing / velocity block. Needs budget left today; otherwise it says so and points at the earlier proof on `/verify`. |
+| Over-budget drain (scripted) | `BLOCKED_BUDGET`, nothing spent | `over_budget_is_blocked` | Attacks → Over-budget drain |
+| Repeated unknown payees (scripted) | Third `BLOCKED_RECIPIENT` trips the breaker; the next request is `FROZEN` | `breaker_trips_after_three_suspicious_blocks_then_cools_down` | Attacks → Trip the kill-switch. Pauses the shared demo for the cooldown the owner set; there is no public reset. |
+| 1.5 NEAR annual plan | `PENDING_APPROVAL` until the owner signs | `above_threshold_pending_then_owner_approves_then_completes` | Real jobs → Buy the premium annual plan |
+
 ## Threat model
 
 - **What it guarantees:** where funds can go and how much, how fast, and when a human has to
@@ -274,6 +317,24 @@ call works from any factory wallet: pass its id as `contractId` and its agent ac
 The live `/agent` console and `/chat` run on this SDK (`dashboard/src/lib/server/agent-key.ts` builds the
 agent, `run-agent.ts` calls `requestPayment` and `pay402`). Full API in
 [packages/sdk/README.md](packages/sdk/README.md).
+
+### MCP server
+
+`packages/mcp-server` is a local stdio MCP server around the same SDK. It is **not published to
+npm**; run it from this repo. Tools: `guardian_wallet_status`, `guardian_get_payment`,
+`guardian_request_payment`, `guardian_fetch_402`. Status and `get_payment` need no key; the
+payment tools need a function-call key. The contract still decides whether money moves.
+
+```sh
+cd packages/mcp-server && npm install && npm run build
+
+export GUARDIAN_CONTRACT=guardian.gw-emmy.testnet
+export AGENT_ACCOUNT=gw-emmy-agent.testnet
+export AGENT_PRIVATE_KEY=ed25519:...   # function-call key only
+claude mcp add guardian --env GUARDIAN_CONTRACT --env AGENT_ACCOUNT --env AGENT_PRIVATE_KEY -- node packages/mcp-server/dist/index.js
+```
+
+More in [packages/mcp-server/README.md](packages/mcp-server/README.md).
 
 ## Why NEAR
 
@@ -492,6 +553,11 @@ contract directly (panics: unauthorized), agent trying to add a payee (panics: u
 - The contract account still has a full-access key during development, so whoever holds it could
   redeploy the contract. It will be removed about 2 hours before the deadline; exact steps in
   [docs/before-final.md](docs/before-final.md).
+- The demo agent account `gw-emmy-agent.testnet` still has a full-access key as well as the
+  scoped function-call keys. `/verify` reports this honestly. The full-access key will be
+  removed before submission. Owner-only methods still need the owner’s signature and 1 yoctoNEAR.
+- The default kill-switch cooldown in the contract is 10 minutes. The live demo may be shorter
+  if the owner changed it (`get_wallet_status` and the verify panel show the live value).
 - No NEAR Intents yet: payments are native NEAR transfers. NEAR Intents has no testnet, so any
   Intents integration would have to run on mainnet with tiny amounts.
 
@@ -550,7 +616,7 @@ model reasoning.
   cards as `/agent`, real screenshots, what happens above your limit, a who-can-do-what diagram,
   and a trust section (contract links, source, test counts, testnet limitations). Every number is
   read from the chain and says what it counts.
-- The nav is Home, Live Agent (`/chat`), Attack Demo (`/agent`), Wallet and Docs (`/docs`, a
+- The nav is Home, Live Agent (`/chat`), Attack Demo (`/agent`), Wallet, Verify (`/verify`) and Docs (`/docs`, a
   short guide to the rules, the SDK and the accounts). The Guardian mascot's visor is an SVG dot
   matrix that changes with the outcome: thinking while the agent runs, an X when the contract
   blocks a payment, a check when one is approved, amber while it waits for you. Motion follows
@@ -569,7 +635,14 @@ model reasoning.
 - `/vault/<id>/request/<record>` is the deep link for one approval: "Your AI wants to spend 1.50
   NEAR on premium annual. Approve / Reject", then the outcome. "Send to my phone" shares it.
 - `/chat` is the assistant: tell it what to buy and it runs the same agent against your wallet
-  (or the demo one), shows what it bought, or drops an approval card in the conversation.
+  (or the demo one), shows what it bought, or drops an approval card in the conversation. The
+  catalog is weather, a news digest, a translation, an icon pack, a market report, and a 1.5 NEAR
+  annual plan that waits for the owner.
+- `/verify` runs five live RPC checks in the visitor’s browser (agent key restriction, contract
+  code hash and balance, velocity limit, kill-switch, latest blocked attempt) and lists every
+  published proof transaction with a NearBlocks link. The same checks sit on `/` and `/agent`.
+  A check that cannot reach the RPC, or that does not hold, is shown as a failure or a caveat,
+  not as a green tick.
 - Every page renders from cached on-chain state. If the testnet RPC is slow it shows the last
   good snapshot with an "as of HH:MM" note instead of a spinner.
 - `/dashboard` reads the contract live every 6 s: vault balance, daily budget (spent, reserved,
@@ -585,6 +658,9 @@ model reasoning.
   asks a free model what to buy, and sends `request_payment` with its limited key; settlement and
   the delivered data stream in. Attack mode poisons the vendor page with a preset or your own
   injection and shows whether the model fell for it and what the contract did, with the tx link.
+  Scripted presets (velocity / smurfing, over-budget drain, trip the kill-switch) skip the model
+  and always hit the contract, like the hijack button. The kill-switch preset asks for a
+  confirmation because it pauses the shared demo for the cooldown; there is no public reset.
 - `/approve` also has an optional, collapsed policy writer: plain English in, a checked diff
   out, one wallet signature per change.
 - `/approve` is the owner's phone view: pending payments with Approve and Reject, a Freeze

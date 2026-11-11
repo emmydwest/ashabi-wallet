@@ -9,6 +9,7 @@ import { LiveStatus, LiveStatusSkeleton } from '@/components/landing/live-status
 import { ScreensStrip } from '@/components/landing/screens-strip';
 import { StatsStrip } from '@/components/landing/stats-strip';
 import { Trust } from '@/components/landing/trust';
+import { LiveChecks } from '@/components/verify/live-checks';
 import { Mascot } from '@/components/mascot/mascot';
 import { accountUrl, CONTRACT_ID } from '@/lib/config';
 import { cachedSnapshot, cachedWalletCount } from '@/lib/server/cached-snapshot';
@@ -192,6 +193,10 @@ export default function Home() {
         </div>
       </section>
 
+      <section id="verify" className="pt-24">
+        <LiveChecks compact />
+      </section>
+
       <section className="pt-24">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">The app</p>
         <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
@@ -309,6 +314,12 @@ export default function Home() {
             className="whitespace-nowrap rounded-full border border-white/15 px-5 py-2.5 text-sm text-zinc-100 transition hover:border-white/25"
           >
             Attack the demo agent
+          </Link>
+          <Link
+            href="/verify"
+            className="whitespace-nowrap rounded-full border border-white/15 px-5 py-2.5 text-sm text-zinc-100 transition hover:border-white/25"
+          >
+            Verify on NEAR
           </Link>
           <Link
             href="/dashboard"

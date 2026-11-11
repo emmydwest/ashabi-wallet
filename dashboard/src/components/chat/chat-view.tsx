@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useWallet } from '@/components/approve/wallet';
+import { DeliveryCard } from '@/components/agent/delivery-card';
 import { ExplorerLink } from '@/components/explorer-link';
 import { Mascot, type Mood } from '@/components/mascot/mascot';
 import type { AgentEvent, PendingRequest } from '@/lib/agent/types';
@@ -21,7 +22,14 @@ type Message =
   | { role: 'user'; text: string }
   | { role: 'assistant'; vault: string; steps: Step[]; summary?: Summary; error?: string; done: boolean };
 
-const IDEAS = ['Buy me today’s weather report', 'Get a 7-day forecast for Lagos', 'Renew my API plan for a year'];
+const IDEAS = [
+  'Buy me today’s weather report',
+  'Get me this morning’s news digest',
+  'Translate “payment received” into Yoruba',
+  'Buy a small icon pack',
+  'Get a Lagos market report',
+  'Renew my API plan for a year',
+];
 
 export function ChatView() {
   const params = useSearchParams();
@@ -267,33 +275,7 @@ function SummaryText({ summary, delivered }: { summary: Summary; delivered: bool
 }
 
 function Delivered({ data }: { data: unknown }) {
-  const forecast = data as {
-    city?: string;
-    days?: { date: string; high_c: number; low_c: number; rain_chance: number }[];
-  };
-  if (!forecast?.days)
-    return (
-      <pre className="overflow-x-auto rounded-xl bg-black/30 p-3 font-mono text-xs text-zinc-300">
-        {JSON.stringify(data, null, 2)}
-      </pre>
-    );
-  return (
-    <div className="glass rounded-card p-4">
-      <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">Weather · {forecast.city}</div>
-      <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-        {forecast.days.slice(0, 7).map((d) => (
-          <div key={d.date} className="min-w-16 rounded-xl bg-black/25 px-3 py-2 text-center">
-            <div className="text-xs text-zinc-500">
-              {new Date(`${d.date}T12:00:00Z`).toLocaleDateString([], { weekday: 'short' })}
-            </div>
-            <div className="mt-1 font-mono text-sm text-white">{d.high_c}°</div>
-            <div className="font-mono text-xs text-zinc-500">{d.low_c}°</div>
-            <div className="mt-1 text-[11px] text-accent">{Math.round(d.rain_chance * 100)}% rain</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <DeliveryCard data={data} />;
 }
 
 // Follows the request on-chain, so the chat updates when it's approved from another device.

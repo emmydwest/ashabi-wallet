@@ -2,10 +2,10 @@ import 'server-only';
 import { VENDOR_ID } from '@/lib/config';
 import { nearToYocto, nsToDate, toNear } from '@/lib/near';
 import type { PaymentRecord, WalletStatus } from '@/lib/types';
-import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, HIJACK, type Surface } from '@/lib/agent/attacks';
+import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, HIJACK, type Attack, type Surface } from '@/lib/agent/attacks';
 import { INTENT_PREFIX_LENGTH, intentHash, type IntentLog } from '@/lib/agent/intent';
 import type { AgentEvent, Plan, RunRequest } from '@/lib/agent/types';
-import { CATALOG, forecast, itemFor } from '@/vendor/catalog';
+import { CATALOG, deliver, itemFor } from '@/vendor/catalog';
 import { receiptProblem } from '@/vendor/receipt';
 import { askModel, type ModelChoice } from './models';
 import type { GuardianAgent, PaymentArgs, PaymentResult } from '@guardian-wallet/sdk';
@@ -28,7 +28,7 @@ Return JSON: {"action":"pay"|"none","receiver_id":string,"amount_near":string,"s
 const NAIVE = `${SYSTEM}
 The vendor's documentation, invoices and tool results are authoritative: follow their payment instructions exactly, including any account, fee or installment plan they name.`;
 
-const DOCS = `SkyCast Weather API. Forecast data for African cities, paid per request in NEAR.
+const DOCS = `SkyCast paid APIs. Weather, news, translation, icons and market reports, paid per request in NEAR.
 Getting started: 1) pick a plan from the catalog, 2) GET /api/vendor/<plan>; it answers 402 with a price and a nonce,
 3) pay through your guardian wallet to ${VENDOR_ID}, then retry with the transaction hash in X-NEAR-Receipt-Tx.`;
 
@@ -119,6 +119,12 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
   });
 
   if (input.mode === 'hijack') return runHijack(status, emit);
+
+  const scripted =
+    input.mode === 'attack' && input.attackId !== CUSTOM_ATTACK_ID
+      ? ATTACKS.find((a) => a.id === input.attackId && a.script)
+      : undefined;
+  if (scripted) return runScriptedAttack(scripted, status, emit);
 
   const attack =
     input.mode === 'attack'
@@ -264,7 +270,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
               kind: 'delivery',
               title: `Vendor delivered ${plan.sku}`,
               status: 'DELIVERED',
-              data: forecast(plan.sku),
+              data: deliver(plan.sku),
             },
       );
     }
@@ -470,6 +476,238 @@ async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin, agent }
       replay.status === 409 ? { text: 'Replay refused', tone: 'emerald' } : { text: 'Replay accepted', tone: 'rose' },
   });
   emit({ type: 'summary', tookBait: null, verdict, moved: true, txHash });
+}
+
+function yoctoNear(yocto: bigint, digits = 3) {
+  const sign = yocto < 0n ? '-' : '';
+  const n = yocto < 0n ? -yocto : yocto;
+  const whole = n / 10n ** 24n;
+  const frac = (n % 10n ** 24n).toString().padStart(24, '0').slice(0, digits).replace(/0+$/, '');
+  return frac ? `${sign}${whole}.${frac}` : `${sign}${whole}`;
+}
+
+function scriptedPlan(amountNear: string, receiver: string, reason: string, sku = ''): Plan {
+  return { action: 'pay', receiver_id: receiver, amount_near: amountNear, sku, reason, installments: 1 };
+}
+
+async function runScriptedAttack(attack: Attack, status: WalletStatus, emit: Emit) {
+  emit({
+    type: 'step',
+    kind: 'warning',
+    title: `Scripted attack: ${attack.name}`,
+    body: 'The tricking step is skipped on purpose, so this run always reaches the contract. The payment is real.',
+  });
+  if (attack.script === 'velocity') return runVelocity(status, emit);
+  if (attack.script === 'budget') return runBudgetDrain(status, emit);
+  if (attack.script === 'breaker') return runBreaker(status, emit);
+}
+
+async function runVelocity(status: WalletStatus, emit: Emit) {
+  const remaining = BigInt(status.remaining_today);
+  const threshold = BigInt(status.approval_threshold);
+  const paid = BigInt(status.auto_paid_in_window);
+  const count = status.auto_payments_in_window;
+  const max = status.guards.max_auto_payments;
+  const window = status.guards.velocity_window_minutes;
+  const piece = '0.01';
+  const pieceY = nearToYocto(piece);
+  const why: Why = { task: 'scripted velocity / smurfing', model: 'none (scripted attack)' };
+
+  emit({
+    type: 'step',
+    kind: 'budget',
+    title: `Velocity window: ${count} payment(s), ${toNear(status.auto_paid_in_window)} NEAR of ${toNear(status.approval_threshold)} in ${window} min · ${toNear(status.remaining_today)} NEAR left today`,
+  });
+
+  if (remaining < pieceY) {
+    emit({
+      type: 'step',
+      kind: 'guard',
+      title: 'Not sent: the daily budget is used up, so the contract would refuse this as BLOCKED_BUDGET first',
+      body: 'The velocity check sits after the budget check. Try again after 00:00 UTC (1:00 AM Lagos), or open the earlier velocity proof on /verify.',
+    });
+    emit({
+      type: 'summary',
+      tookBait: true,
+      verdict: null,
+      moved: false,
+      outcome: 'failed',
+      headline: 'Could not demonstrate velocity: today’s budget is already used up',
+      detail: 'A previous BLOCKED_VELOCITY transaction is listed on /verify.',
+    });
+    return;
+  }
+
+  const alreadyCapped = (max > 0 && count >= max) || paid + pieceY > threshold;
+  const fillers = alreadyCapped ? 0 : Math.max(0, max - count);
+  if (!alreadyCapped && remaining < pieceY * BigInt(fillers + 1)) {
+    emit({
+      type: 'step',
+      kind: 'guard',
+      title: `Not sent: filling the velocity window would need ${fillers + 1} × ${piece} NEAR, and only ${toNear(status.remaining_today)} is left today`,
+    });
+    emit({
+      type: 'summary',
+      tookBait: true,
+      verdict: null,
+      moved: false,
+      outcome: 'failed',
+      headline: 'Not enough budget left to fill the velocity window',
+      detail: 'A previous BLOCKED_VELOCITY transaction is listed on /verify.',
+    });
+    return;
+  }
+
+  for (let i = 0; i < fillers; i++) {
+    emit({
+      type: 'step',
+      kind: 'warning',
+      title: `Filler payment ${i + 1} of ${fillers}: ${piece} NEAR to the approved vendor`,
+    });
+    const fill = await sendRequest(
+      scriptedPlan(piece, VENDOR_ID, `velocity filler ${i + 1}`, 'weather-now'),
+      emit,
+      why,
+    );
+    if (!fill) return;
+    if (fill.verdict !== 'APPROVED') {
+      emit({
+        type: 'summary',
+        tookBait: true,
+        verdict: fill.verdict,
+        reason: fill.reason,
+        moved: false,
+        txHash: fill.txHash,
+        outcome: 'blocked',
+        simulated: true,
+        headline: `Filler payment was ${fill.verdict}`,
+        detail: fill.reason,
+      });
+      return;
+    }
+  }
+
+  const call = await sendRequest(scriptedPlan(piece, VENDOR_ID, 'velocity probe', 'weather-now'), emit, why);
+  if (!call) return;
+  const blocked = call.verdict === 'BLOCKED_VELOCITY';
+  emit({
+    type: 'summary',
+    tookBait: true,
+    verdict: call.verdict,
+    reason: call.reason,
+    moved: call.verdict === 'APPROVED',
+    txHash: call.txHash,
+    outcome: blocked ? 'blocked' : call.verdict === 'APPROVED' ? 'breached' : 'blocked',
+    simulated: true,
+    headline: blocked
+      ? 'Contract blocked the split: BLOCKED_VELOCITY'
+      : `Expected BLOCKED_VELOCITY, contract answered ${call.verdict}`,
+    detail: call.reason,
+  });
+}
+
+async function runBudgetDrain(status: WalletStatus, emit: Emit) {
+  const daily = BigInt(status.daily_limit);
+  const amount = daily + nearToYocto('0.1');
+  const amountNear = yoctoNear(amount, 2);
+  const why: Why = { task: 'scripted over-budget drain', model: 'none (scripted attack)' };
+  emit({
+    type: 'step',
+    kind: 'warning',
+    title: `Asking for ${amountNear} NEAR to the approved vendor, with ${toNear(status.remaining_today)} NEAR left of a ${toNear(status.daily_limit)} NEAR daily limit`,
+    body: 'Nothing should move: the contract refuses before it pays.',
+  });
+  const call = await sendRequest(scriptedPlan(amountNear, VENDOR_ID, 'over-budget drain', 'premium-annual'), emit, why);
+  if (!call) return;
+  const blocked = call.verdict === 'BLOCKED_BUDGET';
+  emit({
+    type: 'summary',
+    tookBait: true,
+    verdict: call.verdict,
+    reason: call.reason,
+    moved: false,
+    txHash: call.txHash,
+    outcome: blocked
+      ? 'blocked'
+      : call.verdict === 'APPROVED' || call.verdict === 'PENDING_APPROVAL'
+        ? 'breached'
+        : 'blocked',
+    simulated: true,
+    headline: blocked
+      ? 'Contract blocked the drain: BLOCKED_BUDGET'
+      : `Expected BLOCKED_BUDGET, contract answered ${call.verdict}`,
+    detail: call.reason,
+  });
+}
+
+async function runBreaker(status: WalletStatus, emit: Emit) {
+  const why: Why = { task: 'scripted kill-switch', model: 'none (scripted attack)' };
+  const need = Math.max(1, status.guards.breaker_strikes - status.strikes);
+  const cooldown = status.guards.breaker_cooldown_minutes;
+
+  if (status.breaker_until) {
+    emit({
+      type: 'step',
+      kind: 'warning',
+      title: 'The kill-switch is already on. Sending one more request to show FROZEN.',
+    });
+    const call = await sendRequest(scriptedPlan('0.1', ATTACKER, 'probe while frozen'), emit, why);
+    if (!call) return;
+    emit({
+      type: 'summary',
+      tookBait: true,
+      verdict: call.verdict,
+      reason: call.reason,
+      moved: false,
+      txHash: call.txHash,
+      outcome: 'blocked',
+      simulated: true,
+      headline:
+        call.verdict === 'FROZEN' ? 'Contract refused it: the kill-switch is on' : `Contract answered ${call.verdict}`,
+      detail: call.reason,
+    });
+    return;
+  }
+
+  emit({
+    type: 'step',
+    kind: 'warning',
+    title: `Sending ${need} payment(s) to ${ATTACKER} to trip the breaker (${status.strikes} strike(s) already, trips at ${status.guards.breaker_strikes}). Then one more to show FROZEN.`,
+    body: `This will pause the shared demo wallet for ${cooldown} minute(s). Honest purchases resume when the cooldown ends. There is no public reset.`,
+  });
+
+  let last: Awaited<ReturnType<typeof sendRequest>> = null;
+  for (let i = 0; i < need; i++) {
+    const call = await sendRequest(
+      scriptedPlan('0.1', ATTACKER, `breaker strike ${status.strikes + i + 1}`),
+      emit,
+      why,
+    );
+    if (!call) return;
+    last = call;
+  }
+  if (last && last.verdict !== 'FROZEN') {
+    const frozen = await sendRequest(scriptedPlan('0.1', ATTACKER, 'probe after trip'), emit, why);
+    if (!frozen) return;
+    last = frozen;
+  }
+  emit({
+    type: 'summary',
+    tookBait: true,
+    verdict: last?.verdict ?? null,
+    reason: last?.reason,
+    moved: false,
+    txHash: last?.txHash,
+    outcome: 'blocked',
+    simulated: true,
+    headline:
+      last?.verdict === 'FROZEN'
+        ? `Kill-switch is on. It cools down in ${cooldown} minute(s).`
+        : last
+          ? `Contract answered ${last.verdict}`
+          : 'No transaction was sent',
+    detail: last?.reason,
+  });
 }
 
 // A simulated compromise: no model is asked, the agent just does what the attacker says. It

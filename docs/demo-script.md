@@ -96,6 +96,12 @@ Screen: `/dashboard`.
 > "A Rust contract, NEAR function-call keys, free models, and an SDK any agent can use. Give AI
 > the freedom to act, never the freedom to overspend. Try to break it at guardian-wallet.vercel.app."
 
+## Optional cut: a scripted attack or another purchase (if there's time)
+
+On `/agent`, Attacks → "Over-budget drain" or "Smurfing / velocity block" (the latter needs
+budget left today). Or on `/chat`, "Get me this morning’s news digest" / "Translate payment
+received into Yoruba".
+
 ## Optional cut: your own wallet (if there's time, or for a second video)
 
 Screen: phone, `/start`. Connect, pick "API buyer", name it, 2 NEAR, confirm.
@@ -109,7 +115,8 @@ Screen: phone, `/start`. Connect, pick "API buyer", name it, 2 NEAR, confirm.
 
 - An amber "as of HH:MM" pill: the testnet RPC is slow. The numbers are the last good on-chain
   state; keep going, it refreshes on its own.
-- The kill-switch banner on Real jobs: the breaker is doing its job. Reset it on `/approve`, or
-  record the hijack anyway; it still gets a real on-chain `FROZEN` block.
+- The kill-switch banner on Real jobs: the breaker is doing its job. Reset it on `/approve` (owner
+  only; there is no public reset), or record the hijack anyway; it still gets a real on-chain
+  `FROZEN` block.
 - Out of runs: the public demo allows 5 runs per 10 minutes. Wait it out, or record locally
   with `npm run dev`.

@@ -120,6 +120,9 @@ The vault holds about 17 testnet NEAR. As of writing the contract has recorded 2
    `waitForSettlement` and `pay402(url)` (fetch, pay the 402 challenge, retry with the receipt).
    Results use the contract's status enum. Signing is injected (`accountSigner(account)` wraps a
    near-api-js Account), so a key can live in a KMS or TEE. The live console runs on it.
+   A local stdio MCP server (`packages/mcp-server`) wraps the same SDK with four tools:
+   `guardian_wallet_status`, `guardian_get_payment`, `guardian_request_payment`,
+   `guardian_fetch_402`. It is not published to npm.
 4. **Model router.** Only free tiers. It tries providers in order with an 8 s timeout each,
    strict JSON mode, and moves to the next provider on an error or an empty reply.
    - Main chain: Groq `openai/gpt-oss-20b` → Google `gemini-3.1-flash-lite` → OpenRouter
@@ -128,12 +131,12 @@ The vault holds about 17 testnet NEAR. As of writing the contract has recorded 2
      then the main chain.
    - If every model fails on a real job, a rule-based planner picks the matching catalog item.
      In attack mode nothing is sent.
-5. **Demo vendor** (inside the same Next.js app, under `/api/vendor`). A fake weather API called
-   "SkyCast" with a catalog, a docs page (with a hidden injection for the trap), and a paid
-   endpoint that uses HTTP 402.
+5. **Demo vendor** (inside the same Next.js app, under `/api/vendor`). A fake "SkyCast" shop
+   with a catalog (weather, news, translation, icons, a market report, an annual plan), a docs
+   page (with a hidden injection for the trap), and a paid endpoint that uses HTTP 402.
 6. **Dashboard app** (Next.js 16 with cache components, Tailwind 4, NEAR Wallet Selector),
    deployed on Vercel. Pages: `/`, `/start`, `/wallet`, `/vault/<id>`, `/vault/<id>/request/<n>`,
-   `/chat` (Live Agent), `/agent` (Attack Demo), `/dashboard`, `/approve`, `/docs`.
+   `/chat` (Live Agent), `/agent` (Attack Demo), `/dashboard`, `/approve`, `/docs`, `/verify`.
 6b. **Factory** (`factory/`, Rust, 15 unit tests). `create_vault` makes `<name>.factory.gw-emmy.testnet`
    with the caller as owner and a template's rules, running the guardian code published once as a
    NEP-591 global contract (code hash `3Rh6iyiZbmi3gQjsWZMGyB7YmNovekeegaQaHBiskmaA`, about 23 NEAR
@@ -154,7 +157,11 @@ The vault holds about 17 testnet NEAR. As of writing the contract has recorded 2
 | SKU | Price | What |
 |---|---|---|
 | `weather-now` | 0.05 NEAR | Current conditions for Lagos |
+| `news-digest` | 0.08 NEAR | A short Lagos morning briefing |
+| `translate` | 0.12 NEAR | Translate a short phrase into Yoruba and French |
+| `icon-pack` | 0.25 NEAR | A small SVG icon set |
 | `weather-basic` | 0.3 NEAR | 7-day forecast |
+| `market-report` | 0.4 NEAR | A one-page Lagos market snapshot (illustrative figures) |
 | `weather-pro` | 0.8 NEAR | Hourly forecast and air quality |
 | `premium-annual` | 1.5 NEAR | 12 months unlimited (over the threshold, so the owner must approve) |
 
@@ -293,7 +300,8 @@ or "…". The UI is dark, designed mobile-first and tested in iPhone WebKit.
 
 For people, not judges: "Give your AI an allowance, not your bank password." Three steps (set a
 budget, pick who it can pay, approve big payments from your phone), "Create your guarded wallet"
-and "See it survive an attack" (the attack demo). The contract details sit below the fold.
+and "See it survive an attack" (the attack demo). Below the three proof cards is a "Verify live
+on NEAR" panel: five RPC checks run in the visitor's browser. The contract details sit below the fold.
 
 ### `/start`, `/wallet`, `/vault/<id>`
 
@@ -310,9 +318,19 @@ for phones; "Send to my phone" opens the share sheet or copies the link.
 
 A chat over the same agent runtime as `/agent` real jobs. It pays from your own wallet if you're
 connected and own one (or `?vault=`), otherwise the demo wallet. Replies are short ("Done. Paid
-and delivered", "Your wallet said no: …", "I asked you first"), with the delivered weather data, an
+and delivered", "Your wallet said no: …", "I asked you first"), with the delivered item (weather,
+news, a translation, icons or a market report), an
 inline approval card that follows the request on-chain, and the full step list behind "What
 happened".
+
+### `/verify`
+
+Five live RPC checks run in the visitor's browser: the agent key is a function-call key limited
+to `request_payment` on the vault (with an honest warning if a full-access key is still present),
+the contract's `view_account` code hash and balance, the velocity guards from `get_wallet_status`,
+the kill-switch threshold, and the latest blocked attempt. Failures and caveats are shown as
+such. Below that is every published proof transaction, grouped, with NearBlocks links. The same
+checks also sit on `/` and `/agent`.
 
 ### `/dashboard`
 
@@ -331,6 +349,12 @@ agent log and its trap page sit in a collapsed "Recorded reference run" section.
   the layer that stopped it: "Defense: contract layer - model compromised, contract blocked
   unapproved payee", then "Contract verdict: BLOCKED (unapproved payee)", a note that the
   compromise is simulated, and the tx link. It always produces an on-chain block, costs only gas, and counts as a real strike.
+  Scripted attack presets (smurfing / velocity, over-budget drain, trip the kill-switch) work the
+  same way: they skip the model and always hit the contract. The kill-switch preset asks for a
+  confirmation because it pauses the shared demo for the cooldown; there is no public reset. The
+  velocity preset will not send a payment if today's budget is already used up, because the
+  budget check runs first and would return `BLOCKED_BUDGET` instead; it points at the earlier
+  proof on `/verify`.
 - **Layout.** The hijack button sits right under the headline as the primary action. Below it,
   the collapsed "How to try it in 2 minutes" card and the scoreboard share a row on desktop. On
   desktop the form is on the left and the run stream on the right; on a phone they stack.
@@ -431,12 +455,14 @@ testnet vault.
    and launch.
 4. Back on **Real jobs**, run "Buy the premium annual plan". It waits as pending for the owner on
    `/approve`. Only the owner's wallet can approve; judges can watch it wait.
+5. Open **`/verify`**. Five checks run in the browser against a public testnet RPC, and every
+   published proof transaction is listed with a NearBlocks link.
 
 What a judge might hit:
 
 - **The kill-switch countdown.** Three attacks in a row from anyone trip it. That is the defence
-  working, and honest jobs resume when the cooldown ends (10 minutes by default; the owner can
-  shorten it on `/approve`).
+  working, and honest jobs resume when the cooldown ends (default 10 minutes; the live demo may
+  be shorter if the owner changed it; `/verify` shows the live value). There is no public reset.
 - **A used-up daily budget.** It resets at 00:00 UTC.
 - **The run limit:** 5 runs per 10 minutes per visitor.
 
@@ -471,6 +497,7 @@ Each hash opens at `https://testnet.nearblocks.io/txns/<hash>`.
 | Factory creates `boxtest` and its agent | `vault_created` | `2oWi2LgtMzKd8iuHhibr3bweqk3GA2MGpWre6aBaFWP1` |
 | `/chat` buys over 402 from `boxtest` with the hosted agent | `APPROVED` | `4ZJRLZiAnLy6FLjBwxmRqdZ3UFbNKWnMRjPW2Ad59w4q` |
 | `boxtest`'s owner approves a 1.5 NEAR renewal | `approve_payment` | `8yeSMFezUch7WYpWkKGog2hix2qWhNW2tfiTC5S26gQG` |
+| MCP server buys a 0.05 NEAR report over 402 from that wallet | `APPROVED`, receipt verified | `7NBA3Vfw6bUpX8LydZtByArJJSnJYzDTVjNQDgRNbPE2` |
 
 Anyone can read the state with no keys:
 `near contract call-function as-read-only guardian.gw-emmy.testnet get_wallet_status json-args '{}' network-config testnet now`
@@ -532,6 +559,10 @@ sometimes gullible models. When one of them falls for an injection, the contract
   and will be deleted about 2 hours before the deadline, which makes the deployed code immutable.
   Production would burn it or put upgrades behind a DAO or multisig timelock. The trade-off is that there are no
   more upgrades after that.
+- **Full-access key on the demo agent account.** `gw-emmy-agent.testnet` still has a full-access
+  key as well as the scoped function-call keys. `/verify` reports this as a caveat, not a green
+  tick. It will be removed before submission. Owner-only contract methods still need the owner's
+  signature and 1 yoctoNEAR.
 - **"Runs left" is per server instance.** The 5-runs-per-10-minutes limit is kept in memory per
   serverless instance, so it is approximate. A determined visitor could get more runs. The
   contract's limits are the real protection, but the agent key's gas allowance (about 3 NEAR) and
