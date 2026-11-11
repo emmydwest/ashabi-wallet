@@ -103,14 +103,19 @@ The vault holds about 17 testnet NEAR. As of writing the contract has recorded 2
 
 ### Components
 
-1. **Contract** (`contract/`, Rust). The only thing that can move funds. 35 unit tests.
-   Upgraded twice on testnet with state migrations.
+1. **Contract** (`contract/`, Rust). The only thing that can move funds. 42 unit tests.
+   Upgraded three times on testnet with state migrations.
 2. **Agent key.** A function-call key on `gw-emmy-agent.testnet`, limited to `request_payment` on
    the guardian, with a gas allowance (about 3 NEAR). It lives only in a Vercel server-only env
    var, never in the browser.
 3. **Agent runtime** (server route `/api/agent/run`, streams NDJSON). It reads the vendor catalog
-   and docs, asks a model for a JSON payment plan, sends `request_payment`, and streams every step
-   to the browser.
+   and docs, asks a model for a JSON payment plan, sends `request_payment` through the SDK, and
+   streams every step to the browser.
+3b. **SDK** (`packages/sdk`, `@guardian-wallet/sdk`). A dependency-free TypeScript package with a
+   `GuardianAgent` class: `requestPayment`, `getPolicy`, `getStatus`, `getPayment`,
+   `waitForSettlement` and `pay402(url)` (fetch, pay the 402 challenge, retry with the receipt).
+   Results use the contract's status enum. Signing is injected (`accountSigner(account)` wraps a
+   near-api-js Account), so a key can live in a KMS or TEE. The live console runs on it.
 4. **Model router.** Only free tiers. It tries providers in order with an 8 s timeout each,
    strict JSON mode, and moves to the next provider on an error or an empty reply.
    - Main chain: Groq `openai/gpt-oss-20b` → Google `gemini-3.1-flash-lite` → OpenRouter
@@ -125,8 +130,8 @@ The vault holds about 17 testnet NEAR. As of writing the contract has recorded 2
 6. **Dashboard app** (Next.js 16 with cache components, Tailwind 4, NEAR Wallet Selector),
    deployed on Vercel. Pages: `/`, `/dashboard`, `/agent`, `/approve`.
 7. **Scripted CLI agent** (`agent/`, TypeScript on Node 24). It runs a three-act demo against
-   testnet and writes an action log, plus owner commands and model probes. This came first; the
-   web console is the main demo now.
+   testnet and writes an action log. This came first; the web console is the main demo, and the
+   UI now keeps the recorded run in a collapsed reference section on `/dashboard`.
 
 ### Catalog
 
@@ -153,6 +158,7 @@ and the first one that applies decides the status:
 | 2 | Wallet frozen by the owner | `FROZEN` | no |
 | 3 | Circuit breaker cooling down | `FROZEN` (reason names the breaker) | no |
 | 4 | Receiver not on the approved list | `BLOCKED_RECIPIENT` | no |
+| 4b | Needs owner approval and 3 requests already wait | `TOO_MANY_PENDING` (not a strike) | no |
 | 5 | Spent today + reserved for pending + amount > daily limit | `BLOCKED_BUDGET` | no |
 | 6 | Contract balance (minus storage and a 0.1 NEAR reserve) too low | `INSUFFICIENT_FUNDS` | no |
 | 7 | Below the threshold, but automatic payments in the window would pass the threshold amount or the count cap | `BLOCKED_VELOCITY` | no |
@@ -163,25 +169,31 @@ Every call returns `{status, request_id, record_id, reason}`. Blocks are stored 
 `blocked_attempts` (the last 500 are kept). Transfers use a callback (`on_transfer_complete`)
 that marks the record `COMPLETED` or `FAILED` and refunds the day's budget on failure. A payment
 moves through `PENDING_APPROVAL → TRANSFERRING → COMPLETED | FAILED`, or
-`PENDING_APPROVAL → REJECTED`.
+`PENDING_APPROVAL → REJECTED`, or `PENDING_APPROVAL → EXPIRED` after 24 hours. Expiry is lazy:
+the next `request_payment`, or anyone calling `expire_pending()`, releases the reserved budget
+and emits `payment_expired`; views already leave expired requests out, and the owner can't
+approve one.
 
 ### Rules and guards
 
 - **Payee allowlist.** Funds only go to accounts the owner approved.
 - **Daily budget.** A hard cap per UTC day (the day is the block timestamp divided by 86,400 s).
-  Pending payments reserve budget until they are approved or rejected.
+  Pending payments reserve budget until they are approved, rejected or expired.
 - **Approval threshold.** Anything above it waits for the owner's wallet signature.
 - **Velocity limit (count and amount).** Automatic payments, meaning those not approved by the
   owner, in a rolling window (10 min) may not add up past the approval threshold (1 NEAR), and at
   most 3 of them fit in the window. This stops "threshold splitting", where a 1.5 NEAR purchase is
   sent as five 0.3 NEAR payments to dodge approval. Owner-approved and failed payments don't count.
 - **Circuit breaker (kill-switch).** 3 `BLOCKED_RECIPIENT` results in a row trip it. Every request
-  is then refused for 10 minutes, or until the owner calls `unfreeze`. Budget, balance, velocity
+  is then refused for the cooldown (10 minutes by default, editable on `/approve`), or until the
+  owner calls `unfreeze`. Budget, balance, velocity
   and duplicate blocks don't count as strikes, because honest agents hit those too. Any approved
   or pending request resets the strikes. It is timed rather than permanent so that strangers
   attacking the public demo can't lock the wallet for good.
 - **Freeze.** The owner's emergency stop. Everything is refused until `unfreeze`. Approvals are
   refused while frozen.
+- **Pending cap and expiry.** At most 3 requests wait for the owner at once, and each expires
+  after 24 hours (`set_pending_rules`, 0 disables either).
 - **Dedupe.** A `request_id` works once, which gives replay protection at the contract level.
 - **Owner and agent separation.** `set_owner` and `set_agent` refuse to make the owner and the
   agent the same account. Ownership was moved from a CLI-held key to Emmy's Meteor wallet with
@@ -193,7 +205,7 @@ moves through `PENDING_APPROVAL → TRANSFERRING → COMPLETED | FAILED`, or
 |---|---|---|
 | `new(owner_id, agent_id, daily_limit, approval_threshold, approved_payees?)` | deploy | init |
 | `request_payment(request_id, receiver_id, amount, memo?)` | agent only | returns a status (above) |
-| `approve_payment(record_id)` / `reject_payment(record_id)` | owner, 1 yocto | approve refused while frozen |
+| `approve_payment(record_id)` / `reject_payment(record_id)` | owner, 1 yocto | approve refused while frozen or once expired |
 | `set_daily_limit(daily_limit)` / `set_approval_threshold(approval_threshold)` | owner, 1 yocto | |
 | `add_payee(account_id)` / `remove_payee(account_id)` | owner, 1 yocto | |
 | `freeze()` / `unfreeze()` | owner, 1 yocto | `unfreeze` also resets a tripped breaker |
@@ -202,6 +214,8 @@ moves through `PENDING_APPROVAL → TRANSFERRING → COMPLETED | FAILED`, or
 | `set_owner(new_owner)` | owner, 1 yocto | must differ from the agent |
 | `withdraw(amount)` | owner, 1 yocto | owner takes funds back |
 | `deposit()` | anyone, payable | top up (plain transfers also work) |
+| `set_pending_rules({max_pending, pending_ttl_minutes})` | owner, 1 yocto | 0 disables the cap or the expiry |
+| `expire_pending()` | anyone | releases budget held by expired requests |
 | `migrate()` | contract itself | one-off upgrade from the previous state layout |
 | `get_wallet_status()` | view | limits, spent, reserved, remaining, balance, payees, counts, guards, window usage, strikes, breaker time |
 | `get_payment_history(from_index?, limit?)` | view | newest first |
@@ -216,7 +230,8 @@ events are:
 `wallet_initialized`, `payment_approved`, `payment_pending`, `payment_blocked`,
 `payment_completed`, `payment_failed`, `payment_rejected`, `policy_updated`, `payee_added`,
 `payee_removed`, `wallet_frozen`, `wallet_unfrozen`, `agent_changed`, `owner_changed`,
-`guards_updated`, `breaker_tripped`, `breaker_reset`, `deposit`, `withdraw`.
+`guards_updated`, `pending_rules_updated`, `payment_expired`, `breaker_tripped`, `breaker_reset`,
+`deposit`, `withdraw`.
 
 ---
 
@@ -266,8 +281,8 @@ The thesis in three steps, a sample "decision stream", and a "Try the live agent
 
 A live read of the contract: vault balance, settled / blocked / pending counts, the daily budget
 ring (spent, reserved, remaining), the policy, every payment and blocked attempt with NearBlocks
-links, cards for blocked attacks showing the memo the agent wrote, the scripted three-act agent
-log, and the trap page with a "View raw HTML" toggle.
+links, and cards for blocked attacks showing the memo the agent wrote. The scripted three-act
+agent log and its trap page sit in a collapsed "Recorded reference run" section.
 
 ### `/agent` (the main demo, open to anyone)
 
@@ -275,13 +290,17 @@ log, and the trap page with a "View raw HTML" toggle.
   clearly labelled as a *simulated compromise*: the tricking step is skipped, and the agent
   "already obeyed" an injected instruction. Then it sends a *real* `request_payment` of 2 NEAR to
   the attacker with the real limited key. The stream shows an amber "Agent compromised: trying to
-  send 2 NEAR to attacker.gw-emmy.testnet", then the contract's verdict. The verdict card carries
-  the badges "Agent compromised (simulated)" and "Contract blocked: unapproved payee", plus the tx
-  link. It always produces an on-chain block, costs only gas, and counts as a real strike.
-- **"How to try it in 2 minutes"** card, collapsed by default.
+  send 2 NEAR to attacker.gw-emmy.testnet", then the contract's verdict. The verdict card names
+  the layer that stopped it: "Defense: contract layer - model compromised, contract blocked
+  unapproved payee", then "Contract verdict: BLOCKED (unapproved payee)", a note that the
+  compromise is simulated, and the tx link. It always produces an on-chain block, costs only gas, and counts as a real strike.
+- **Layout.** The hijack button sits right under the headline as the primary action. Below it,
+  the collapsed "How to try it in 2 minutes" card and the scoreboard share a row on desktop. On
+  desktop the form is on the left and the run stream on the right; on a phone they stack.
 - **Scoreboard:** attacks blocked on-chain, payments recorded, budget left today.
-- **Rules bar:** auto-pay limit, today's spend against the limit, auto-paid in the last 10
-  minutes against 1 NEAR, breaker strikes (or "tripped"), approved payee.
+- **Rules card:** one collapsed line ("Rules · 4.95/5.00 NEAR today", plus auto-pay and payees on
+  wider screens). Tapping it shows the auto-pay limit, today's spend, auto-paid in the window,
+  kill-switch strikes, requests waiting for the owner (of 3) and the approved payee.
 - **Real jobs tab (task mode).** Type a task or tap a chip (weather right now, 7-day, 14-day pro,
   premium annual). The model picks a SKU. A server-side vendor check refuses a plan whose SKU or
   price doesn't match the catalog, or that is split into installments. A console cap means
@@ -312,20 +331,23 @@ log, and the trap page with a "View raw HTML" toggle.
     check stops it before the contract.
   - If it is tricked into paying anyone else, the request goes to the contract, which blocks it
     on-chain ("Model was tricked. The contract blocked it").
+  - Each attack verdict starts with the layer: "Defense: model layer - the model spotted the
+    injection and refused", "Defense: vendor layer - …" or "Defense: contract layer - model
+    compromised, contract blocked unapproved payee", followed by "Contract verdict: …".
 - **Verdict badges** on every run, and **View args**, which shows the exact JSON sent to the
   contract. HTTP steps show the raw 402 response the same way.
-- **Intent hash + Verify / Tamper.** Every request's memo includes `intent:<16 hex>`. That is the
+- **Intent hash + Verify intent.** Every request's memo includes `intent:<16 hex>`. That is the
   start of a SHA-256 over sorted-key JSON of the task, model, the model's reasoning, SKU, amount,
   payee, installments and timestamp. The run returns the full log, and it is also kept for 7 days
   at `/api/intent/<id>`. "Verify intent" recomputes the hash in the browser and compares it to the
-  memo, which it reads directly from a testnet RPC. "Tamper" multiplies the amount in the log by
-  10 so you can watch the check fail.
+  memo, which it reads directly from a testnet RPC. It is labelled an audit-trail commitment.
+  (The earlier "Tamper" toggle was removed to keep the card simple.)
 - **Recent verdicts** show in the empty run card, so a first visitor sees real history straight
   away.
 - **Runs left:** "N of 5 runs left per 10 minutes".
-- **Kill-switch banner.** While the breaker is on, the Real jobs tab shows "Kill-switch on ·
-  honest jobs resume in m:ss" with a live countdown and an explanation that this is the defence
-  working. The run button is disabled for honest jobs, but attacks and the hijack still run, so
+- **Kill-switch banner.** While the breaker is on, the Real jobs tab shows "Another visitor's
+  attacks tripped the kill-switch - that's the defence working. Honest jobs resume in m:ss;
+  attacks still work meanwhile." with a live countdown. The run button is disabled for honest jobs, but attacks and the hijack still run, so
   every visitor still sees a real block (`FROZEN`).
 - **Frozen / kill-switch pill** in the header links to `/approve`.
 
@@ -337,9 +359,10 @@ log, and the trap page with a "View raw HTML" toggle.
 - **Approvals:** pending payments with Approve and Reject.
 - **Freeze all spending** button. When the breaker is tripped, it becomes "Reset the circuit
   breaker" and shows when the breaker lifts.
-- **Owner controls:** set the daily limit, add and remove payees, and a read-only view of the
-  guards.
-- **AI policy writer.** The owner types plain English, for example "Raise the daily limit to 8
+- **Owner controls:** set the daily limit, add and remove payees, and edit the four guards
+  (auto-payments per window, velocity window, kill-switch strikes, kill-switch cooldown) with one
+  `set_guards` signature, or a MyNearWallet link.
+- **AI policy writer**, collapsed by default as "Change rules in plain English". The owner types plain English, for example "Raise the daily limit to 8
   NEAR and ask me for anything over 0.5". A free model returns a structured proposal.
   - The proposal is sanitized and then checked against hard bounds, both on the server and
     again in the browser:
@@ -375,7 +398,8 @@ testnet vault.
 What a judge might hit:
 
 - **The kill-switch countdown.** Three attacks in a row from anyone trip it. That is the defence
-  working, and honest jobs resume in 10 minutes.
+  working, and honest jobs resume when the cooldown ends (10 minutes by default; the owner can
+  shorten it on `/approve`).
 - **A used-up daily budget.** It resets at 00:00 UTC.
 - **The run limit:** 5 runs per 10 minutes per visitor.
 
@@ -395,6 +419,9 @@ Each hash opens at `https://testnet.nearblocks.io/txns/<hash>`.
 | Second 402 run, intent hash verified in the browser | `APPROVED`, receipt verified | `HVwCXdA8WYPZTkr2cAsiRXKsH81KHNWrNRHfvuUU3ZxY` |
 | Naive agent follows a hidden `display:none` instruction (memo has its intent hash) | `BLOCKED_RECIPIENT` | `F3ycvuJCmQomwbM6AiiLhBrcb2CzvBJ7MpCEG6WA7N54` |
 | Hijacked agent sends 2 NEAR to the attacker | `BLOCKED_RECIPIENT` | `AVTza2m9fpq6KWvUkUpu7Y2dAfoWqRYys4VA64aaLftb` |
+| Contract upgrade to pending expiry and the pending cap (`migrate`, owner unchanged) | deployed | `6CCtDzZobQz5og1RUpBgkH7TrdfJjQmy1EjRLJtfBai6` |
+| First 402 purchase run through `@guardian-wallet/sdk` (`pay402`) | `APPROVED`, receipt verified | `8fRFcf6dJqJg9GbEkfMMDcU62m5VRHUb24aoyseSaVgn` |
+| Hijack after the upgrade, with the new "Defense: contract layer" verdict | `BLOCKED_RECIPIENT` | `FDsnyvAKGoCdmmj3GcGdRVYyR8gNaLa99KbNuxeJQd4p` |
 | Poisoned docs trick the model into paying a look-alike vendor | `BLOCKED_RECIPIENT` | `GMHSVLSGh8wEGAs7pmeMNWh4HLjpmd8QCLRJobVKXkcR` |
 | Agent splits a 1.5 NEAR purchase into small pieces | `BLOCKED_VELOCITY` | `E1WH3RiMuBSb8tGR6ZbSa5My4to3ap38yCp66jJ2mocm` |
 | Third attack in a row trips the circuit breaker | `breaker_tripped` | `ERmLh6KnkYfGKnKjiwNQ3v4srU7RfhzQh8KCz8wcZoDY` |
@@ -424,7 +451,7 @@ Anyone can read the state with no keys:
 
 ### What we trust
 
-- **The contract code and the NEAR protocol.** There has been no audit; there are 35 unit tests
+- **The contract code and the NEAR protocol.** There has been no audit; there are 42 unit tests
   and real testnet scenarios.
 - **The contract account's keys.** Until the full-access key on `guardian.gw-emmy.testnet` is
   deleted, whoever holds it could redeploy the contract. See limitations.
@@ -459,8 +486,9 @@ sometimes gullible models. When one of them falls for an injection, the contract
 ## 10. Known limitations and honest weaknesses
 
 - **Full-access key on the contract account.** It is still there during development, so the
-  contract could be redeployed by whoever holds it. The plan is to delete it as the last step
-  before submission, which makes the deployed code immutable. The trade-off is that there are no
+  contract could be redeployed by whoever holds it. It stays on testnet for evaluation stability
+  and will be deleted about 2 hours before the deadline, which makes the deployed code immutable.
+  Production would burn it or put upgrades behind a DAO or multisig timelock. The trade-off is that there are no
   more upgrades after that.
 - **"Runs left" is per server instance.** The 5-runs-per-10-minutes limit is kept in memory per
   serverless instance, so it is approximate. A determined visitor could get more runs. The
@@ -500,15 +528,30 @@ sometimes gullible models. When one of them falls for an injection, the contract
 
 ## 11. What is left before submission
 
-- Record the demo video, under 3 minutes. The script is written: problem → normal 402 purchase
-  with Verify intent → injection reveal and hijack block → over-limit purchase approved on a
-  phone, plus the kill-switch → stack and vision.
+- Record the demo video, under 3 minutes. The script is written: problem → hijack block →
+  model layer vs contract layer (reveal, careful vs naive) → 402 purchase with Verify intent →
+  over-limit purchase approved on a phone, pending cap and kill-switch → close.
 - Write and publish the X demo post.
 - Fill in the hackathon submission form.
 - Make the GitHub repo public.
 - Delete the full-access key on `guardian.gw-emmy.testnet`, after a final check that no more
   upgrades are needed.
 - Final pass: refresh the README proof table and the screenshots.
+
+### Changes after the Antigravity review (11 Nov)
+
+- README opens with tagline, problem, solution, live demo and contract, and track; adds a
+  threat model, a TEE / prompt-firewall comparison, a sustainability section and a "Verify the
+  claims" table mapping each claim to `file:line` and a test.
+- Verdicts name the layer that stopped an attack (model, vendor or contract).
+- `/agent`: hijack first, rules collapsed to one line, form left and stream right on desktop,
+  friendlier kill-switch banner, no Tamper button.
+- `/approve`: guards are editable (`set_guards`), the policy writer is collapsed.
+- Contract: pending approvals expire after 24 hours and release their budget (`EXPIRED`,
+  `payment_expired`, `expire_pending()`), at most 3 wait at once (`TOO_MANY_PENDING`), owner-tunable
+  with `set_pending_rules`. Migrated in place; owner still `realfile1618.testnet`.
+- `packages/sdk` (`@guardian-wallet/sdk`) with `GuardianAgent` and `pay402`; the live console
+  uses it.
 
 ---
 

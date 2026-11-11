@@ -184,7 +184,8 @@ function GuardsEditor({
         )}
       </div>
       <p className="mt-2 text-xs leading-relaxed text-zinc-500">
-        A new cooldown applies the next time the kill-switch trips. To lift one that is on now, tap Unfreeze at the top.
+        A new cooldown applies the next time the kill-switch trips. To lift one that is on now, tap “Reset the circuit
+        breaker” at the top.
       </p>
     </div>
   );
