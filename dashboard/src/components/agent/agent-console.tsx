@@ -388,7 +388,9 @@ function AttackVerdict({ outcome, headline, detail, txHash, simulated }: Summary
                 ? 'Vendor check stopped it'
                 : headline?.includes('kill-switch')
                   ? 'Kill-switch on'
-                  : 'Contract blocked it'}
+                  : simulated
+                    ? 'Contract blocked: unapproved payee'
+                    : 'Contract blocked it'}
             </Badge>
           </>
         )}

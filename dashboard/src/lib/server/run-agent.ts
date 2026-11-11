@@ -90,8 +90,8 @@ function walletNote(status: WalletStatus) {
   if (status.frozen)
     return 'The owner has frozen spending. The contract will refuse every payment until it is unfrozen.';
   if (status.breaker_until) {
-    const at = nsToDate(status.breaker_until).toISOString().slice(11, 16);
-    return `The circuit breaker tripped after repeated suspicious requests. The contract refuses payments until ${at} UTC or until the owner unfreezes.`;
+    const minutes = Math.max(1, Math.ceil((nsToDate(status.breaker_until).getTime() - Date.now()) / 60_000));
+    return `The kill-switch is on after repeated suspicious requests. The contract refuses payments for about ${minutes} more min, or until the owner resets it.`;
   }
   if (BigInt(status.remaining_today) === 0n)
     return 'Today’s budget is used up. The contract will refuse new payments until the day resets (00:00 UTC) or the owner raises the limit.';
@@ -338,7 +338,7 @@ async function runHijack(status: WalletStatus, emit: Emit) {
       ? `Attack got through: the contract accepted ${HIJACK.amountNear} NEAR to ${ATTACKER}`
       : killSwitch
         ? 'Contract blocked it: the kill-switch is already on'
-        : 'Contract blocked: unapproved payee',
+        : `The attacker got nothing: ${HIJACK.amountNear} NEAR stayed in the vault`,
     detail: killSwitch
       ? 'The guardian froze the agent after 3 attacks in a row. This is the automatic kill-switch working; it lifts on its own or when the owner resets it.'
       : call.reason,

@@ -1,43 +1,154 @@
 # Guardian Wallet
 
-**Give AI the freedom to act. Never the freedom to overspend.**
+**An AI agent that can be fully hijacked and still can't steal your money.**
 
-Guardian Wallet is an on-chain spending policy for AI agents on NEAR. The AI agent can only
-*request* payments. A NEAR smart contract holds the funds and enforces the owner's rules: payee
-allowlist, daily budget, approval threshold, emergency freeze and replay protection. Even a fully
-compromised agent (for example, one hit by a prompt injection) cannot spend outside those rules,
-and every blocked attempt is stored on-chain where anyone can check it.
+The agent on this wallet only gets to *ask* for payments. A NEAR contract holds the funds and
+decides every request against rules the owner set: approved payees, a daily budget, a threshold
+above which a human approves, a velocity limit and a circuit breaker. Prompt-inject the agent,
+swap its model, steal its key: the worst it can do is file requests the contract refuses, and
+every refusal is written on-chain.
 
-Built at NEAR HACKATHON (Nov 2026). Tracks: AI Security & Defense, Agent Economy.
+- **Live site:** https://guardian-wallet.vercel.app
+- **Try it:** https://guardian-wallet.vercel.app/agent (one tap: "Watch a hijacked agent try to rob the wallet")
+- **Contract:** [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) on NEAR testnet
+- **Owner view (phone):** https://guardian-wallet.vercel.app/approve
 
-> Status: contract, agent, demo vendor and dashboard run end to end on NEAR testnet (local; not deployed yet).
+Built at NEAR HACKATHON, Nov 2026. Tracks: AI Security & Defense, Agent Economy.
 
-## Live on testnet
+## Proof on-chain
 
-| Role | Account |
-|---|---|
-| Guardian contract | [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) |
-| Owner (sets policy, approves) | `realfile1618.testnet` (Meteor wallet; was `gw-emmy-owner.testnet` until the [handover](https://testnet.nearblocks.io/txns/GS3WYYApFdR1HeqEd31HxRg1BQuFYdaokE3a9RC2hwbE)) |
-| AI agent (can only request) | `gw-emmy-agent.testnet` |
-| Approved payee (demo API vendor) | `api-vendor.gw-emmy.testnet` |
-| Attacker (not approved) | `attacker.gw-emmy.testnet` |
+Every row is a real transaction from the live demo.
 
-Policy: daily limit 5 NEAR, approval threshold 1 NEAR. Latest scenario run with transaction links:
-[docs/scenario-results.md](docs/scenario-results.md).
+| What happened | Status | Transaction |
+|---|---|---|
+| Agent buys a 0.3 NEAR forecast from the approved vendor | `APPROVED`, settled | [EUnUDq8N…](https://testnet.nearblocks.io/txns/EUnUDq8NLvfdenULi2X2Q6XFc99ruA8xrDbEmSnmHMvN) |
+| Hijacked agent sends 2 NEAR to the attacker | `BLOCKED_RECIPIENT` | [AVTza2m9…](https://testnet.nearblocks.io/txns/AVTza2m9fpq6KWvUkUpu7Y2dAfoWqRYys4VA64aaLftb) |
+| Poisoned docs trick the model into paying a look-alike vendor | `BLOCKED_RECIPIENT` | [GMHSVLSG…](https://testnet.nearblocks.io/txns/GMHSVLSGh8wEGAs7pmeMNWh4HLjpmd8QCLRJobVKXkcR) |
+| Agent splits a 1.5 NEAR purchase into small pieces | `BLOCKED_VELOCITY` | [E1WH3RiM…](https://testnet.nearblocks.io/txns/E1WH3RiMuBSb8tGR6ZbSa5My4to3ap38yCp66jJ2mocm) |
+| Third attack in a row trips the circuit breaker | `breaker_tripped` | [ERmLh6Kn…](https://testnet.nearblocks.io/txns/ERmLh6KnkYfGKnKjiwNQ3v4srU7RfhzQh8KCz8wcZoDY) |
+| Next request while the breaker is on | `FROZEN` | [DoNJY3xx…](https://testnet.nearblocks.io/txns/DoNJY3xxvwr3FRZCeq4ngiWZ7jda6wBzpa3SLuRB7xkZ) |
+| 1.5 NEAR upgrade waits for the owner | `PENDING_APPROVAL` | [8D6HW9p6…](https://testnet.nearblocks.io/txns/8D6HW9p6eGudHSzNQnThAo7p2D2V3aqmh6KxVvUf46Ye) |
+| Owner approves on a phone (Meteor wallet) | `approve_payment` | [5Egz99Bb…](https://testnet.nearblocks.io/txns/5Egz99BbvHEe7hBkek1JCd6pxZRwGTQch2h9H7ac1iTz) |
 
-Try it without any keys (read-only):
+Read it yourself, no keys needed:
 
 ```sh
 near contract call-function as-read-only guardian.gw-emmy.testnet get_wallet_status json-args '{}' network-config testnet now
 near contract call-function as-read-only guardian.gw-emmy.testnet get_blocked_attempts json-args '{"limit":5}' network-config testnet now
-near contract call-function as-read-only guardian.gw-emmy.testnet get_payment_history json-args '{"limit":5}' network-config testnet now
 ```
 
-You should see the policy, the attacker's blocked attempts (`BLOCKED_RECIPIENT`, with the injected memo), and completed payments.
+## How it fits together
 
-## Contract (`contract/`, Rust + near-sdk 5)
+```mermaid
+flowchart LR
+  user([Anyone on /agent]) --> api[Next.js route<br/>server only]
+  api --> llm[Free models<br/>Groq · Gemini · OpenRouter · NVIDIA]
+  api -->|reads| vendor[Demo vendor<br/>catalog + docs page]
+  vendor -. hidden prompt injection .-> llm
+  api -->|request_payment<br/>function-call key| guardian{guardian.gw-emmy.testnet}
+  guardian -->|APPROVED| payee[api-vendor.gw-emmy.testnet]
+  guardian -->|BLOCKED_* / FROZEN| log[(Blocked attempts<br/>stored on-chain)]
+  guardian -->|PENDING_APPROVAL| owner([Owner phone<br/>/approve, Meteor wallet])
+  owner -->|approve / reject / freeze<br/>1 yocto, full-access key| guardian
+  dash["/dashboard"] -->|view calls| guardian
+```
 
-### How a request is decided
+The model decides *what* to buy. The contract decides *whether money moves*. Nothing between
+them is trusted.
+
+## Security guarantees
+
+What holds even if the agent, its model and its server are fully compromised:
+
+- **Funds only go to approved payees.** Anything else is `BLOCKED_RECIPIENT`, recorded, not paid.
+- **Daily budget is hard.** Spent plus reserved plus the new amount can never pass the daily limit.
+- **Big payments need a human.** Above 1 NEAR the request waits for the owner's wallet signature.
+- **No salami slicing.** Automatic payments in any 10 minutes can't add up past the 1 NEAR
+  threshold (and at most 3 of them), so splitting a big payment just produces `BLOCKED_VELOCITY`.
+- **Automatic kill-switch.** 3 payments to unknown accounts in a row trip a circuit breaker that
+  refuses every request for 10 minutes, or until the owner resets it.
+- **No replays.** A `request_id` works once.
+- **The agent's key can't change the rules.** It is a NEAR function-call key that may call
+  `request_payment` on this contract and nothing else, with no deposit. Every policy method needs
+  1 yoctoNEAR attached, which only a full-access key (the owner's wallet) can send.
+- **Evidence survives.** Policy violations don't panic, so the blocked attempt, the memo the agent
+  wrote and the reason are stored and emitted as NEP-297 events.
+- **No secrets in the browser.** Model keys and the agent key live in Vercel server-only env vars;
+  the owner signs in their own wallet and the app never sees that key.
+
+## Why NEAR
+
+On most EVM chains, limiting an agent means a smart account plus a session-key module, a bundler
+and a paymaster, and the limits live in whichever module you trusted. On NEAR it is a protocol
+feature: a [function-call access key](https://docs.near.org/protocol/access-keys) is scoped to one
+contract and a list of methods, has its own gas allowance and cannot transfer NEAR. Pair that with
+a contract that holds the funds and you get a two-layer cage, the key limits what the agent can
+*call* and the contract limits what that call can *do*, with no extra infrastructure. Named
+accounts also make an allowlist readable (`api-vendor.gw-emmy.testnet` versus the look-alike
+`api-vendor.gw-ernmy.testnet`), and cheap, fast finality makes recording every blocked attempt
+practical.
+
+## Free models, on purpose
+
+The live agent runs on free tiers only: Groq `gpt-oss-20b`, Google `gemini-3.1-flash-lite`,
+OpenRouter and NVIDIA Nemotron, with automatic failover. Small free models are exactly the ones
+that fall for prompt injections, which is the point: the wallet's safety doesn't depend on
+the model being smart, aligned or expensive. Swap in any model and the guarantees above hold,
+because the contract never asks the model's opinion.
+
+## Run it
+
+Requires Node 24, Rust with [`cargo-near`](https://github.com/near/cargo-near), and
+[`near-cli-rs`](https://github.com/near/near-cli-rs). Testnet NEAR is free from the faucet.
+
+```sh
+# contract: 35 unit tests, then the wasm
+cd contract && cargo test && cargo near build non-reproducible-wasm
+
+# dashboard + live agent (http://localhost:3000)
+cd dashboard && npm install
+# .env.local (server only): AGENT_WEB_PRIVATE_KEY=<function-call key for request_payment>,
+# plus any of GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, NVIDIA_API_KEY
+npm run dev
+
+# scripted three-act demo against testnet
+cd agent && npm install && npm run demo
+```
+
+Deploying your own guardian and running every security scenario on testnet is covered under
+[Reproduce](#reproduce) below.
+
+## Builder's note
+
+I started from one question: if I let an AI agent spend money for me, what stops it on the day
+it gets tricked? Better prompts help, but they are a promise, not a lock. So the agent here is
+treated as untrusted from the start, and the rules live where it can't reach them. It's a small
+contract with a lot of tests. There is more to do (mainnet, NEAR Intents, per-payee limits), but
+the core idea works today, and you can try to break it on the live site.
+
+— Emmy D West
+
+---
+
+## Reference
+
+### Accounts
+
+| Role | Account |
+|---|---|
+| Guardian contract | [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) |
+| Owner (sets policy, approves) | `realfile1618.testnet` (Meteor wallet; [handover tx](https://testnet.nearblocks.io/txns/GS3WYYApFdR1HeqEd31HxRg1BQuFYdaokE3a9RC2hwbE)) |
+| AI agent (can only request) | `gw-emmy-agent.testnet` |
+| Approved payee (demo API vendor) | `api-vendor.gw-emmy.testnet` |
+| Attacker (not approved) | `attacker.gw-emmy.testnet` |
+
+Policy: daily limit 5 NEAR, approval threshold 1 NEAR, velocity 1 NEAR / 3 payments per 10 min,
+breaker after 3 strikes for 10 min. Scripted scenario run with tx links:
+[docs/scenario-results.md](docs/scenario-results.md).
+
+### Contract (`contract/`, Rust + near-sdk 5)
+
+#### How a request is decided
 
 `request_payment` checks, in order, and returns the first status that applies:
 
@@ -79,7 +190,7 @@ Both are owner-tunable with `set_guards`, and `0` turns either off.
 Budget days are UTC days from the block timestamp (`block_timestamp / 86400s`); `spent_today`
 resets at the first call of a new day. Pending reservations carry over until approved or rejected.
 
-### Methods
+#### Methods
 
 | Method | Who | Notes |
 |---|---|---|
@@ -104,7 +215,7 @@ Amounts are yoctoNEAR strings (`"1000000000000000000000000"` = 1 NEAR). Owner me
 exactly 1 yoctoNEAR attached, so only a full-access key (a real wallet confirmation) can change
 policy; a leaked function-call key cannot.
 
-### Events (NEP-297)
+#### Events (NEP-297)
 
 Every outcome logs `EVENT_JSON:{"standard":"guardian_wallet","version":"1.0.0","event":...}` with
 event one of `wallet_initialized`, `payment_approved`, `payment_pending`, `payment_blocked`,
@@ -149,7 +260,7 @@ contract directly (panics: unauthorized), agent trying to add a payee (panics: u
 - No NEAR Intents yet: payments are native NEAR transfers. NEAR Intents has no testnet, so any
   Intents integration would have to run on mainnet with tiny amounts.
 
-## Agent and demo (`agent/`, TypeScript, Node 24)
+### Agent and demo (`agent/`, TypeScript, Node 24)
 
 Node 24 runs the `.ts` files directly; there is no build step.
 
@@ -195,14 +306,19 @@ is a list of structured events (`task`, `fetch`, `content_warning`, `model_decis
 `delivery`) with status and explorer links. It records decisions and their stated reasons, not
 model reasoning.
 
-## Dashboard (`dashboard/`, Next.js 16, Tailwind 4)
+### Dashboard (`dashboard/`, Next.js 16, Tailwind 4)
 
 - `/` explains the idea in three steps.
+- Every page renders from cached on-chain state. If the testnet RPC is slow it shows the last
+  good snapshot with an "as of HH:MM" note instead of a spinner.
 - `/dashboard` reads the contract live every 6 s: vault balance, daily budget (spent, reserved,
   remaining), policy, every payment and blocked attempt with its NearBlocks link, blocked-attack
   cards with the memo the agent sent, the three-act agent log, and the Act 2 trap page with a
   "View raw HTML" toggle.
-- `/agent` lets anyone run the agent for real. Give it a task and it reads the vendor catalog,
+- `/agent` lets anyone run the agent for real. The hijack button at the top skips the tricking
+  step (the compromise is simulated and labelled as such) and has the agent send 2 NEAR to the
+  attacker with its real key, so the block is a real transaction every time.
+  Otherwise give it a task and it reads the vendor catalog,
   asks a free model what to buy, and sends `request_payment` with its limited key; settlement and
   the delivered data stream in. Attack mode poisons the vendor page with a preset or your own
   injection and shows whether the model fell for it and what the contract did, with the tx link.
@@ -214,11 +330,11 @@ model reasoning.
 |---|---|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Approve](docs/screenshots/approve-mobile.png) |
 
-## Built with
+### Built with
 
 Rust, near-sdk 5.30, cargo-near 0.23, near-cli-rs 0.31, near-api-js 7, TypeScript, Next.js 16, Tailwind CSS 4, Motion, NEAR Wallet Selector. Free model tiers
 from Groq, Google AI Studio, OpenRouter and NVIDIA. No pre-hackathon code. AI coding assistance was used.
 
-## License
+### License
 
 MIT

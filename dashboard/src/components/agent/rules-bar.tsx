@@ -17,7 +17,10 @@ export function RulesBar({ status }: { status: WalletStatus }) {
           />
         )}
         {guards.breaker_strikes > 0 && (
-          <Pill label="Breaker" value={`${status.strikes}/${guards.breaker_strikes} strikes`} />
+          <Pill
+            label="Breaker"
+            value={status.breaker_until ? 'tripped' : `${status.strikes}/${guards.breaker_strikes} strikes`}
+          />
         )}
         {status.approved_payees.map((id) => (
           <Pill key={id} label="Payee" value={id} mono />
