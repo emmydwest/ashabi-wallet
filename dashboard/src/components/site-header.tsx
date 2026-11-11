@@ -65,7 +65,7 @@ function Header({ pathname }: { pathname: string | null }) {
         </nav>
 
         <div className="flex items-center gap-2">
-          <NearBadge className="hidden xl:inline-flex" />
+          <NearBadge className="max-[380px]:hidden" />
           <Link
             href="/chat"
             className="btn-brand hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-shadow sm:inline-flex"
@@ -109,8 +109,7 @@ function Header({ pathname }: { pathname: string | null }) {
               </li>
             ))}
           </ul>
-          <div className="mt-3 flex items-center justify-between gap-3 px-1">
-            <NearBadge />
+          <div className="mt-3 flex items-center justify-end gap-3 px-1">
             <Link
               href="/chat"
               onClick={() => setOpenOn(false)}
