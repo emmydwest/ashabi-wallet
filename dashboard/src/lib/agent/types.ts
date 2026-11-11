@@ -35,6 +35,10 @@ export type AgentEvent =
       moved: boolean;
       txHash?: string;
       pending?: PendingRequest;
+      /** Attack runs only: how the attack ended, in words a visitor can't misread. */
+      outcome?: 'failed' | 'blocked' | 'breached';
+      headline?: string;
+      detail?: string;
     }
   | { type: 'quota'; left: number; limit: number }
   | { type: 'done' };

@@ -286,7 +286,42 @@ function Scoreboard({ status }: { status?: WalletStatus }) {
 const BLOCKED = (verdict: string | null) =>
   Boolean(verdict && verdict !== 'APPROVED' && verdict !== 'PENDING_APPROVAL');
 
-function Verdict({ tookBait, verdict, reason, moved, txHash }: Summary) {
+function AttackVerdict({ outcome, headline, detail, txHash }: Summary) {
+  const tone =
+    outcome === 'breached'
+      ? 'border-rose-400/40 bg-rose-500/[0.08]'
+      : outcome === 'failed'
+        ? 'border-sky-400/30 bg-sky-400/[0.06]'
+        : 'border-amber-400/30 bg-amber-400/[0.05]';
+  return (
+    <div className={`animate-in mt-6 rounded-xl border p-4 ${tone}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        {outcome === 'failed' && <Badge tone="sky">Attack failed</Badge>}
+        {outcome === 'blocked' && (
+          <>
+            <Badge tone="amber">Model was tricked</Badge>
+            <Badge tone="emerald">
+              {headline?.includes('vendor') ? 'Vendor check stopped it' : 'Contract blocked it'}
+            </Badge>
+          </>
+        )}
+        {outcome === 'breached' && <Badge tone="rose">Attack got through</Badge>}
+      </div>
+      <p className="mt-3 text-base font-semibold text-white">{headline}</p>
+      {detail && <p className="mt-1 break-words text-sm text-zinc-400">{detail}</p>}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-xs text-zinc-500">
+          {outcome === 'breached' ? 'Report this: the rules let it through.' : 'No funds left the vault.'}
+        </span>
+        {txHash && <ExplorerLink txHash={txHash} label="View tx" variant="pill" />}
+      </div>
+    </div>
+  );
+}
+
+function Verdict(props: Summary) {
+  if (props.outcome) return <AttackVerdict {...props} />;
+  const { tookBait, verdict, reason, moved, txHash } = props;
   const blocked = BLOCKED(verdict);
   return (
     <div className="animate-in mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4">
@@ -340,6 +375,7 @@ const BADGE = {
   emerald: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
   sky: 'border-sky-400/30 bg-sky-400/10 text-sky-200',
   zinc: 'border-white/10 bg-white/5 text-zinc-300',
+  rose: 'border-rose-400/40 bg-rose-400/15 text-rose-200',
 };
 
 function Badge({ tone, children }: { tone: keyof typeof BADGE; children: React.ReactNode }) {

@@ -12,8 +12,8 @@ export function RulesBar({ status }: { status: WalletStatus }) {
         <Pill label="Today" value={`${toNear(used)} / ${toNear(status.daily_limit)} NEAR`} />
         {guards.max_auto_payments > 0 && (
           <Pill
-            label="Velocity"
-            value={`${status.auto_payments_in_window}/${guards.max_auto_payments} per ${guards.velocity_window_minutes} min`}
+            label={`Auto-paid in ${guards.velocity_window_minutes} min`}
+            value={`${toNear(status.auto_paid_in_window)} / ${toNear(status.approval_threshold)} NEAR`}
           />
         )}
         {guards.breaker_strikes > 0 && (

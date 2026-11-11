@@ -28,6 +28,7 @@ export type WalletStatus = {
   blocked_count: number;
   guards: Guards;
   auto_payments_in_window: number;
+  auto_paid_in_window: string;
   strikes: number;
   breaker_until: number | null;
 };
