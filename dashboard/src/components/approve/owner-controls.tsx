@@ -67,24 +67,7 @@ export function OwnerControls({ status, isOwner, busy, run }: Props) {
         )}
       </div>
 
-      <dl className="mt-6 grid grid-cols-2 gap-2 text-sm">
-        <Guard
-          label="Velocity limit"
-          value={
-            status.guards.max_auto_payments
-              ? `${status.guards.max_auto_payments} auto-payments / ${status.guards.velocity_window_minutes} min`
-              : 'off'
-          }
-        />
-        <Guard
-          label="Circuit breaker"
-          value={
-            status.guards.breaker_strikes
-              ? `${status.guards.breaker_strikes} strikes · ${status.guards.breaker_cooldown_minutes} min pause`
-              : 'off'
-          }
-        />
-      </dl>
+      <GuardsEditor status={status} disabled={disabled} busy={busy} run={run} back={back} isOwner={isOwner} />
 
       <div className="mt-6">
         <span className="text-sm text-zinc-300">Approved payees</span>
@@ -127,11 +110,82 @@ export function OwnerControls({ status, isOwner, busy, run }: Props) {
   );
 }
 
-function Guard({ label, value }: { label: string; value: string }) {
+const GUARD_FIELDS = [
+  ['max_auto_payments', 'Auto-payments per window', '0 turns the velocity limit off'],
+  ['velocity_window_minutes', 'Velocity window (min)', ''],
+  ['breaker_strikes', 'Kill-switch strikes', '0 turns the kill-switch off'],
+  ['breaker_cooldown_minutes', 'Kill-switch cooldown (min)', ''],
+] as const;
+
+type GuardKey = (typeof GUARD_FIELDS)[number][0];
+
+function GuardsEditor({
+  status,
+  disabled,
+  busy,
+  run,
+  back,
+  isOwner,
+}: Omit<Props, 'status'> & {
+  status: WalletStatus;
+  disabled: boolean;
+  back: string;
+}) {
+  const [draft, setDraft] = useState<Partial<Record<GuardKey, string>>>({});
+  const guards = Object.fromEntries(
+    GUARD_FIELDS.map(([key]) => [key, draft[key] === undefined ? status.guards[key] : Number(draft[key])]),
+  ) as WalletStatus['guards'];
+  const changed = GUARD_FIELDS.some(([key]) => guards[key] !== status.guards[key]);
+  const problem = GUARD_FIELDS.some(
+    ([key]) => !Number.isInteger(guards[key]) || guards[key] < 0 || guards[key] > 10_000,
+  )
+    ? 'Use whole numbers from 0 to 10000.'
+    : guards.max_auto_payments > 0 && guards.velocity_window_minutes === 0
+      ? 'The velocity window needs at least 1 minute.'
+      : guards.breaker_strikes > 0 && guards.breaker_cooldown_minutes === 0
+        ? 'The cooldown needs at least 1 minute.'
+        : null;
+  const args = { guards };
+
   return (
-    <div className="rounded-xl bg-black/25 px-3.5 py-2.5">
-      <dt className="text-xs text-zinc-400">{label}</dt>
-      <dd className="mt-0.5 text-zinc-100">{value}</dd>
+    <div className="mt-6">
+      <div className="flex items-baseline justify-between text-sm">
+        <span className="text-zinc-300">Guards</span>
+        <span className="text-xs text-zinc-500">set_guards</span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        {GUARD_FIELDS.map(([key, label, hint]) => (
+          <label key={key} className="rounded-xl bg-black/25 px-3.5 py-2.5">
+            <span className="block text-xs text-zinc-400">{label}</span>
+            <input
+              inputMode="numeric"
+              value={draft[key] ?? String(status.guards[key])}
+              onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
+              className="mt-1 w-full bg-transparent font-mono text-base text-white outline-none"
+            />
+            {hint && <span className="block text-[11px] text-zinc-500">{hint}</span>}
+          </label>
+        ))}
+      </div>
+      {problem && changed && <p className="mt-2 text-xs text-amber-200">{problem}</p>}
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={disabled || !changed || Boolean(problem)}
+          onClick={() => run('guards', 'set_guards', args, 'Guards updated.')}
+          className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-ink disabled:opacity-40"
+        >
+          {busy === 'guards' ? 'Waiting…' : 'Save guards'}
+        </button>
+        {isOwner && changed && !problem && (
+          <a href={walletLinkFor(status.owner_id, 'set_guards', args, back)} className="text-xs text-sky-300">
+            Or sign it in MyNearWallet →
+          </a>
+        )}
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+        A new cooldown applies the next time the kill-switch trips. To lift one that is on now, tap Unfreeze at the top.
+      </p>
     </div>
   );
 }

@@ -58,132 +58,139 @@ export function PolicyWriter({ status, feed, isOwner, busy, run }: Props) {
   };
 
   return (
-    <section className="glass mt-8 rounded-2xl p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold tracking-tight text-white">Policy writer</h2>
-        <span className="rounded-full border border-sky-400/25 bg-sky-400/10 px-2.5 py-0.5 text-[11px] font-medium text-sky-200">
-          Free model · proposes only
+    <details className="glass group mt-6 rounded-2xl">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5">
+        <span className="min-w-0">
+          <span className="block text-base font-semibold tracking-tight text-white">Change rules in plain English</span>
+          <span className="block text-xs text-zinc-400">Optional · a free model drafts, you review and sign</span>
         </span>
-      </div>
-      <p className="mt-1 text-sm text-zinc-400">
-        Say what you want in plain English. You get a diff against the rules on-chain, checked against hard limits, and
-        you sign each change in your wallet. Nothing is applied for you.
-      </p>
+        <span aria-hidden className="shrink-0 text-zinc-400 transition-transform group-open:rotate-180">
+          ⌄
+        </span>
+      </summary>
+      <div className="border-t border-white/[0.06] p-5 pt-4">
+        <p className="text-sm text-zinc-400">
+          Say what you want in plain English. You get a diff against the rules on-chain, checked against hard limits,
+          and you sign each change in your wallet. Nothing is applied for you.
+        </p>
 
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value.slice(0, 500))}
-        rows={3}
-        placeholder="e.g. Lower the daily limit to 3 NEAR"
-        className="mt-4 w-full resize-none rounded-xl border border-white/10 bg-black/40 px-3.5 py-3 text-base text-white outline-none placeholder:text-zinc-500 focus:border-sky-300/40"
-      />
-      <div className="mt-2 flex flex-wrap gap-2">
-        {EXAMPLES.map((example) => (
-          <button
-            key={example}
-            type="button"
-            onClick={() => setText(example)}
-            className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-left text-xs text-zinc-300 hover:border-sky-300/30 hover:text-white"
-          >
-            {example}
-          </button>
-        ))}
-      </div>
-      <button
-        type="button"
-        onClick={submit}
-        disabled={drafting || !text.trim()}
-        className="mt-3 w-full rounded-xl bg-sky-300 px-4 py-3 text-sm font-semibold text-black disabled:opacity-50"
-      >
-        {drafting ? 'Drafting the change' : 'Draft the change'}
-      </button>
-      {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value.slice(0, 500))}
+          rows={3}
+          placeholder="e.g. Lower the daily limit to 3 NEAR"
+          className="mt-4 w-full resize-none rounded-xl border border-white/10 bg-black/40 px-3.5 py-3 text-base text-white outline-none placeholder:text-zinc-500 focus:border-sky-300/40"
+        />
+        <div className="mt-2 flex flex-wrap gap-2">
+          {EXAMPLES.map((example) => (
+            <button
+              key={example}
+              type="button"
+              onClick={() => setText(example)}
+              className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-left text-xs text-zinc-300 hover:border-sky-300/30 hover:text-white"
+            >
+              {example}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={drafting || !text.trim()}
+          className="mt-3 w-full rounded-xl bg-sky-300 px-4 py-3 text-sm font-semibold text-black disabled:opacity-50"
+        >
+          {drafting ? 'Drafting the change' : 'Draft the change'}
+        </button>
+        {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
 
-      {draft && review && (
-        <div className="mt-5">
-          {review.summary && (
-            <p className="text-sm text-zinc-200">
-              <span className="text-zinc-400">The model read it as: </span>“{review.summary}”
+        {draft && review && (
+          <div className="mt-5">
+            {review.summary && (
+              <p className="text-sm text-zinc-200">
+                <span className="text-zinc-400">The model read it as: </span>“{review.summary}”
+              </p>
+            )}
+            <p className="mt-1 text-[11px] text-zinc-500">
+              <span className="font-mono">{draft.model}</span> · only the rows below would change, one signature each
             </p>
-          )}
-          <p className="mt-1 text-[11px] text-zinc-500">
-            <span className="font-mono">{draft.model}</span> · only the rows below would change, one signature each
-          </p>
 
-          {review.changes.length === 0 ? (
-            <p className="mt-3 rounded-xl bg-black/25 px-3.5 py-3 text-sm text-zinc-300">
-              Nothing to change: the proposal matches the rules on-chain.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {review.changes.map((change) => (
-                <li key={change.key} className="rounded-xl border border-white/[0.08] bg-black/25 p-3.5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-xs text-zinc-400">{change.label}</div>
-                      {change.method.endsWith('_payee') && (
-                        <div className="truncate font-mono text-sm text-zinc-100">{String(change.args.account_id)}</div>
-                      )}
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 font-mono text-sm">
-                        <span className="text-rose-300 line-through decoration-rose-300/60">{change.from}</span>
-                        <span className="text-zinc-500">→</span>
-                        <span className="text-emerald-300">{change.to}</span>
+            {review.changes.length === 0 ? (
+              <p className="mt-3 rounded-xl bg-black/25 px-3.5 py-3 text-sm text-zinc-300">
+                Nothing to change: the proposal matches the rules on-chain.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {review.changes.map((change) => (
+                  <li key={change.key} className="rounded-xl border border-white/[0.08] bg-black/25 p-3.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs text-zinc-400">{change.label}</div>
+                        {change.method.endsWith('_payee') && (
+                          <div className="truncate font-mono text-sm text-zinc-100">
+                            {String(change.args.account_id)}
+                          </div>
+                        )}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 font-mono text-sm">
+                          <span className="text-rose-300 line-through decoration-rose-300/60">{change.from}</span>
+                          <span className="text-zinc-500">→</span>
+                          <span className="text-emerald-300">{change.to}</span>
+                        </div>
                       </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={!isOwner || busy !== null}
-                      onClick={() =>
-                        run(
-                          `policy-${change.key}`,
-                          change.method,
-                          change.args,
-                          `${change.label}: ${change.to}. Signed and applied on-chain.`,
-                        )
-                      }
-                      className="shrink-0 rounded-xl bg-white px-3.5 py-2 text-xs font-semibold text-black disabled:opacity-40"
-                    >
-                      {busy === `policy-${change.key}` ? 'Waiting' : 'Sign'}
-                    </button>
-                  </div>
-                  {change.warning && (
-                    <p className="mt-2 rounded-lg border border-amber-400/25 bg-amber-400/[0.06] px-2.5 py-1.5 text-xs text-amber-100">
-                      {change.warning}
-                    </p>
-                  )}
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                    <code className="min-w-0 break-all font-mono text-[11px] text-zinc-500">
-                      {change.method}({JSON.stringify(change.args)})
-                    </code>
-                    {isOwner && (
-                      <a
-                        href={walletLinkFor(status.owner_id, change.method, change.args, back)}
-                        className="text-[11px] text-sky-300"
+                      <button
+                        type="button"
+                        disabled={!isOwner || busy !== null}
+                        onClick={() =>
+                          run(
+                            `policy-${change.key}`,
+                            change.method,
+                            change.args,
+                            `${change.label}: ${change.to}. Signed and applied on-chain.`,
+                          )
+                        }
+                        className="shrink-0 rounded-xl bg-white px-3.5 py-2 text-xs font-semibold text-black disabled:opacity-40"
                       >
-                        MyNearWallet →
-                      </a>
+                        {busy === `policy-${change.key}` ? 'Waiting' : 'Sign'}
+                      </button>
+                    </div>
+                    {change.warning && (
+                      <p className="mt-2 rounded-lg border border-amber-400/25 bg-amber-400/[0.06] px-2.5 py-1.5 text-xs text-amber-100">
+                        {change.warning}
+                      </p>
                     )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {review.rejected.length > 0 && (
-            <div className="mt-3 rounded-xl border border-rose-400/20 bg-rose-400/[0.05] px-3.5 py-3">
-              <div className="text-xs font-semibold text-rose-200">Dropped by the safety check</div>
-              <ul className="mt-1 space-y-0.5 text-xs text-rose-100/90">
-                {review.rejected.map((r) => (
-                  <li key={r}>{r}</li>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <code className="min-w-0 break-all font-mono text-[11px] text-zinc-500">
+                        {change.method}({JSON.stringify(change.args)})
+                      </code>
+                      {isOwner && (
+                        <a
+                          href={walletLinkFor(status.owner_id, change.method, change.args, back)}
+                          className="text-[11px] text-sky-300"
+                        >
+                          MyNearWallet →
+                        </a>
+                      )}
+                    </div>
+                  </li>
                 ))}
               </ul>
-            </div>
-          )}
-          {!isOwner && review.changes.length > 0 && (
-            <p className="mt-3 text-xs text-zinc-400">Connect the owner wallet to sign these changes.</p>
-          )}
-        </div>
-      )}
-    </section>
+            )}
+
+            {review.rejected.length > 0 && (
+              <div className="mt-3 rounded-xl border border-rose-400/20 bg-rose-400/[0.05] px-3.5 py-3">
+                <div className="text-xs font-semibold text-rose-200">Dropped by the safety check</div>
+                <ul className="mt-1 space-y-0.5 text-xs text-rose-100/90">
+                  {review.rejected.map((r) => (
+                    <li key={r}>{r}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {!isOwner && review.changes.length > 0 && (
+              <p className="mt-3 text-xs text-zinc-400">Connect the owner wallet to sign these changes.</p>
+            )}
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
