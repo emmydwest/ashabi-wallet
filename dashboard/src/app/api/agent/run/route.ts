@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       const emit = (event: AgentEvent) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       emit({ type: 'quota', left: slot.left, limit: RUNS_PER_WINDOW });
       try {
-        await runAgent(input, emit);
+        await runAgent(input, emit, { origin: new URL(request.url).origin });
       } catch (e) {
         emit({
           type: 'step',

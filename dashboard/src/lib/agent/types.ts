@@ -1,5 +1,19 @@
+import type { IntentLog } from './intent';
+
 export type StepKind =
-  'budget' | 'read' | 'warning' | 'model' | 'guard' | 'request' | 'verdict' | 'settlement' | 'delivery' | 'error';
+  | 'budget'
+  | 'read'
+  | 'warning'
+  | 'model'
+  | 'guard'
+  | 'http'
+  | 'request'
+  | 'verdict'
+  | 'settlement'
+  | 'delivery'
+  | 'error';
+
+export type BadgeTone = 'amber' | 'emerald' | 'rose';
 
 export type Plan = {
   action: 'pay' | 'none';
@@ -23,9 +37,15 @@ export type AgentEvent =
       plan?: Plan;
       model?: string;
       skipped?: string;
-      /** The exact arguments sent to the contract. */
+      /** The exact arguments sent to the contract, or an HTTP body, shown behind a toggle. */
       args?: Record<string, unknown>;
+      argsLabel?: string;
       data?: unknown;
+      badge?: { text: string; tone: BadgeTone };
+      /** What the vendor checked before unlocking. */
+      checks?: string[];
+      /** Attack runs: the hidden instruction this decision followed. */
+      followed?: string;
     }
   | {
       type: 'summary';
@@ -42,6 +62,7 @@ export type AgentEvent =
       /** The hijack demo: the compromise is staged, the contract call is real. */
       simulated?: boolean;
     }
+  | { type: 'intent'; log: IntentLog; hash: string }
   | { type: 'quota'; left: number; limit: number }
   | { type: 'done' };
 

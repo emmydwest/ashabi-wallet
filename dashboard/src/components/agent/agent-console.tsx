@@ -15,14 +15,16 @@ import { PendingInline } from './pending-inline';
 import { RecentVerdicts } from './recent-verdicts';
 import { RulesBar } from './rules-bar';
 import { RunTimeline } from './run-timeline';
+import { AttackPreview } from './attack-preview';
 import { useAgentRun } from './use-agent-run';
+import { VerifyIntent } from './verify-intent';
 
 type Mode = 'task' | 'attack';
 type Summary = Extract<AgentEvent, { type: 'summary' }>;
 
 export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
   const { snapshot, error: offline, refresh } = useGuardian(5000, initial);
-  const { steps, summary, running, error, quota, run } = useAgentRun(refresh);
+  const { steps, summary, intent, running, error, quota, run } = useAgentRun(refresh);
   const [mode, setMode] = useState<Mode>('task');
   const [task, setTask] = useState(JOBS[0]);
   const [attackId, setAttackId] = useState(ATTACKS[0].id);
@@ -56,6 +58,12 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
     run({ mode: 'hijack' });
   };
   const outOfRuns = quota?.left === 0;
+  const preview =
+    attackId === CUSTOM_ATTACK_ID
+      ? custom.trim()
+        ? { text: custom, surface: 'page' as const }
+        : null
+      : ATTACKS.find((a) => a.id === attackId);
   // Honest jobs would only bounce off the paused contract; say so instead of letting them try.
   const pausedForJobs = mode === 'task' && (killSwitchOn || status.frozen);
   const canRun =
@@ -178,6 +186,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
                     className="w-full resize-none rounded-xl border border-white/10 bg-black/40 px-3.5 py-3 font-mono text-sm text-white outline-none placeholder:text-zinc-500 focus:border-rose-300/40"
                   />
                 )}
+                {preview && <AttackPreview key={attackId} text={preview.text} surface={preview.surface} />}
                 <div>
                   <span className="text-sm text-zinc-300">Agent</span>
                   <div className="mt-2 grid grid-cols-2 gap-2">
@@ -247,6 +256,9 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
               {steps.length === 0 && !running && !error && <RecentVerdicts feed={snapshot.feed} />}
               <RunTimeline steps={steps} running={running} />
               {summary && <Verdict {...summary} />}
+              {summary?.txHash && intent && (
+                <VerifyIntent log={intent.log} hash={intent.hash} txHash={summary.txHash} />
+              )}
               {summary?.pending && <PendingInline request={summary.pending} snapshot={snapshot} onSigned={refresh} />}
             </div>
           </Card>

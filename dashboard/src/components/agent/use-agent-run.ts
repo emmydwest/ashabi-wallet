@@ -5,10 +5,12 @@ import type { AgentEvent, RunRequest } from '@/lib/agent/types';
 
 type Step = Extract<AgentEvent, { type: 'step' }>;
 type Summary = Extract<AgentEvent, { type: 'summary' }>;
+type Intent = Extract<AgentEvent, { type: 'intent' }>;
 
 export function useAgentRun(onFinish?: () => void) {
   const [steps, setSteps] = useState<Step[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [intent, setIntent] = useState<Intent | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quota, setQuota] = useState<{ left: number; limit: number } | null>(null);
@@ -28,6 +30,7 @@ export function useAgentRun(onFinish?: () => void) {
       setRunning(true);
       setSteps([]);
       setSummary(null);
+      setIntent(null);
       setError(null);
       try {
         const res = await fetch('/api/agent/run', {
@@ -54,6 +57,7 @@ export function useAgentRun(onFinish?: () => void) {
             const event = JSON.parse(line) as AgentEvent;
             if (event.type === 'step') setSteps((s) => [...s, event]);
             else if (event.type === 'summary') setSummary(event);
+            else if (event.type === 'intent') setIntent(event);
             else if (event.type === 'quota') setQuota({ left: event.left, limit: event.limit });
           }
         }
@@ -68,5 +72,5 @@ export function useAgentRun(onFinish?: () => void) {
     [onFinish],
   );
 
-  return { steps, summary, running, error, quota, run };
+  return { steps, summary, intent, running, error, quota, run };
 }
