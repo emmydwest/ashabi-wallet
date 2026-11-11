@@ -7,11 +7,12 @@ export async function viewCall<T>(
   method: string,
   args: Record<string, unknown> = {},
   contractId = CONTRACT_ID,
+  cache: RequestCache = 'no-store',
 ): Promise<T> {
   let lastError: unknown;
   for (const url of [...new Set(RPCS)]) {
     try {
-      return await viewCallOn<T>(url, method, args, contractId);
+      return await viewCallOn<T>(url, method, args, contractId, cache);
     } catch (e) {
       // A contract panic is an answer, not an outage; don't retry it elsewhere.
       if ((e as Error).message.startsWith(`${method}:`)) throw e;
@@ -26,11 +27,12 @@ async function viewCallOn<T>(
   method: string,
   args: Record<string, unknown>,
   contractId: string,
+  cache: RequestCache = 'no-store',
 ): Promise<T> {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    cache: 'no-store',
+    cache,
     signal: AbortSignal.timeout(4000),
     body: JSON.stringify({
       jsonrpc: '2.0',

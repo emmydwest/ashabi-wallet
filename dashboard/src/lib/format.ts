@@ -1,4 +1,4 @@
-export function timeAgo(date: Date, now = Date.now()): string {
+export function timeAgo(date: Date, now: number): string {
   const seconds = Math.max(0, Math.round((now - date.getTime()) / 1000));
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.round(seconds / 60);

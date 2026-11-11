@@ -1,12 +1,12 @@
 import { Card, CardHeader } from '@/components/card';
 import { ExplorerLink } from '@/components/explorer-link';
 import { StatusChip } from '@/components/status-chip';
-import { timeAgo } from '@/lib/format';
+import { TimeAgo } from '@/components/time-ago';
 import { nsToDate, toNear } from '@/lib/near';
 import type { FeedItem } from '@/lib/types';
 import { ShieldX } from './payment-feed';
 
-export function BlockedAttacks({ feed }: { feed: FeedItem[] }) {
+export function BlockedAttacks({ feed, now }: { feed: FeedItem[]; now?: number }) {
   const attacks = feed
     .filter((i): i is Extract<FeedItem, { kind: 'blocked' }> => i.kind === 'blocked')
     .filter((i) => i.attempt.status === 'BLOCKED_RECIPIENT')
@@ -40,7 +40,7 @@ export function BlockedAttacks({ feed }: { feed: FeedItem[] }) {
               {attempt.memo || 'no memo'}
             </blockquote>
             <div className="mt-3 flex items-center justify-between text-xs text-zinc-400">
-              <span>{timeAgo(nsToDate(at))} · funds not transferred</span>
+              <span>{<TimeAgo date={nsToDate(at)} at={now} />} · funds not transferred</span>
               <ExplorerLink txHash={txHash} label={txHash ? 'View tx' : 'Contract'} variant="pill" />
             </div>
           </article>

@@ -14,12 +14,12 @@ type ExplorerTxn = {
 const NEARBLOCKS_API = 'https://api-testnet.nearblocks.io/v3';
 const txCache = new Map<string, { at: number; hashes: ExplorerTxn[] }>();
 
-async function requestPaymentTxns(contractId: string): Promise<ExplorerTxn[]> {
+async function requestPaymentTxns(contractId: string, cache: RequestCache = 'no-store'): Promise<ExplorerTxn[]> {
   const cached = txCache.get(contractId);
-  if (cached && Date.now() - cached.at < 20_000) return cached.hashes;
+  if (cache === 'no-store' && cached && Date.now() - cached.at < 20_000) return cached.hashes;
   try {
     const res = await fetch(`${NEARBLOCKS_API}/accounts/${contractId}/txns?method=request_payment&limit=100`, {
-      cache: 'no-store',
+      cache,
       signal: AbortSignal.timeout(4000),
     });
     const body = await res.json();
@@ -47,13 +47,13 @@ function attachTxHashes(items: FeedItem[], txns: ExplorerTxn[]) {
   }
 }
 
-async function readSnapshot(contractId: string): Promise<GuardianSnapshot> {
+async function readSnapshot(contractId: string, cache: RequestCache = 'no-store'): Promise<GuardianSnapshot> {
   const [status, history, blocked, pending, txns] = await Promise.all([
-    viewCall<WalletStatus>('get_wallet_status', {}, contractId),
-    viewCall<PaymentRecord[]>('get_payment_history', { limit: 100 }, contractId),
-    viewCall<BlockedAttempt[]>('get_blocked_attempts', { limit: 100 }, contractId),
-    viewCall<PaymentRecord[]>('get_pending', {}, contractId),
-    requestPaymentTxns(contractId),
+    viewCall<WalletStatus>('get_wallet_status', {}, contractId, cache),
+    viewCall<PaymentRecord[]>('get_payment_history', { limit: 100 }, contractId, cache),
+    viewCall<BlockedAttempt[]>('get_blocked_attempts', { limit: 100 }, contractId, cache),
+    viewCall<PaymentRecord[]>('get_pending', {}, contractId, cache),
+    requestPaymentTxns(contractId, cache),
   ]);
   const feed: FeedItem[] = [
     ...history.map((record): FeedItem => ({ kind: 'payment', key: `p${record.id}`, at: record.created_at, record })),
@@ -73,9 +73,9 @@ const lastGood = new Map<string, GuardianSnapshot>();
 
 // The last state this server read, or (for the demo wallet) the one saved at build time, so a
 // slow RPC never leaves a page blank. Either way it is flagged stale and shows its own timestamp.
-export async function loadSnapshot(contractId = CONTRACT_ID): Promise<GuardianSnapshot> {
+export async function loadSnapshot(contractId = CONTRACT_ID, cache: RequestCache = 'no-store'): Promise<GuardianSnapshot> {
   try {
-    const snapshot = await readSnapshot(contractId);
+    const snapshot = await readSnapshot(contractId, cache);
     lastGood.set(contractId, snapshot);
     return snapshot;
   } catch (error) {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ExplorerLink } from '@/components/explorer-link';
-import { timeAgo } from '@/lib/format';
+import { TimeAgo } from '@/components/time-ago';
 import { nsToDate, toNear } from '@/lib/near';
 import { budgetToday, latestProof } from '@/lib/stats';
 import type { FeedItem, GuardianSnapshot } from '@/lib/types';
@@ -113,7 +113,7 @@ export function ProofFlow({ snapshot, onRun, busy = false }: Props) {
                   {target ? (
                     <>
                       <span className={step.tone}>{step.outcome}</span> · {toNear(target.amount)} NEAR ·{' '}
-                      {timeAgo(nsToDate(step.item!.at))}
+                      {<TimeAgo date={nsToDate(step.item!.at)} at={new Date(snapshot.fetchedAt).getTime()} />}
                     </>
                   ) : (
                     <span className={step.tone}>{step.outcome}</span>

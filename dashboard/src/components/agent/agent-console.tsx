@@ -341,7 +341,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
                   {error}
                 </p>
               )}
-              {steps.length === 0 && !running && !error && <RecentVerdicts feed={snapshot.feed} />}
+              {steps.length === 0 && !running && !error && <RecentVerdicts feed={snapshot.feed} now={new Date(snapshot.fetchedAt).getTime()} />}
               <RunTimeline steps={steps} running={running} />
               {summary && <Verdict {...summary} />}
               {summary?.txHash && intent && (

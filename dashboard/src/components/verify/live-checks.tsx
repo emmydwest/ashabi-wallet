@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, CircleAlert, LoaderCircle, RefreshCw, X } from 'lucide-react';
 import { runLiveChecks, type CheckState, type LiveCheck, type VerifyResult } from '@/lib/verify-on-chain';
 
@@ -29,7 +29,9 @@ function Icon({ state }: { state: CheckState }) {
 export function LiveChecks({ compact = false }: { compact?: boolean }) {
   const [result, setResult] = useState<VerifyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [running, setRunning] = useState(false);
+  const [running, setRunning] = useState(true);
+  const root = useRef<HTMLDivElement>(null);
+  const started = useRef(false);
 
   const run = useCallback(async () => {
     setRunning(true);
@@ -44,14 +46,28 @@ export function LiveChecks({ compact = false }: { compact?: boolean }) {
     }
   }, []);
 
-  // Runs once on arrival, against a public testnet RPC.
+  // Start on mount, and again if the panel scrolls into view before the first run finished starting.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void run();
+    const start = () => {
+      if (started.current) return;
+      started.current = true;
+      void run();
+    };
+    start();
+    const node = root.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) start();
+      },
+      { rootMargin: '120px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
   }, [run]);
 
   return (
-    <div className="glass rounded-card p-5 sm:p-6">
+    <div ref={root} className="glass rounded-card p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">Verify live on NEAR</p>
@@ -98,7 +114,13 @@ export function LiveChecks({ compact = false }: { compact?: boolean }) {
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
         <span>
-          {result ? `Last run ${new Date(result.fetchedAt).toLocaleTimeString()}` : 'Waiting for the first run.'}
+          {result
+            ? `Last run ${new Date(result.fetchedAt).toLocaleTimeString()}`
+            : running
+              ? 'Checking the chain…'
+              : error
+                ? 'Could not reach the chain. Try again.'
+                : 'Starting the checks…'}
         </span>
         {compact && (
           <Link href="/verify" className="text-emerald-300 hover:text-emerald-200">

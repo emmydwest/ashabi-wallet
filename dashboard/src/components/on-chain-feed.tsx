@@ -3,7 +3,7 @@
 import { ExplorerLink } from '@/components/explorer-link';
 import { StatusChip } from '@/components/status-chip';
 import { useGuardian } from '@/components/use-guardian';
-import { timeAgo } from '@/lib/format';
+import { TimeAgo } from '@/components/time-ago';
 import { nsToDate, toNear } from '@/lib/near';
 import type { FeedItem, GuardianSnapshot } from '@/lib/types';
 
@@ -40,7 +40,7 @@ export function OnChainFeed({
           </p>
         </div>
         <p className="text-xs text-zinc-500" suppressHydrationWarning>
-          {stale ? 'Last good state' : 'Updated'} {timeAgo(new Date(snapshot.fetchedAt))}
+          {stale ? 'Last good state' : 'Updated'} <TimeAgo date={new Date(snapshot.fetchedAt)} at={new Date(snapshot.fetchedAt).getTime()} />
         </p>
       </div>
 
@@ -64,7 +64,7 @@ export function OnChainFeed({
         <ul className="mt-5 divide-y divide-white/[0.06] overflow-hidden rounded-card border border-white/10 bg-white/[0.03]">
           {rows.map((row) => (
             <li key={row.key} className="min-w-0 px-4 py-3 sm:px-5">
-              <FeedRow row={row} />
+              <FeedRow row={row} now={new Date(snapshot.fetchedAt).getTime()} />
             </li>
           ))}
         </ul>
@@ -87,7 +87,7 @@ function buildRows(snapshot: GuardianSnapshot, limit: number) {
     .slice(0, limit);
 }
 
-function FeedRow({ row }: { row: Row }) {
+function FeedRow({ row, now }: { row: Row; now: number }) {
   if (row.kind === 'blocked') {
     const a = row.attempt;
     return (
@@ -100,7 +100,7 @@ function FeedRow({ row }: { row: Row }) {
           </p>
           <p className="mt-0.5 wrap-ids text-xs leading-relaxed text-rose-200/90">{a.reason}</p>
           <p className="mt-0.5 text-xs text-zinc-500" suppressHydrationWarning>
-            {timeAgo(nsToDate(row.at))} · funds not moved
+            {<TimeAgo date={nsToDate(row.at)} at={now} />} · funds not moved
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -137,7 +137,7 @@ function FeedRow({ row }: { row: Row }) {
           )}
         </p>
         <p className="mt-0.5 text-xs text-zinc-500" suppressHydrationWarning>
-          {timeAgo(nsToDate(row.at))}
+          {<TimeAgo date={nsToDate(row.at)} at={now} />}
         </p>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">

@@ -1,11 +1,11 @@
 import { ExplorerLink } from '@/components/explorer-link';
 import { StatusChip } from '@/components/status-chip';
-import { timeAgo } from '@/lib/format';
+import { TimeAgo } from '@/components/time-ago';
 import { nsToDate, toNear } from '@/lib/near';
 import type { FeedItem } from '@/lib/types';
 
 // Shown before the first run so the panel never sits empty: the latest real verdicts.
-export function RecentVerdicts({ feed }: { feed: FeedItem[] }) {
+export function RecentVerdicts({ feed, now }: { feed: FeedItem[]; now?: number }) {
   const items = feed.slice(0, 5);
   if (items.length === 0) return <p className="py-10 text-center text-sm text-zinc-500">No activity yet.</p>;
   return (
@@ -24,7 +24,7 @@ export function RecentVerdicts({ feed }: { feed: FeedItem[] }) {
                       {toNear(target.amount)} NEAR → <span className="font-mono">{target.receiver_id}</span>
                     </span>
                     <span className="text-xs text-zinc-500" suppressHydrationWarning>
-                      {timeAgo(nsToDate(item.at))}
+                      {<TimeAgo date={nsToDate(item.at)} at={now} />}
                     </span>
                   </span>
                   <StatusChip status={status} />

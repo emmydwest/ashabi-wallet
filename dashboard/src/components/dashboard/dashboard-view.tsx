@@ -3,7 +3,7 @@
 import { motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import { useGuardian } from '@/components/use-guardian';
-import { timeAgo } from '@/lib/format';
+import { TimeAgo } from '@/components/time-ago';
 import { AsOf } from '@/components/as-of';
 import type { ActionLog, GuardianSnapshot } from '@/lib/types';
 import { AgentTimeline } from './agent-timeline';
@@ -41,7 +41,7 @@ export function DashboardView({ log, initial }: { log: ActionLog; initial: Guard
           <AsOf snapshot={snapshot} offline={Boolean(error)} />
         ) : (
           <p className="font-mono text-xs text-zinc-400" suppressHydrationWarning>
-            Updated {timeAgo(new Date(snapshot.fetchedAt))} · refreshes every 6s
+            Updated <TimeAgo date={new Date(snapshot.fetchedAt)} at={new Date(snapshot.fetchedAt).getTime()} /> · refreshes every 6s
           </p>
         )}
       </div>
@@ -66,10 +66,10 @@ export function DashboardView({ log, initial }: { log: ActionLog; initial: Guard
         </div>
         <div className="mt-5 grid gap-5 lg:grid-cols-[1.55fr_1fr]">
           <Reveal delay={0.15}>
-            <PaymentFeed feed={snapshot.feed} />
+            <PaymentFeed feed={snapshot.feed} now={new Date(snapshot.fetchedAt).getTime()} />
           </Reveal>
           <Reveal delay={0.2}>
-            <BlockedAttacks feed={snapshot.feed} />
+            <BlockedAttacks feed={snapshot.feed} now={new Date(snapshot.fetchedAt).getTime()} />
           </Reveal>
         </div>
       </>

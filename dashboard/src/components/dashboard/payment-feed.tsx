@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Card, CardHeader } from '@/components/card';
 import { ExplorerLink } from '@/components/explorer-link';
 import { StatusChip } from '@/components/status-chip';
-import { timeAgo } from '@/lib/format';
+import { TimeAgo } from '@/components/time-ago';
 import { nsToDate, toNear } from '@/lib/near';
 import type { FeedItem } from '@/lib/types';
 
@@ -21,7 +21,7 @@ function describe(item: FeedItem) {
   return { amount: attempt.amount, receiver: attempt.receiver_id, memo: attempt.memo, status: attempt.status };
 }
 
-export function PaymentFeed({ feed }: { feed: FeedItem[] }) {
+export function PaymentFeed({ feed, now }: { feed: FeedItem[]; now?: number }) {
   const [filter, setFilter] = useState<Filter>('All');
   const [limit, setLimit] = useState(10);
   const visible = feed.filter(
@@ -88,7 +88,7 @@ export function PaymentFeed({ feed }: { feed: FeedItem[] }) {
                   <div className="mt-2.5 flex items-center justify-between gap-3 text-xs text-zinc-400">
                     {/* Relative time ticks between the server render and hydration. */}
                     <span suppressHydrationWarning>
-                      {timeAgo(nsToDate(item.at))}
+                      {<TimeAgo date={nsToDate(item.at)} at={now} />}
                       {blocked && ' · funds not moved'}
                     </span>
                     <ExplorerLink txHash={item.txHash} label={item.txHash ? 'View tx' : 'Contract'} variant="pill" />

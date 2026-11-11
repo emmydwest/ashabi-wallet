@@ -3,7 +3,7 @@
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { timeAgo } from '@/lib/format';
+import { TimeAgo } from '@/components/time-ago';
 import { nsToDate } from '@/lib/near';
 import { describeRequest, expiresAt, requestPath } from '@/lib/request-text';
 import type { PaymentRecord, WalletStatus } from '@/lib/types';
@@ -62,7 +62,7 @@ export function ApprovalCard(props: Props) {
         <div className="rounded-xl bg-black/25 px-3 py-2">
           <dt className="text-zinc-500">Asked</dt>
           <dd className="mt-0.5 text-zinc-200" suppressHydrationWarning>
-            {timeAgo(nsToDate(record.created_at))}
+            {<TimeAgo date={nsToDate(record.created_at)} />}
             {expires && (
               <span className="text-zinc-500" suppressHydrationWarning>
                 {' '}

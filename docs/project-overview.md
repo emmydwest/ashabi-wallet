@@ -410,6 +410,13 @@ agent log and its trap page sit in a collapsed "Recorded reference run" section.
   make the agent steal it. Rules are stated honestly: testnet, the agent can only ask, the contract
   decides. A counter shows payments to unknown accounts blocked, and the all-time blocked request
   total (which also includes budget and speed limits).
+- **Homepage rules.** The hero chips and the "How it works" section name the live contract rules,
+  including the velocity cap (3 payments or 1 NEAR per 10 minutes) and the 3-strike kill-switch.
+  The "Why a contract" table has a row on split-payment attacks and runaway loops: prompt
+  guardrails can't track on-chain velocity; the contract enforces a rolling 10-min cap plus an
+  automatic kill-switch. Live numbers and the three proof cards are in the first HTML from a
+  60-second cached snapshot, not empty placeholders. Verify-live checks start on their own when
+  the panel mounts or enters view.
 - **Live on-chain feed.** The homepage and the area below the attack arena list recent payments,
   pending owner approvals, and blocked attempts from the demo vault, with NearBlocks links when the
   explorer API has a matching `request_payment` transaction. The list refreshes every few seconds

@@ -1,16 +1,15 @@
-import { ArrowRight, CircleCheck, Coins, Smartphone, Swords, UserCheck } from 'lucide-react';
+import { ArrowRight, CircleCheck, Coins, ShieldAlert, Smartphone, Swords, Timer, UserCheck } from 'lucide-react';
 import Link from 'next/link';
-import { Suspense } from 'react';
 import { AboveLimit } from '@/components/landing/above-limit';
 import { Architecture } from '@/components/landing/architecture';
 import { HeroStage } from '@/components/landing/hero-stage';
-import { HomeProof, HomeProofSkeleton } from '@/components/landing/home-proof';
-import { LiveStatus, LiveStatusSkeleton } from '@/components/landing/live-status';
+import { ProofFlow } from '@/components/proof/proof-flow';
+import { LiveStatus } from '@/components/landing/live-status';
 import { ScreensStrip } from '@/components/landing/screens-strip';
 import { StatsStrip } from '@/components/landing/stats-strip';
 import { Trust } from '@/components/landing/trust';
 import { Economy } from '@/components/landing/economy';
-import { HomeFeed } from '@/components/landing/home-feed';
+import { OnChainFeed } from '@/components/on-chain-feed';
 import { LiveChecks } from '@/components/verify/live-checks';
 import { Mascot } from '@/components/mascot/mascot';
 import { accountUrl, CONTRACT_ID } from '@/lib/config';
@@ -20,6 +19,8 @@ const RULES = [
   { icon: Coins, text: 'Daily budget' },
   { icon: UserCheck, text: 'Approved recipients only' },
   { icon: Smartphone, text: 'You OK the big ones' },
+  { icon: Timer, text: '3 payments or 1 NEAR per 10 min' },
+  { icon: ShieldAlert, text: '3-strike kill-switch' },
 ];
 
 const STEPS = [
@@ -41,16 +42,34 @@ const STEPS = [
     title: 'Approve big payments from your phone',
     body: 'Anything over your limit waits for a tap. One button freezes everything if something looks off.',
   },
+  {
+    n: '04',
+    icon: Timer,
+    title: 'Cap how fast it can pay',
+    body: 'Automatic payments are limited to 3, or 1 NEAR, in any 10-minute window. Splitting a large payment into small pieces does not get around it.',
+  },
+  {
+    n: '05',
+    icon: ShieldAlert,
+    title: 'A kill-switch for runaway agents',
+    body: 'Three blocked unknown-payee requests in a row pause spending automatically. It cools down on its own, or the owner can reset it.',
+  },
 ];
 
 const COMPARISON = [
   ['Where the rules live', 'In the prompt', 'In a smart contract'],
   ['A hidden instruction on a web page', 'Can talk the model out of them', 'Changes nothing'],
   ['Who holds the money', 'The agent', 'The contract'],
+  [
+    'Split-payment attacks and runaway loops',
+    "Can't track on-chain velocity",
+    'A rolling 10-min cap, plus an automatic kill-switch',
+  ],
   ['Proof of what happened', 'App logs', 'Public chain records'],
 ];
 
-export default function Home() {
+export default async function Home() {
+  const [snapshot, wallets] = await Promise.all([cachedSnapshot(), cachedWalletCount()]);
   return (
     <main className="mx-auto max-w-7xl px-5 pb-24 sm:px-8">
       <section className="grid grid-cols-1 items-center gap-10 pb-14 pt-10 lg:grid-cols-[1.1fr_1fr] lg:gap-8 lg:pb-20 lg:pt-20">
@@ -116,25 +135,21 @@ export default function Home() {
             <HeroStage />
           </div>
           <div className="relative lg:-mt-28 lg:ml-auto lg:w-[21.5rem] xl:-mr-10">
-            <Suspense fallback={<LiveStatusSkeleton />}>
-              <HeroStatus />
-            </Suspense>
+            <LiveStatus initial={snapshot} />
           </div>
         </div>
       </section>
 
       <section aria-label="Live numbers" className="pt-4 lg:pt-10">
-        <Suspense fallback={<div className="glass h-32 animate-pulse rounded-card" aria-hidden />}>
-          <HomeStats />
-        </Suspense>
+        <StatsStrip initial={snapshot} wallets={wallets} />
       </section>
 
       <section className="pt-24">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">How it works</p>
         <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-          Three rules. Your AI can’t talk its way past any of them.
+          The rules your AI can’t talk its way past.
         </h2>
-        <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {STEPS.map(({ n, icon: Icon, title, body }) => (
             <article key={n} className="glass rounded-card p-6 transition hover:border-emerald-400/25">
               <div className="flex items-center justify-between">
@@ -170,7 +185,8 @@ export default function Home() {
         </div>
         <p className="mt-6 max-w-3xl text-sm leading-relaxed text-zinc-400">
           Under the hood: the rules live in a NEAR smart contract that holds the money. Your AI’s key can only ask that
-          contract for a payment. It can’t move funds or change the rules, even if it’s fully hijacked.{' '}
+          contract for a payment. It can’t move funds or change the rules, even if it’s fully hijacked. The same contract
+          enforces a rolling 10-minute payment cap and an automatic kill-switch.{' '}
           <a href={accountUrl(CONTRACT_ID)} target="_blank" rel="noreferrer" className="text-emerald-300">
             See the demo contract ↗
           </a>
@@ -189,16 +205,12 @@ export default function Home() {
           Each one is a real transaction on the demo wallet. Tap to run it live, or open the latest one on NearBlocks.
         </p>
         <div className="mt-8">
-          <Suspense fallback={<HomeProofSkeleton />}>
-            <HomeProof />
-          </Suspense>
+          <ProofFlow snapshot={snapshot} />
         </div>
       </section>
 
       <section id="activity" className="pt-24">
-        <Suspense fallback={<div className="glass h-64 animate-pulse rounded-card" aria-hidden />}>
-          <HomeFeed />
-        </Suspense>
+        <OnChainFeed initial={snapshot} />
       </section>
 
       <section id="verify" className="pt-24">
@@ -345,11 +357,3 @@ export default function Home() {
   );
 }
 
-async function HeroStatus() {
-  return <LiveStatus initial={await cachedSnapshot()} />;
-}
-
-async function HomeStats() {
-  const [snapshot, wallets] = await Promise.all([cachedSnapshot(), cachedWalletCount()]);
-  return <StatsStrip initial={snapshot} wallets={wallets} />;
-}

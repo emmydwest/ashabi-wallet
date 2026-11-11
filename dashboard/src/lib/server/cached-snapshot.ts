@@ -6,8 +6,8 @@ import { loadSnapshot } from '@/lib/guardian';
 // Pages render with this so the first paint already has real numbers; the client refreshes after.
 export async function cachedSnapshot() {
   'use cache';
-  cacheLife({ stale: 15, revalidate: 15, expire: 120 });
-  return loadSnapshot();
+  cacheLife({ stale: 60, revalidate: 60, expire: 600 });
+  return loadSnapshot(undefined, 'force-cache');
 }
 
 /** How many wallets the factory has made; null if the RPC can't be reached. */
