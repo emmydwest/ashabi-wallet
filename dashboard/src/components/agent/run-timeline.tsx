@@ -81,6 +81,16 @@ export function RunTimeline({ steps, running }: { steps: Step[]; running: boolea
                 {step.body}
               </p>
             )}
+            {step.args && (
+              <details className="mt-2 rounded-lg border border-white/[0.07] bg-black/30">
+                <summary className="cursor-pointer list-none px-3 py-1.5 font-mono text-xs text-zinc-300">
+                  View args
+                </summary>
+                <pre className="overflow-x-auto border-t border-white/[0.06] px-3 py-2 font-mono text-xs leading-relaxed text-zinc-300">
+                  {JSON.stringify(step.args, null, 2)}
+                </pre>
+              </details>
+            )}
             {step.status && (
               <div className="mt-2">
                 <StatusChip status={step.status} />

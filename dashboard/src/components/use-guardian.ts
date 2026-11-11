@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { GuardianSnapshot } from '@/lib/types';
 
-export function useGuardian(intervalMs = 6000) {
-  const [snapshot, setSnapshot] = useState<GuardianSnapshot | null>(null);
+export function useGuardian(intervalMs = 6000, initial: GuardianSnapshot | null = null) {
+  const [snapshot, setSnapshot] = useState<GuardianSnapshot | null>(initial);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {

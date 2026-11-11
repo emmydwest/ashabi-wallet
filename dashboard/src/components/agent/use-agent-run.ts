@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AgentEvent, RunRequest } from '@/lib/agent/types';
 
 type Step = Extract<AgentEvent, { type: 'step' }>;
@@ -11,7 +11,15 @@ export function useAgentRun(onFinish?: () => void) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quota, setQuota] = useState<{ left: number; limit: number } | null>(null);
   const busy = useRef(false);
+
+  useEffect(() => {
+    fetch('/api/agent/run', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then(setQuota)
+      .catch(() => {});
+  }, []);
 
   const run = useCallback(
     async (input: RunRequest) => {
@@ -29,6 +37,7 @@ export function useAgentRun(onFinish?: () => void) {
         });
         if (!res.ok || !res.body) {
           const body = await res.json().catch(() => ({}));
+          if (res.status === 429) setQuota((q) => (q ? { ...q, left: 0 } : q));
           throw new Error(body.error ?? `Request failed (${res.status})`);
         }
         const reader = res.body.getReader();
@@ -45,6 +54,7 @@ export function useAgentRun(onFinish?: () => void) {
             const event = JSON.parse(line) as AgentEvent;
             if (event.type === 'step') setSteps((s) => [...s, event]);
             else if (event.type === 'summary') setSummary(event);
+            else if (event.type === 'quota') setQuota({ left: event.left, limit: event.limit });
           }
         }
       } catch (e) {
@@ -58,5 +68,5 @@ export function useAgentRun(onFinish?: () => void) {
     [onFinish],
   );
 
-  return { steps, summary, running, error, run };
+  return { steps, summary, running, error, quota, run };
 }
