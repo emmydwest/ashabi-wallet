@@ -365,3 +365,189 @@ fn set_owner_needs_one_yocto() {
     testing_env!(ctx(owner(), 0, T0).build());
     c.set_owner("emmy.testnet".parse().unwrap());
 }
+
+const MINUTE: u64 = 60 * 1_000_000_000;
+
+fn pay(c: &mut GuardianWallet, id: &str, to: AccountId, amount: u128) -> RequestStatus {
+    c.request_payment(id.into(), to, U128(amount), None).status
+}
+
+#[test]
+fn splitting_below_threshold_hits_the_velocity_limit() {
+    let mut c = setup();
+    as_agent(T0);
+    for i in 0..3 {
+        assert_eq!(
+            pay(&mut c, &format!("s{i}"), vendor(), NEAR / 2),
+            RequestStatus::Approved
+        );
+    }
+    assert_eq!(
+        pay(&mut c, "s3", vendor(), NEAR / 2),
+        RequestStatus::BlockedVelocity
+    );
+    assert_eq!(c.get_wallet_status().auto_payments_in_window, 3);
+    assert_eq!(c.get_wallet_status().spent_today.0, 3 * NEAR / 2);
+}
+
+#[test]
+fn velocity_window_rolls_forward() {
+    let mut c = setup();
+    as_agent(T0);
+    for i in 0..3 {
+        pay(&mut c, &format!("w{i}"), vendor(), NEAR / 10);
+    }
+    as_agent(T0 + 10 * MINUTE + 1);
+    assert_eq!(
+        pay(&mut c, "w3", vendor(), NEAR / 10),
+        RequestStatus::Approved
+    );
+}
+
+#[test]
+fn above_threshold_payments_skip_the_velocity_limit() {
+    let mut c = setup();
+    as_agent(T0);
+    for i in 0..3 {
+        pay(&mut c, &format!("v{i}"), vendor(), NEAR / 10);
+    }
+    // Large payments already wait for the owner, so they are not counted or limited.
+    assert_eq!(
+        pay(&mut c, "big", vendor(), 2 * NEAR),
+        RequestStatus::PendingApproval
+    );
+}
+
+#[test]
+fn breaker_trips_after_three_suspicious_blocks_then_cools_down() {
+    let mut c = setup();
+    as_agent(T0);
+    for i in 0..3 {
+        assert_eq!(
+            pay(&mut c, &format!("a{i}"), attacker(), NEAR),
+            RequestStatus::BlockedRecipient
+        );
+    }
+    assert_eq!(events("breaker_tripped"), 1);
+    assert!(c.get_wallet_status().breaker_until.is_some());
+
+    as_agent(T0 + MINUTE);
+    assert_eq!(
+        pay(&mut c, "ok1", vendor(), NEAR / 10),
+        RequestStatus::Frozen
+    );
+
+    as_agent(T0 + 10 * MINUTE + 1);
+    assert!(c.get_wallet_status().breaker_until.is_none());
+    assert_eq!(
+        pay(&mut c, "ok2", vendor(), NEAR / 10),
+        RequestStatus::Approved
+    );
+}
+
+#[test]
+fn a_good_request_resets_the_strikes() {
+    let mut c = setup();
+    as_agent(T0);
+    pay(&mut c, "a0", attacker(), NEAR);
+    pay(&mut c, "a1", attacker(), NEAR);
+    pay(&mut c, "ok", vendor(), NEAR / 10);
+    pay(&mut c, "a2", attacker(), NEAR);
+    assert_eq!(c.get_wallet_status().strikes, 1);
+    assert!(c.get_wallet_status().breaker_until.is_none());
+}
+
+#[test]
+fn budget_blocks_do_not_count_as_strikes() {
+    let mut c = setup();
+    as_agent(T0);
+    for i in 0..4 {
+        assert_eq!(
+            pay(&mut c, &format!("b{i}"), vendor(), 6 * NEAR),
+            RequestStatus::BlockedBudget
+        );
+    }
+    assert_eq!(c.get_wallet_status().strikes, 0);
+}
+
+#[test]
+fn owner_unfreeze_resets_a_tripped_breaker() {
+    let mut c = setup();
+    as_agent(T0);
+    for i in 0..3 {
+        pay(&mut c, &format!("a{i}"), attacker(), NEAR);
+    }
+    as_owner(T0 + MINUTE);
+    c.unfreeze();
+    assert_eq!(events("breaker_reset"), 1);
+    as_agent(T0 + MINUTE);
+    assert_eq!(
+        pay(&mut c, "ok", vendor(), NEAR / 10),
+        RequestStatus::Approved
+    );
+}
+
+#[test]
+fn owner_can_tune_or_disable_guards() {
+    let mut c = setup();
+    as_owner(T0);
+    c.set_guards(Guards {
+        max_auto_payments: 0,
+        velocity_window_minutes: 0,
+        breaker_strikes: 0,
+        breaker_cooldown_minutes: 0,
+    });
+    assert_eq!(events("guards_updated"), 1);
+    as_agent(T0);
+    for i in 0..5 {
+        assert_eq!(
+            pay(&mut c, &format!("n{i}"), vendor(), NEAR / 10),
+            RequestStatus::Approved
+        );
+        assert_eq!(
+            pay(&mut c, &format!("x{i}"), attacker(), NEAR),
+            RequestStatus::BlockedRecipient
+        );
+    }
+    assert!(c.get_wallet_status().breaker_until.is_none());
+}
+
+#[test]
+#[should_panic(expected = "Unauthorized: owner only")]
+fn agent_cannot_change_guards() {
+    let mut c = setup();
+    testing_env!(ctx(agent(), 1, T0).build());
+    c.set_guards(Guards::default());
+}
+
+#[test]
+fn migrate_keeps_v1_state_and_adds_default_guards() {
+    testing_env!(ctx(contract_id(), 0, T0).build());
+    let mut payees = IterableSet::new(StorageKey::Payees);
+    payees.insert(vendor());
+    payees.flush();
+    let old = GuardianWalletV1 {
+        owner_id: owner(),
+        agent_id: agent(),
+        daily_limit: 5 * NEAR,
+        approval_threshold: NEAR,
+        spent_today: NEAR,
+        current_day: day_of(T0),
+        reserved: 0,
+        frozen: false,
+        approved_payees: payees,
+        payment_records: Vector::new(StorageKey::Records),
+        pending: IterableSet::new(StorageKey::Pending),
+        blocked_attempts: Vector::new(StorageKey::Blocked),
+        blocked_total: 24,
+        used_request_ids: LookupSet::new(StorageKey::UsedRequestIds),
+    };
+    env::state_write(&old);
+    let c = GuardianWallet::migrate();
+    let s = c.get_wallet_status();
+    assert_eq!(s.owner_id, owner());
+    assert_eq!(s.blocked_count, 24);
+    assert_eq!(s.spent_today.0, NEAR);
+    assert_eq!(s.approved_payees, vec![vendor()]);
+    assert_eq!(s.guards.max_auto_payments, DEFAULT_MAX_AUTO_PAYMENTS);
+}

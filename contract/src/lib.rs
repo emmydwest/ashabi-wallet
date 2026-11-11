@@ -18,6 +18,12 @@ pub const MAX_STORED_BLOCKED: u32 = 500;
 /// Kept back on top of storage staking.
 pub const SAFETY_RESERVE: NearToken = NearToken::from_millinear(100);
 const GAS_FOR_CALLBACK: Gas = Gas::from_tgas(10);
+const NANOS_PER_MINUTE: u64 = 60 * 1_000_000_000;
+/// Defaults for wallets created before the guards existed, and for `new`.
+pub const DEFAULT_MAX_AUTO_PAYMENTS: u32 = 3;
+pub const DEFAULT_VELOCITY_WINDOW_MINUTES: u32 = 10;
+pub const DEFAULT_BREAKER_STRIKES: u32 = 3;
+pub const DEFAULT_BREAKER_COOLDOWN_MINUTES: u32 = 10;
 const EVENT_STANDARD: &str = "guardian_wallet";
 const EVENT_VERSION: &str = "1.0.0";
 
@@ -39,6 +45,7 @@ pub enum RequestStatus {
     PendingApproval,
     BlockedRecipient,
     BlockedBudget,
+    BlockedVelocity,
     InsufficientFunds,
     Frozen,
     Duplicate,
@@ -111,6 +118,56 @@ pub struct WalletStatus {
     pub pending_count: u32,
     pub payment_count: u32,
     pub blocked_count: u64,
+    pub guards: Guards,
+    /// Automatic payments inside the current velocity window.
+    pub auto_payments_in_window: u32,
+    /// Suspicious blocks in a row; the breaker trips at `guards.breaker_strikes`.
+    pub strikes: u32,
+    /// Block timestamp (ns) the breaker cools down at, if it has tripped.
+    pub breaker_until: Option<u64>,
+}
+
+/// Limits that catch patterns a single request cannot show. Zero turns a guard off.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug)]
+pub struct Guards {
+    /// Most automatic (below-threshold) payments allowed per window. Stops threshold splitting.
+    pub max_auto_payments: u32,
+    pub velocity_window_minutes: u32,
+    /// Suspicious blocks in a row that trip the circuit breaker.
+    pub breaker_strikes: u32,
+    /// How long a tripped breaker refuses requests, unless the owner unfreezes sooner.
+    pub breaker_cooldown_minutes: u32,
+}
+
+impl Default for Guards {
+    fn default() -> Self {
+        Self {
+            max_auto_payments: DEFAULT_MAX_AUTO_PAYMENTS,
+            velocity_window_minutes: DEFAULT_VELOCITY_WINDOW_MINUTES,
+            breaker_strikes: DEFAULT_BREAKER_STRIKES,
+            breaker_cooldown_minutes: DEFAULT_BREAKER_COOLDOWN_MINUTES,
+        }
+    }
+}
+
+/// State layout before the guards, kept so `migrate` can read it.
+#[near(serializers = [borsh])]
+pub struct GuardianWalletV1 {
+    owner_id: AccountId,
+    agent_id: AccountId,
+    daily_limit: u128,
+    approval_threshold: u128,
+    spent_today: u128,
+    current_day: u64,
+    reserved: u128,
+    frozen: bool,
+    approved_payees: IterableSet<AccountId>,
+    payment_records: Vector<PaymentRecord>,
+    pending: IterableSet<u64>,
+    blocked_attempts: Vector<BlockedAttempt>,
+    blocked_total: u64,
+    used_request_ids: LookupSet<String>,
 }
 
 #[near(contract_state)]
@@ -132,6 +189,11 @@ pub struct GuardianWallet {
     blocked_attempts: Vector<BlockedAttempt>,
     blocked_total: u64,
     used_request_ids: LookupSet<String>,
+    guards: Guards,
+    /// Timestamps of recent automatic payments, oldest first; never longer than the limit.
+    recent_auto_payments: Vec<u64>,
+    strikes: u32,
+    breaker_until: Option<u64>,
 }
 
 fn emit(event: &str, data: near_sdk::serde_json::Value) {
@@ -174,6 +236,10 @@ impl GuardianWallet {
             blocked_attempts: Vector::new(StorageKey::Blocked),
             blocked_total: 0,
             used_request_ids: LookupSet::new(StorageKey::UsedRequestIds),
+            guards: Guards::default(),
+            recent_auto_payments: Vec::new(),
+            strikes: 0,
+            breaker_until: None,
         };
         for p in approved_payees.unwrap_or_default() {
             c.approved_payees.insert(p);
@@ -186,6 +252,33 @@ impl GuardianWallet {
             }),
         );
         c
+    }
+
+    /// One-off upgrade from the V1 layout; keeps every record and the current owner.
+    #[private]
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let old: GuardianWalletV1 = env::state_read().expect("no state to migrate");
+        Self {
+            owner_id: old.owner_id,
+            agent_id: old.agent_id,
+            daily_limit: old.daily_limit,
+            approval_threshold: old.approval_threshold,
+            spent_today: old.spent_today,
+            current_day: old.current_day,
+            reserved: old.reserved,
+            frozen: old.frozen,
+            approved_payees: old.approved_payees,
+            payment_records: old.payment_records,
+            pending: old.pending,
+            blocked_attempts: old.blocked_attempts,
+            blocked_total: old.blocked_total,
+            used_request_ids: old.used_request_ids,
+            guards: Guards::default(),
+            recent_auto_payments: Vec::new(),
+            strikes: 0,
+            breaker_until: None,
+        }
     }
 
     #[payable]
@@ -239,6 +332,21 @@ impl GuardianWallet {
                 "wallet is frozen by owner".into(),
             );
         }
+        let now = env::block_timestamp();
+        if let Some(until) = self.breaker_until.filter(|until| now < *until) {
+            let minutes = (until - now).div_ceil(NANOS_PER_MINUTE);
+            return self.block(
+                request_id,
+                receiver_id,
+                amount,
+                memo,
+                RequestStatus::Frozen,
+                format!(
+                    "circuit breaker tripped after repeated suspicious requests; resumes in {} min or when the owner unfreezes",
+                    minutes
+                ),
+            );
+        }
         if !self.approved_payees.contains(&receiver_id) {
             return self.block(
                 request_id,
@@ -281,9 +389,23 @@ impl GuardianWallet {
             );
         }
 
-        let now = env::block_timestamp();
-        let id = self.payment_records.len() as u64;
         let needs_approval = amount.0 > self.approval_threshold;
+        if !needs_approval && self.velocity_exceeded(now) {
+            return self.block(
+                request_id,
+                receiver_id,
+                amount,
+                memo,
+                RequestStatus::BlockedVelocity,
+                format!(
+                    "too many automatic payments: at most {} per {} min; smaller payments cannot dodge the approval threshold",
+                    self.guards.max_auto_payments, self.guards.velocity_window_minutes
+                ),
+            );
+        }
+
+        self.strikes = 0;
+        let id = self.payment_records.len() as u64;
         let record = PaymentRecord {
             id,
             request_id: request_id.clone(),
@@ -320,6 +442,9 @@ impl GuardianWallet {
             }
         } else {
             self.spent_today += amount.0;
+            if self.guards.max_auto_payments > 0 {
+                self.recent_auto_payments.push(now);
+            }
             emit(
                 "payment_approved",
                 json!({
@@ -445,10 +570,33 @@ impl GuardianWallet {
     pub fn unfreeze(&mut self) {
         self.assert_owner();
         self.frozen = false;
+        self.strikes = 0;
+        if self.breaker_until.take().is_some() {
+            emit(
+                "breaker_reset",
+                json!({ "by": env::predecessor_account_id() }),
+            );
+        }
         emit(
             "wallet_unfrozen",
             json!({ "by": env::predecessor_account_id() }),
         );
+    }
+
+    #[payable]
+    pub fn set_guards(&mut self, guards: Guards) {
+        self.assert_owner();
+        require!(
+            guards.max_auto_payments == 0 || guards.velocity_window_minutes > 0,
+            "velocity window must be at least 1 minute"
+        );
+        require!(
+            guards.breaker_strikes == 0 || guards.breaker_cooldown_minutes > 0,
+            "breaker cooldown must be at least 1 minute"
+        );
+        self.recent_auto_payments.clear();
+        emit("guards_updated", json!({ "guards": guards }));
+        self.guards = guards;
     }
 
     #[payable]
@@ -518,7 +666,8 @@ impl GuardianWallet {
     }
 
     pub fn get_wallet_status(&self) -> WalletStatus {
-        let today = day_of(env::block_timestamp());
+        let now = env::block_timestamp();
+        let today = day_of(now);
         let spent = if today == self.current_day {
             self.spent_today
         } else {
@@ -540,6 +689,10 @@ impl GuardianWallet {
             pending_count: self.pending.len(),
             payment_count: self.payment_records.len(),
             blocked_count: self.blocked_total,
+            guards: self.guards.clone(),
+            auto_payments_in_window: self.auto_payments_since(now) as u32,
+            strikes: self.strikes,
+            breaker_until: self.breaker_until.filter(|until| now < *until),
         }
     }
 
@@ -611,6 +764,49 @@ impl GuardianWallet {
         }
     }
 
+    fn window_start(&self, now: u64) -> u64 {
+        now.saturating_sub(self.guards.velocity_window_minutes as u64 * NANOS_PER_MINUTE)
+    }
+
+    fn auto_payments_since(&self, now: u64) -> usize {
+        let start = self.window_start(now);
+        self.recent_auto_payments
+            .iter()
+            .filter(|t| **t > start)
+            .count()
+    }
+
+    fn velocity_exceeded(&mut self, now: u64) -> bool {
+        if self.guards.max_auto_payments == 0 {
+            return false;
+        }
+        let start = self.window_start(now);
+        self.recent_auto_payments.retain(|t| *t > start);
+        self.recent_auto_payments.len() >= self.guards.max_auto_payments as usize
+    }
+
+    /// Paying a stranger or splitting payments looks like a hijacked agent; budget or
+    /// balance blocks do not, so only the first two count towards the breaker.
+    fn record_strike(&mut self, status: &RequestStatus) {
+        if !matches!(
+            status,
+            RequestStatus::BlockedRecipient | RequestStatus::BlockedVelocity
+        ) {
+            return;
+        }
+        self.strikes += 1;
+        if self.guards.breaker_strikes > 0 && self.strikes >= self.guards.breaker_strikes {
+            let until = env::block_timestamp()
+                + self.guards.breaker_cooldown_minutes as u64 * NANOS_PER_MINUTE;
+            self.breaker_until = Some(until);
+            self.strikes = 0;
+            emit(
+                "breaker_tripped",
+                json!({ "strikes": self.guards.breaker_strikes, "until": until }),
+            );
+        }
+    }
+
     fn available_balance(&self) -> u128 {
         let storage = env::storage_byte_cost().as_yoctonear() * env::storage_usage() as u128;
         env::account_balance()
@@ -639,6 +835,7 @@ impl GuardianWallet {
         status: RequestStatus,
         reason: String,
     ) -> RequestOutcome {
+        self.record_strike(&status);
         let seq = self.blocked_total;
         self.blocked_total += 1;
         let attempt = BlockedAttempt {
