@@ -17,7 +17,7 @@ plug in with the [`@guardian-wallet/sdk`](packages/sdk) package.
 No wallet, no sign-up, no testnet NEAR. Everything runs on the project's own testnet vault,
 with the agent's own limited key. Open https://guardian-wallet.vercel.app/agent on any phone or laptop.
 
-1. **Tap "Watch a hijacked agent try to rob the wallet".** The agent sends 2 NEAR to the
+1. **Tap B, "Hijack the agent".** The agent sends 2 NEAR to the
    attacker; the contract refuses it on-chain. Tap "View tx" for the NearBlocks record.
 2. **Real jobs tab → "What is the weather in Lagos right now?" → Run.** The vendor answers
    402, the agent pays 0.05 NEAR through the guardian, retries with the receipt, and the data
@@ -543,7 +543,14 @@ model reasoning.
 
 ### Dashboard (`dashboard/`, Next.js 16, Tailwind 4)
 
-- `/` explains it for people: an allowance, not your bank password, in three steps.
+- `/` explains it for people: an allowance, not your bank password, in three steps, then the same
+  three proof cards as `/agent`, real screenshots, what happens above your limit, a who-can-do-what
+  diagram, and a trust section (contract links, source, test counts, testnet limitations).
+- Stats say what they count: "Spent today X of Y NEAR · Remaining today Z", with the reset time
+  (00:00 UTC, 1:00 AM WAT); "Payments accepted" and "Requests blocked" are all-time totals on the
+  shared demo wallet (blocked includes budget and speed limits); the kill-switch reads "2 of 3
+  blocked payments to unknown accounts in a row", which is what the contract counts
+  (`contract/src/lib.rs:920`: only `BLOCKED_RECIPIENT` adds a strike; any accepted request clears it, `:450`).
 - `/start` connects a testnet wallet, lists the factory's templates, checks the name, shows what
   the deposit covers, sends `create_vault`, and waits until the factory reports the wallet ready
   (it survives the MyNearWallet redirect).
@@ -562,7 +569,7 @@ model reasoning.
   three-act log and its trap page.
 - `/agent` lets anyone run the agent for real. Attack presets come with a preview of the
   poisoned docs page, invoice or tool result, and "Reveal hidden injection" lights up the text
-  only the agent reads; in the stream, the model step that followed it is outlined in red. The hijack button at the top skips the tricking
+  only the agent reads; in the stream, the model step that followed it is outlined in red. Three proof cards at the top (A: an allowed payment completes, B: a hijacked agent is refused, C: a big payment waits for the owner) each run it in one tap or link to their latest real transaction; if today's shared budget is used up, A and C say so and show the latest one instead. The hijack (B) skips the tricking
   step (the compromise is simulated and labelled as such) and has the agent send 2 NEAR to the
   attacker with its real key, so the block is a real transaction every time.
   Otherwise give it a task and it reads the vendor catalog,

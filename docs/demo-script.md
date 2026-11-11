@@ -29,7 +29,7 @@ Screen: the landing page `/`.
 
 ## 0:30 – 1:05 · The hijack
 
-Screen: `/agent`. **Tap "Watch a hijacked agent try to rob the wallet".**
+Screen: `/agent`. **Tap B, "Hijack the agent".**
 
 > "Say the agent has been fully compromised. I'm skipping the tricking step, so the compromise is
 > simulated, but everything after it is real: the agent's own key, a real transaction."

@@ -323,7 +323,7 @@ agent log and its trap page sit in a collapsed "Recorded reference run" section.
 
 ### `/agent` (the main demo, open to anyone)
 
-- **Hijack button** ("Watch a hijacked agent try to rob the wallet"). One tap, no typing. It is
+- **Hijack button** (proof card B, "Hijack the agent"). One tap, no typing. It is
   clearly labelled as a *simulated compromise*: the tricking step is skipped, and the agent
   "already obeyed" an injected instruction. Then it sends a *real* `request_payment` of 2 NEAR to
   the attacker with the real limited key. The stream shows an amber "Agent compromised: trying to
@@ -423,7 +423,7 @@ agent log and its trap page sit in a collapsed "Recorded reference run" section.
 No wallet, no sign-up and no testnet NEAR are needed. Everything runs on the project's own
 testnet vault.
 
-1. Tap **"Watch a hijacked agent try to rob the wallet"** and see the on-chain block and its
+1. Tap B, **"Hijack the agent"** and see the on-chain block and its
    NearBlocks link.
 2. Go to **Real jobs**, tap "What is the weather in Lagos right now?" and run it. You see the 402
    pay-then-unlock loop. Then tap **Verify intent**.
