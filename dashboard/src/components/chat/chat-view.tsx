@@ -247,8 +247,17 @@ function Reply({ message }: { message: Extract<Message, { role: 'assistant' }> }
             </span>
           )}
           {error && <span className="text-danger">{error}</span>}
-          {reply && <span className="wrap-ids">{reply}</span>}
-          {summary && <SummaryText summary={summary} delivered={Boolean(delivery)} />}
+          {reply && (
+            <span className="wrap-ids">
+              {reply}
+              {summary?.txHash && (
+                <span className="ml-2 inline-block align-middle">
+                  <ExplorerLink txHash={summary.txHash} />
+                </span>
+              )}
+            </span>
+          )}
+          {!reply && summary && <SummaryText summary={summary} delivered={Boolean(delivery)} />}
           {done && !summary && !reply && !error && (
             <span>I’m here — ask me about my budget, what I can buy, or tell me what you’d like me to get.</span>
           )}
@@ -257,10 +266,10 @@ function Reply({ message }: { message: Extract<Message, { role: 'assistant' }> }
         {delivery?.data != null && <Delivered data={delivery.data} />}
         {summary?.pending && <PendingChip vault={vault} pending={summary.pending} />}
 
-        {steps.length > 0 && (
+        {steps.some((s) => s.kind !== 'model') && (
           <details className="px-1 text-xs text-zinc-500">
             <summary className="cursor-pointer select-none hover:text-zinc-300">
-              What happened ({steps.length} steps)
+              What happened ({steps.length} {steps.length === 1 ? 'step' : 'steps'})
             </summary>
             <ol className="mt-2 space-y-1.5 border-l border-white/10 pl-3">
               {steps.map((s, i) => (

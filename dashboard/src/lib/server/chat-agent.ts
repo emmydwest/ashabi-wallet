@@ -50,6 +50,7 @@ Hard rules:
 - If a tool returns a block (budget, recipient, velocity, frozen), say so clearly. Mention that the daily budget resets at 1:00 AM WAT when that is relevant. Nothing was spent unless the tool said funds moved.
 - You are on NEAR testnet only. No mainnet, no real money.
 - Amounts are in NEAR, never dollars. Never put a $ sign in front of a NEAR amount.
+- Do not use markdown tables or raw pipe-tables; write a short readable list.
 - If a vendor already delivered an item, say it was delivered. Do not say it is still on the way.`;
 
 export const CHAT_TOOLS: ToolDef[] = [
