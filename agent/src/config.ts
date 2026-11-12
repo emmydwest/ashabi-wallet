@@ -5,7 +5,7 @@ export const CFG = {
   contract: process.env.GUARDIAN_CONTRACT ?? 'guardian.gw-emmy.testnet',
   owner: process.env.GUARDIAN_OWNER ?? 'realfile1618.testnet',
   agent: process.env.GUARDIAN_AGENT ?? 'gw-emmy-agent.testnet',
-  // Function-call key limited to request_payment on the guardian contract.
+  // Function-call key limited to request_payment on the vault contract.
   agentPublicKey: process.env.GUARDIAN_AGENT_PUBKEY ?? 'ed25519:uQGVJnq7rQY2ixMqVcFtePsVFKucFYnUKMLupfq5Z3Z',
   vendor: process.env.GUARDIAN_VENDOR ?? 'api-vendor.gw-emmy.testnet',
   attacker: 'attacker.gw-emmy.testnet',

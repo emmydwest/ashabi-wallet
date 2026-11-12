@@ -6,11 +6,11 @@ import { useId } from 'react';
 export type Mood = 'happy' | 'thinking' | 'alert' | 'blocked' | 'approved';
 
 const LABEL: Record<Mood, string> = {
-  happy: 'Guardian, smiling',
-  thinking: 'Guardian, checking the rules',
-  alert: 'Guardian, waiting on you',
-  blocked: 'Guardian, payment blocked',
-  approved: 'Guardian, payment approved',
+  happy: 'Ashabi, smiling',
+  thinking: 'Ashabi, checking the rules',
+  alert: 'Ashabi, waiting on you',
+  blocked: 'Ashabi, payment blocked',
+  approved: 'Ashabi, payment approved',
 };
 
 const COLOR: Record<Mood, string> = {

@@ -42,7 +42,7 @@ function Header({ pathname }: { pathname: string | null }) {
   return (
     <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-black">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
-        <Link href="/" aria-label="Guardian Wallet home" className="shrink-0">
+        <Link href="/" aria-label="Ashabi Wallet home" className="shrink-0">
           <Wordmark />
         </Link>
 

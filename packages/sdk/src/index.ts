@@ -12,7 +12,7 @@ import type {
 
 export type * from './types.ts';
 
-export type GuardianAgentOptions = {
+export type AshabiAgentOptions = {
   /** The guardian contract, e.g. `guardian.gw-emmy.testnet`. */
   contractId: string;
   /** The agent account registered on the contract. */
@@ -61,17 +61,17 @@ export function nearToYocto(near: string): bigint {
 const randomId = () => `agent-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 /**
- * The agent's side of a Guardian Wallet. It can only ask for payments; the contract decides.
+ * The agent's side of an Ashabi Wallet. It can only ask for payments; the contract decides.
  * Read methods need no key.
  */
-export class GuardianAgent {
+export class AshabiAgent {
   readonly contractId: string;
   readonly agentId: string;
   private readonly signer?: Signer;
   private readonly rpcUrls: string[];
   private readonly timeoutMs: number;
 
-  constructor(options: GuardianAgentOptions) {
+  constructor(options: AshabiAgentOptions) {
     this.contractId = options.contractId;
     this.agentId = options.agentId;
     this.signer = options.signer;
@@ -139,7 +139,7 @@ export class GuardianAgent {
   }
 
   async requestPayment({ receiverId, amount, memo = '', requestId = randomId() }: PaymentArgs): Promise<PaymentResult> {
-    if (!this.signer) throw new Error('GuardianAgent needs a signer to request payments');
+    if (!this.signer) throw new Error('AshabiAgent needs a signer to request payments');
     const args = {
       request_id: requestId,
       receiver_id: receiverId,
@@ -204,7 +204,7 @@ export class GuardianAgent {
   }
 
   /**
-   * Fetches `url`; if it answers 402 with a Guardian payment challenge, pays it through the
+   * Fetches `url`; if it answers 402 with an Ashabi payment challenge, pays it through the
    * contract and retries with `X-NEAR-Receipt-Tx`. Hooks let a caller log or veto each step.
    */
   async pay402(url: string, options: Pay402Options = {}): Promise<Pay402Result> {
@@ -259,7 +259,7 @@ export class GuardianAgent {
           signal: AbortSignal.timeout(this.timeoutMs),
           body: JSON.stringify({
             jsonrpc: '2.0',
-            id: 'guardian-sdk',
+            id: 'ashabi-sdk',
             method,
             params,
           }),
@@ -310,7 +310,7 @@ export type Pay402Result =
     };
 
 function challengeProblem(c: PaymentChallenge, contractId: string, options: Pay402Options) {
-  if (!c?.payee || !c.price_yocto || !c.pay_with?.memo_must_include) return 'not a Guardian payment challenge';
+  if (!c?.payee || !c.price_yocto || !c.pay_with?.memo_must_include) return 'not an Ashabi payment challenge';
   const viaFactory = Boolean(c.pay_with.factory) && contractId.endsWith(`.${c.pay_with.factory}`);
   if (c.pay_with.contract !== contractId && !viaFactory) return `challenge asks to pay through ${c.pay_with.contract}`;
   if (options.allowedPayees && !options.allowedPayees.includes(c.payee)) return `${c.payee} is not an allowed payee`;

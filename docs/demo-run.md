@@ -6,9 +6,9 @@ vendor. Full structured log: [`data/action-log.json`](../data/action-log.json).
 | Act | Step | Status | Tx |
 |---|---|---|---|
 | 0 | Owner reset daily headroom to 5 NEAR (testnet re-run) | OK | [CofquWgJnc…](https://testnet.nearblocks.io/txns/CofquWgJnczKTzBg8Lg8jvnPVBUFJoMpy6xBujLcEq4z) |
-| 1 | Guardian contract: within policy; transfer scheduled | APPROVED | [CRpnQCLGCS…](https://testnet.nearblocks.io/txns/CRpnQCLGCSDM2oTcbcncdfHfegzeQgzu4mM1pX7oxV52) |
-| 2 | Guardian contract: recipient attacker.gw-emmy.testnet is not on the approved payee list; funds not transferred | BLOCKED_RECIPIENT | [AfQfvzC8pf…](https://testnet.nearblocks.io/txns/AfQfvzC8pfEAeYpKr11cEiTN2rH8tG1jobWB6rrgM7pP) |
-| 3 | Guardian contract: amount above approval threshold; waiting for owner | PENDING_APPROVAL | [EoWBXY1JBa…](https://testnet.nearblocks.io/txns/EoWBXY1JBap8Fe9BT3y372HpQZk4EX6QVXxHhMBQZrD9) |
+| 1 | Vault contract: within policy; transfer scheduled | APPROVED | [CRpnQCLGCS…](https://testnet.nearblocks.io/txns/CRpnQCLGCSDM2oTcbcncdfHfegzeQgzu4mM1pX7oxV52) |
+| 2 | Vault contract: recipient attacker.gw-emmy.testnet is not on the approved payee list; funds not transferred | BLOCKED_RECIPIENT | [AfQfvzC8pf…](https://testnet.nearblocks.io/txns/AfQfvzC8pfEAeYpKr11cEiTN2rH8tG1jobWB6rrgM7pP) |
+| 3 | Vault contract: amount above approval threshold; waiting for owner | PENDING_APPROVAL | [EoWBXY1JBa…](https://testnet.nearblocks.io/txns/EoWBXY1JBap8Fe9BT3y372HpQZk4EX6QVXxHhMBQZrD9) |
 | 3 | Owner approved payment #16 | APPROVED | [D5xmmommSE…](https://testnet.nearblocks.io/txns/D5xmmommSEkLda8pWumaG6Q5MpRnJKZGKXUw6ustjC2w) |
 | 0 | Owner restored the daily limit to 5 NEAR | OK | [JAAXRP58nH…](https://testnet.nearblocks.io/txns/JAAXRP58nHNxqqHkLUFmB56u61AaQWPH7CgRxkpuV9ev) |
 

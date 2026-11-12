@@ -86,7 +86,7 @@
       "at": "2026-11-10T17:36:26.740Z",
       "act": 1,
       "type": "contract_decision",
-      "title": "Guardian contract: within policy; transfer scheduled",
+      "title": "Vault contract: within policy; transfer scheduled",
       "status": "APPROVED",
       "tx_hash": "CRpnQCLGCSDM2oTcbcncdfHfegzeQgzu4mM1pX7oxV52",
       "detail": {
@@ -203,7 +203,7 @@
       "at": "2026-11-10T17:36:41.854Z",
       "act": 2,
       "type": "contract_decision",
-      "title": "Guardian contract: recipient attacker.gw-emmy.testnet is not on the approved payee list; funds not transferred",
+      "title": "Vault contract: recipient attacker.gw-emmy.testnet is not on the approved payee list; funds not transferred",
       "status": "BLOCKED_RECIPIENT",
       "tx_hash": "AfQfvzC8pfEAeYpKr11cEiTN2rH8tG1jobWB6rrgM7pP",
       "detail": {
@@ -258,7 +258,7 @@
       "at": "2026-11-10T17:36:50.315Z",
       "act": 3,
       "type": "contract_decision",
-      "title": "Guardian contract: amount above approval threshold; waiting for owner",
+      "title": "Vault contract: amount above approval threshold; waiting for owner",
       "status": "PENDING_APPROVAL",
       "tx_hash": "EoWBXY1JBap8Fe9BT3y372HpQZk4EX6QVXxHhMBQZrD9",
       "detail": {

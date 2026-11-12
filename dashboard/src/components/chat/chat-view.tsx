@@ -150,7 +150,7 @@ export function ChatView() {
               <div aria-hidden className="animate-glow absolute inset-4 rounded-full bg-emerald-400/25 blur-2xl" />
               <Mascot size={148} priority decorative className="animate-float relative" />
             </div>
-            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-white">Hi, I’m Guardian.</h1>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-white">Hi, I’m Ashabi.</h1>
             <p className="mx-auto mt-2 max-w-sm text-zinc-400">
               I’m a shopping assistant with my own NEAR testnet wallet, limited by a smart contract. Ask me about my
               budget, or tell me what to buy — I can only spend what the contract allows.

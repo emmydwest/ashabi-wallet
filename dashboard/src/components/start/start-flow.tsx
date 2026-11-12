@@ -233,7 +233,7 @@ export function StartFlow() {
         disabled={!canCreate}
         className="w-full rounded-xl btn-brand py-4 text-base font-semibold text-on-brand transition disabled:opacity-40"
       >
-        Create my guarded wallet
+        Create my Ashabi wallet
       </button>
       <p className="text-center text-xs text-zinc-500">One transaction in your wallet. Testnet only.</p>
     </div>

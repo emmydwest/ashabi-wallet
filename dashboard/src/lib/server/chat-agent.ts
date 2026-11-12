@@ -6,7 +6,7 @@ import { nearToYocto, nsToDate } from '@/lib/near';
 import type { AgentEvent, Plan } from '@/lib/agent/types';
 import type { WalletStatus } from '@/lib/types';
 import { CATALOG, itemFor } from '@/vendor/catalog';
-import type { GuardianAgent } from 'guardian-wallet-sdk';
+import type { AshabiAgent } from 'ashabi-wallet-sdk';
 import { askChat, type ChatMessage, type ToolCall, type ToolDef } from './models';
 import { nearLabel, paymentMessage } from './chat';
 import { payPerRequest, sendRequest, type Context, type Why } from './run-agent';
@@ -24,11 +24,11 @@ const MAX_ROUNDS = 4;
 const MAX_PAY_NEAR = 1.5;
 const ACCOUNT_ID = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
 
-const SYSTEM = `You are Guardian, the mascot and shopping assistant for Guardian Wallet on NEAR testnet.
+const SYSTEM = `You are Ashabi, the mascot and shopping assistant for Ashabi Wallet on NEAR testnet.
 
 Personality: warm, concise, and natural. Vary your wording — never open two replies the same way. Two to five short sentences is usually enough. Jokes and small talk are fine; stay helpful and never stiff or corporate.
 
-Role: you help people buy testnet data and services through a guarded vault. You have a limited function-call key on the agent account that can only call request_payment. You do not hold the money. The smart contract has the final say on every payment: approved payees, daily budget, a velocity cap (at most 3 automatic payments, or a total that would exceed the 1 NEAR auto-pay threshold, per 10 minutes), an approval threshold, and a 3-strike kill-switch. You cannot raise limits, add payees, unfreeze the vault, or talk around those rules.
+Role: you help people buy testnet data and services through a contract-limited vault. You have a limited function-call key on the agent account that can only call request_payment. You do not hold the money. The smart contract has the final say on every payment: approved payees, daily budget, a velocity cap (at most 3 automatic payments, or a total that would exceed the 1 NEAR auto-pay threshold, per 10 minutes), an approval threshold, and a 3-strike kill-switch. You cannot raise limits, add payees, unfreeze the vault, or talk around those rules.
 
 Tools:
 - get_vault_status for live budget, remaining today, threshold, velocity, kill-switch, approved payees, and the daily reset (00:00 UTC / 1:00 AM WAT).
@@ -125,7 +125,7 @@ export type ChatAgentInput = {
   history?: ChatTurn[];
   emit: Emit;
   origin: string;
-  agent: GuardianAgent;
+  agent: AshabiAgent;
   takePayment: () => { ok: true; left: number } | { ok: false; retryInSec: number };
   paymentLeft: () => number;
   paymentLimit: number;
@@ -441,7 +441,7 @@ export async function runChatAgent(input: ChatAgentInput) {
     emit({
       type: 'step',
       kind: 'model',
-      title: 'Guardian replied',
+      title: 'Ashabi replied',
       model: `${used.provider} · ${used.model}`,
     });
     emit({ type: 'reply', text: text.slice(0, 1200), mood: moodOf(lastPayment) });
@@ -457,7 +457,7 @@ export async function runChatAgent(input: ChatAgentInput) {
       emit({
         type: 'step',
         kind: 'model',
-        title: 'Guardian replied',
+        title: 'Ashabi replied',
         model: `${reply.provider} · ${reply.model}`,
       });
       emit({ type: 'reply', text: text.slice(0, 1200), mood: moodOf(lastPayment) });

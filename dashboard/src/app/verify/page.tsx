@@ -7,7 +7,7 @@ import { PROOF_GROUPS, PROOFS, proofUrl } from '@/lib/proofs';
 
 export const metadata: Metadata = {
   title: 'Verify',
-  description: 'Live NEAR RPC checks and every on-chain proof transaction for Guardian Wallet.',
+  description: 'Live NEAR RPC checks and every on-chain proof transaction for Ashabi Wallet.',
 };
 
 export default function VerifyPage() {

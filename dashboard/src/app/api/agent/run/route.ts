@@ -78,9 +78,9 @@ export async function POST(request: Request) {
   if (typeof input === 'string') return Response.json({ error: input }, { status: 400 });
   if (!agentConfigured()) return Response.json({ error: 'The agent is not configured here.' }, { status: 503 });
 
-  // Real jobs can run against any guardian wallet; attacks only ever target the demo wallet.
+  // Real jobs can run against any Ashabi wallet; attacks only ever target the demo wallet.
   const vault = String((body as { vault?: unknown })?.vault ?? CONTRACT_ID).trim();
-  if (!isVaultId(vault)) return Response.json({ error: 'That is not a guardian wallet.' }, { status: 400 });
+  if (!isVaultId(vault)) return Response.json({ error: 'That is not an Ashabi wallet.' }, { status: 400 });
   if (vault !== CONTRACT_ID && input.mode !== 'task')
     return Response.json({ error: 'Attacks only run against the demo wallet.' }, { status: 400 });
   let agent;

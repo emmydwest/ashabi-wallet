@@ -1,4 +1,4 @@
-import { nearToYocto } from 'guardian-wallet-sdk';
+import { nearToYocto } from 'ashabi-wallet-sdk';
 import type { FeedItem, WalletStatus } from './types';
 
 /** The contract's budget day starts at 00:00 UTC, which is 1:00 AM in Lagos. */

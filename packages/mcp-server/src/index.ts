@@ -1,25 +1,27 @@
-import { accountSigner, GuardianAgent, nearToYocto, TESTNET_RPCS } from 'guardian-wallet-sdk';
+import { accountSigner, AshabiAgent, nearToYocto, TESTNET_RPCS } from 'ashabi-wallet-sdk';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { Account, JsonRpcProvider } from 'near-api-js';
 import { z } from 'zod';
 
-// A small stdio MCP server around the Guardian Wallet SDK. Configure it with env vars;
+// A small stdio MCP server around the Ashabi Wallet SDK. Configure it with env vars;
 // never log the key. Reads work without one; payment tools need AGENT_PRIVATE_KEY.
 
-const NETWORK = (process.env.GUARDIAN_NETWORK ?? process.env.NEAR_NETWORK ?? 'testnet').trim();
+const NETWORK = (process.env.ASHABI_NETWORK ?? process.env.GUARDIAN_NETWORK ?? process.env.NEAR_NETWORK ?? 'testnet').trim();
 const MAINNET_RPCS = ['https://rpc.mainnet.near.org', 'https://rpc.fastnear.com'];
-const rpcUrls = process.env.GUARDIAN_RPC
-  ? [process.env.GUARDIAN_RPC.trim()]
+const RPC_OVERRIDE = process.env.ASHABI_RPC ?? process.env.GUARDIAN_RPC;
+const rpcUrls = RPC_OVERRIDE
+  ? [RPC_OVERRIDE.trim()]
   : NETWORK === 'mainnet'
     ? MAINNET_RPCS
     : TESTNET_RPCS;
 
-const contractId = required('GUARDIAN_CONTRACT');
+// ASHABI_CONTRACT is the name to use; GUARDIAN_CONTRACT still works for older setups.
+const contractId = required('ASHABI_CONTRACT', 'GUARDIAN_CONTRACT');
 const agentId = required('AGENT_ACCOUNT');
 const privateKey = process.env.AGENT_PRIVATE_KEY?.trim();
 
-const agent = new GuardianAgent({
+const agent = new AshabiAgent({
   contractId,
   agentId,
   rpcUrls,
@@ -29,23 +31,23 @@ const agent = new GuardianAgent({
 });
 
 const server = new McpServer(
-  { name: 'guardian-wallet', version: '0.1.0' },
-  { instructions: `Pay through the Guardian Wallet contract ${contractId} as ${agentId} on NEAR ${NETWORK}. The contract, not this server, decides whether money moves.` },
+  { name: 'ashabi-wallet', version: '0.2.0' },
+  { instructions: `Pay through the Ashabi Wallet contract ${contractId} as ${agentId} on NEAR ${NETWORK}. The contract, not this server, decides whether money moves.` },
 );
 
 server.registerTool(
-  'guardian_wallet_status',
+  'ashabi_wallet_status',
   {
     title: 'Wallet status',
     description:
-      'Read the live Guardian Wallet status from NEAR RPC: budget left, payee list, velocity window, kill-switch, pending rules. No key needed.',
+      'Read the live Ashabi Wallet status from NEAR RPC: budget left, payee list, velocity window, kill-switch, pending rules. No key needed.',
     inputSchema: {},
   },
   async () => text(await agent.getStatus()),
 );
 
 server.registerTool(
-  'guardian_get_payment',
+  'ashabi_get_payment',
   {
     title: 'Get a payment record',
     description: 'Read one payment record from the contract by id. No key needed.',
@@ -59,7 +61,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  'guardian_payee_report',
+  'ashabi_payee_report',
   {
     title: 'Check a payee against the blocklist',
     description:
@@ -73,11 +75,11 @@ server.registerTool(
 );
 
 server.registerTool(
-  'guardian_request_payment',
+  'ashabi_request_payment',
   {
     title: 'Request a payment',
     description:
-      'Ask the Guardian Wallet contract to pay amount_near NEAR to receiver_id, with an optional memo. The contract may approve, hold it for the owner, or refuse. Needs AGENT_PRIVATE_KEY.',
+      'Ask the Ashabi Wallet contract to pay amount_near NEAR to receiver_id, with an optional memo. The contract may approve, hold it for the owner, or refuse. Needs AGENT_PRIVATE_KEY.',
     inputSchema: {
       receiver_id: z.string().min(2),
       amount_near: z.string().regex(/^\d+(\.\d+)?$/, 'amount_near must be a decimal NEAR amount, e.g. "0.05"'),
@@ -91,11 +93,11 @@ server.registerTool(
 );
 
 server.registerTool(
-  'guardian_fetch_402',
+  'ashabi_fetch_402',
   {
     title: 'Fetch a 402-paid URL',
     description:
-      'GET a URL. If it answers 402 with a Guardian challenge, pay it through the contract and retry with the receipt. Needs AGENT_PRIVATE_KEY.',
+      'GET a URL. If it answers 402 with an Ashabi payment challenge, pay it through the contract and retry with the receipt. Needs AGENT_PRIVATE_KEY.',
     inputSchema: {
       url: z.string().url(),
       max_price_near: z.string().regex(/^\d+(\.\d+)?$/).optional(),
@@ -128,10 +130,10 @@ server.registerTool(
 const transport = new StdioServerTransport();
 await server.connect(transport);
 
-function required(name: string) {
-  const value = process.env[name]?.trim();
+function required(name: string, legacy?: string) {
+  const value = (process.env[name] ?? (legacy ? process.env[legacy] : undefined))?.trim();
   if (!value) {
-    console.error(`guardian-mcp: set ${name}`);
+    console.error(`ashabi-mcp: set ${name}`);
     process.exit(1);
   }
   return value;

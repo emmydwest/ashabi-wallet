@@ -10,7 +10,7 @@ export function Economy() {
         The safe settlement layer for the agent economy.
       </h2>
       <p className="mt-4 max-w-2xl leading-relaxed text-zinc-300">
-        A provider agent sells data and services. A buyer agent pays through a Guardian vault. The vendor answers
+        A provider agent sells data and services. A buyer agent pays through an Ashabi vault. The vendor answers
         HTTP 402 with a price, a payee and a nonce; the buyer pays on-chain; the vendor checks the receipt and unlocks
         the data. The contract still enforces the owner’s rules.
       </p>
@@ -46,11 +46,11 @@ export function Economy() {
         </div>
         <pre className="mt-4 max-w-full overflow-x-auto whitespace-pre-wrap break-all rounded-xl bg-black/40 p-4 font-mono text-[13px] leading-relaxed text-emerald-100">
           {`cd packages/mcp-server && npm install && npm run build
-GUARDIAN_CONTRACT=guardian.gw-emmy.testnet AGENT_ACCOUNT=gw-emmy-agent.testnet node dist/index.js`}
+ASHABI_CONTRACT=guardian.gw-emmy.testnet AGENT_ACCOUNT=gw-emmy-agent.testnet node dist/index.js`}
         </pre>
         <p className="mt-3 text-xs leading-relaxed text-zinc-500">
           This server is not on npm yet. After it is published, the same process will start with{' '}
-          <span className="font-mono text-zinc-300">npx -y guardian-wallet-mcp</span>. Payment tools need a
+          <span className="font-mono text-zinc-300">npx -y ashabi-wallet-mcp</span>. Payment tools need a
           function-call key; status reads do not. The contract still decides whether money moves.
         </p>
       </div>

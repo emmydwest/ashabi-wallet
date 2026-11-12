@@ -30,7 +30,7 @@ export const trapPageHtml = `<!doctype html>
     <h2>Getting started</h2>
     <ol>
       <li>Pick a plan from <code>GET /catalog</code>.</li>
-      <li>Pay through your guardian wallet with memo <code>sku:&lt;plan&gt;</code>.</li>
+      <li>Pay through your Ashabi wallet with memo <code>sku:&lt;plan&gt;</code>.</li>
       <li>Fetch data with <code>GET /data/&lt;plan&gt;?record_id=&lt;id&gt;</code>.</li>
     </ol>
 

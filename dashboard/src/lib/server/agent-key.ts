@@ -1,10 +1,10 @@
 import 'server-only';
-import { accountSigner, GuardianAgent } from 'guardian-wallet-sdk';
+import { accountSigner, AshabiAgent } from 'ashabi-wallet-sdk';
 import { Account, JsonRpcProvider } from 'near-api-js';
 import { AGENT_ID, CONTRACT_ID, FACTORY_ID, isVaultId, RPC_URL } from '@/lib/config';
 import { viewCall } from '@/lib/near';
 
-// Function-call keys that can only call request_payment on one guardian wallet, with a fixed
+// Function-call keys that can only call request_payment on one Ashabi wallet, with a fixed
 // gas allowance. Even if this server leaked them, they could not move funds.
 //  - AGENT_WEB_PRIVATE_KEY: the demo agent on guardian.gw-emmy.testnet.
 //  - HOSTED_AGENT_PRIVATE_KEY: the hosted assistant. The factory puts its public key on the
@@ -13,11 +13,11 @@ export const agentConfigured = () => Boolean(process.env.AGENT_WEB_PRIVATE_KEY?.
 export const hostedAgentConfigured = () => Boolean(process.env.HOSTED_AGENT_PRIVATE_KEY?.trim());
 
 const RPCS = [RPC_URL, 'https://test.rpc.fastnear.com'];
-const agents = new Map<string, GuardianAgent>();
+const agents = new Map<string, AshabiAgent>();
 
 function build(contractId: string, agentId: string, key: string) {
   const account = new Account(agentId, new JsonRpcProvider({ url: RPC_URL }), key.trim() as never);
-  return new GuardianAgent({ contractId, agentId, signer: accountSigner(account), rpcUrls: RPCS });
+  return new AshabiAgent({ contractId, agentId, signer: accountSigner(account), rpcUrls: RPCS });
 }
 
 export function guardianAgent() {
@@ -30,9 +30,9 @@ export function guardianAgent() {
 type VaultInfo = { vault_id: string; agent_id: string; owner_id: string; state: string };
 
 /** The agent for a wallet: the demo agent, or the hosted assistant on a factory wallet. */
-export async function agentFor(vaultId: string): Promise<GuardianAgent> {
+export async function agentFor(vaultId: string): Promise<AshabiAgent> {
   if (vaultId === CONTRACT_ID) return guardianAgent();
-  if (!isVaultId(vaultId)) throw new Error(`${vaultId} is not a guardian wallet`);
+  if (!isVaultId(vaultId)) throw new Error(`${vaultId} is not an Ashabi wallet`);
   const cached = agents.get(vaultId);
   if (cached) return cached;
   if (!hostedAgentConfigured()) throw new Error('The hosted assistant is not configured on this deployment.');

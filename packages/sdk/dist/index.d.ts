@@ -1,6 +1,6 @@
 import type { Policy, PayeeReport, PaymentArgs, PaymentChallenge, PaymentRecord, PaymentResult, ReportedPayee, WalletStatus } from './types.ts';
 export type * from './types.ts';
-export type GuardianAgentOptions = {
+export type AshabiAgentOptions = {
     /** The guardian contract, e.g. `guardian.gw-emmy.testnet`. */
     contractId: string;
     /** The agent account registered on the contract. */
@@ -42,16 +42,16 @@ export declare function accountSigner(account: {
 }): Signer;
 export declare function nearToYocto(near: string): bigint;
 /**
- * The agent's side of a Guardian Wallet. It can only ask for payments; the contract decides.
+ * The agent's side of an Ashabi Wallet. It can only ask for payments; the contract decides.
  * Read methods need no key.
  */
-export declare class GuardianAgent {
+export declare class AshabiAgent {
     readonly contractId: string;
     readonly agentId: string;
     private readonly signer?;
     private readonly rpcUrls;
     private readonly timeoutMs;
-    constructor(options: GuardianAgentOptions);
+    constructor(options: AshabiAgentOptions);
     get canSign(): boolean;
     view<T>(method: string, args?: Record<string, unknown>): Promise<T>;
     getStatus(): Promise<WalletStatus>;
@@ -64,7 +64,7 @@ export declare class GuardianAgent {
     waitForSettlement(recordId: number, timeoutMs?: number): Promise<PaymentRecord | null>;
     requestPayment({ receiverId, amount, memo, requestId }: PaymentArgs): Promise<PaymentResult>;
     /**
-     * Fetches `url`; if it answers 402 with a Guardian payment challenge, pays it through the
+     * Fetches `url`; if it answers 402 with an Ashabi payment challenge, pays it through the
      * contract and retries with `X-NEAR-Receipt-Tx`. Hooks let a caller log or veto each step.
      */
     pay402(url: string, options?: Pay402Options): Promise<Pay402Result>;

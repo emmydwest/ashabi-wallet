@@ -1,4 +1,4 @@
-# Guardian Wallet dashboard
+# Ashabi Wallet dashboard
 
 Next.js app with the landing page, the live dashboard, the owner's `/approve` page, and the demo
 vendor (`/api/vendor/*`) the agent buys from.
@@ -31,7 +31,7 @@ browser):
 
 | Var | What |
 |---|---|
-| `AGENT_WEB_PRIVATE_KEY` | A function-call key on `gw-emmy-agent.testnet`, limited to `request_payment` on the guardian contract, with its own gas allowance |
+| `AGENT_WEB_PRIVATE_KEY` | A function-call key on `gw-emmy-agent.testnet`, limited to `request_payment` on the vault contract, with its own gas allowance |
 | `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `NVIDIA_API_KEY`, `GITHUB_MODELS_TOKEN` | Free model tiers. Any subset works; missing ones are skipped |
 
 Public runs are limited to 5 per IP per 10 minutes, and a run may send at most 1.5 NEAR to an

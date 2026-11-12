@@ -12,7 +12,7 @@
     "save-fallback": "node scripts/save-fallback.mjs"
   },
   "dependencies": {
-    "guardian-wallet-sdk": "file:../packages/sdk",
+    "ashabi-wallet-sdk": "file:../packages/sdk",
     "@near-js/crypto": "^2.5.1",
     "@near-js/transactions": "^2.5.1",
     "@near-wallet-selector/core": "^10.1.4",

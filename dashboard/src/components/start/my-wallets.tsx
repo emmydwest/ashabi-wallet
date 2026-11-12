@@ -57,7 +57,7 @@ export function MyWallets() {
         {vaults?.length === 0 && (
           <div className="glass rounded-card px-5 py-10 text-center">
             <Mascot mood="thinking" size={120} decorative className="mx-auto" />
-            <p className="mt-2 text-white">You don’t have a guarded wallet yet</p>
+            <p className="mt-2 text-white">You don’t have an Ashabi wallet yet</p>
             <p className="mt-1 text-sm text-zinc-400">It takes one transaction and a little testnet NEAR.</p>
           </div>
         )}
@@ -79,7 +79,7 @@ export function MyWallets() {
         href="/start"
         className="btn-brand mt-5 block rounded-full py-3.5 text-center text-[15px] font-semibold transition-shadow"
       >
-        Create {vaults?.length ? 'another' : 'my'} guarded wallet
+        Create {vaults?.length ? 'another' : 'my'} Ashabi wallet
       </Link>
     </div>
   );

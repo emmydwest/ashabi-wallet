@@ -1,6 +1,6 @@
 # Demo video script (~2:00–2:15)
 
-Record from the live production site, https://guardian-wallet.vercel.app, **on desktop**
+Record from the live production site, https://ashabi-wallet.vercel.app, **on desktop**
 (1440×900 or 1920×1080). Use large captions. Keep the mascot in frame on the home, heist,
 verify, and close shots.
 
@@ -18,7 +18,7 @@ Spoken lines are in quotes. On-screen action is in **bold**.
 Screen: landing page `/`, mascot in frame. The live feed and the Built on NEAR badge can appear
 as you scroll a little.
 
-> "Give your AI an allowance, not your bank password. This is Guardian Wallet."
+> "Give your AI an allowance, not your bank password. This is Ashabi Wallet."
 
 > "AI agents are starting to pay for things on our behalf. A poisoned page can tell an agent
 > to drain the wallet. We assume the agent will be hijacked, and make that not matter."
@@ -90,15 +90,15 @@ the MCP snippet, then `/` with the URL.
 
 > "A provider sells, a buyer pays through the vault. There's an SDK, and a local MCP server
 > you run from the repo today. Give AI the freedom to act, never the freedom to overspend.
-> Try it at guardian-wallet.vercel.app."
+> Try it at ashabi-wallet.vercel.app."
 
 ## Short cut (30–45s, for X)
 
 Hook on `/`, the heist banner and a blocked-payee receipt, then the URL.
 
-> "Give your AI an allowance, not your bank password. Guardian Wallet assumes the agent will
+> "Give your AI an allowance, not your bank password. Ashabi Wallet assumes the agent will
 > be hijacked, and makes that not matter. A NEAR contract holds the funds and blocks a stolen
-> payment on-chain. Try it at guardian-wallet.vercel.app."
+> payment on-chain. Try it at ashabi-wallet.vercel.app."
 
 ## If something goes wrong while recording
 

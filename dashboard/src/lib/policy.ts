@@ -110,7 +110,7 @@ export function reviewProposal(
     for (const id of unique.slice(0, LIMITS.payeesPerChange)) {
       const problem = accountProblem(id);
       if (problem) rejected.push(`“${id.slice(0, 64)}” ${problem}`);
-      else if (adding && reserved.has(id)) rejected.push(`${id} is the guardian, its agent or its owner`);
+      else if (adding && reserved.has(id)) rejected.push(`${id} is the vault contract, its agent or its owner`);
       else if (adding === status.approved_payees.includes(id))
         rejected.push(`${id} is ${adding ? 'already' : 'not'} an approved payee`);
       else {

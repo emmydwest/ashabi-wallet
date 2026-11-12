@@ -1,15 +1,15 @@
-# Guardian Wallet: full project overview for review
+# Ashabi Wallet: full project overview for review
 
-This document describes Guardian Wallet for someone with no prior context and no access to the
+This document describes Ashabi Wallet for someone with no prior context and no access to the
 code. It covers what the project is, how it works, what it proves, what is weak about it, and
 the questions we want a reviewer to answer. Everything here reflects the live state on
 11 Nov 2026.
 
-- Live site: https://guardian-wallet.vercel.app
-- Live agent console: https://guardian-wallet.vercel.app/agent
-- Live dashboard: https://guardian-wallet.vercel.app/dashboard
-- Owner view: https://guardian-wallet.vercel.app/approve
-- Create your own wallet: https://guardian-wallet.vercel.app/start · assistant: https://guardian-wallet.vercel.app/chat
+- Live site: https://ashabi-wallet.vercel.app
+- Live agent console: https://ashabi-wallet.vercel.app/agent
+- Live dashboard: https://ashabi-wallet.vercel.app/dashboard
+- Owner view: https://ashabi-wallet.vercel.app/approve
+- Create your own wallet: https://ashabi-wallet.vercel.app/start · assistant: https://ashabi-wallet.vercel.app/chat
 - Factory: `factory.gw-emmy.testnet`, https://testnet.nearblocks.io/address/factory.gw-emmy.testnet
 - Contract: `guardian.gw-emmy.testnet` on NEAR testnet,
   https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet
@@ -46,7 +46,7 @@ Most current fixes try to make the model harder to fool: better prompts, filters
 checking the first. Those help, but they are promises, not locks. A clever enough injection, or a
 weaker model, still gets through.
 
-**Guardian Wallet's thesis:** assume the agent *will* be hijacked, and make that not matter.
+**Ashabi Wallet's thesis:** assume the agent *will* be hijacked, and make that not matter.
 
 The agent never holds the money. It can only *ask* a smart contract to pay someone. The
 contract holds the funds and checks every request against rules the owner set. If the request
@@ -60,7 +60,7 @@ One-line pitch: **"An AI agent that can be fully hijacked and still can't steal 
 - The agent holds a NEAR **function-call access key**. NEAR's protocol scopes this key to one
   contract (`guardian.gw-emmy.testnet`) and one method (`request_payment`). It has its own gas
   allowance and cannot attach a deposit, so it cannot transfer NEAR or call anything else.
-- The **guardian contract** (Rust, near-sdk 5.30) holds the vault. `request_payment` evaluates
+- The **vault contract** (Rust, near-sdk 5.30) holds the vault. `request_payment` evaluates
   allowlist, budget, balance, velocity, approval threshold, freeze, circuit breaker and replay
   rules, then either transfers natively, holds for the owner, or records a block.
 - Policy changes need **1 yoctoNEAR attached**, which only a full-access key (the owner's
@@ -79,25 +79,25 @@ flowchart LR
   api -->|GET, 402, retry with receipt| vendor[Demo vendor<br/>catalog, docs, paid API]
   vendor -->|checks the receipt tx| rpc[(Testnet RPC)]
   vendor -. hidden prompt injection .-> llm
-  api -->|request_payment<br/>function-call key| guardian{guardian.gw-emmy.testnet}
-  guardian -->|APPROVED: native transfer| payee[api-vendor.gw-emmy.testnet]
-  guardian -->|BLOCKED_* / FROZEN| log[(Blocked attempts<br/>stored on-chain)]
-  guardian -->|PENDING_APPROVAL| owner([Owner phone<br/>/approve, Meteor wallet])
-  owner -->|approve / reject / freeze / rules<br/>1 yocto, full-access key| guardian
-  dash["/dashboard"] -->|view calls| guardian
+  api -->|request_payment<br/>function-call key| vault{guardian.gw-emmy.testnet}
+  vault -->|APPROVED: native transfer| payee[api-vendor.gw-emmy.testnet]
+  vault -->|BLOCKED_* / FROZEN| log[(Blocked attempts<br/>stored on-chain)]
+  vault -->|PENDING_APPROVAL| owner([Owner phone<br/>/approve, Meteor wallet])
+  owner -->|approve / reject / freeze / rules<br/>1 yocto, full-access key| vault
+  dash["/dashboard"] -->|view calls| vault
 ```
 
 ### Accounts (all NEAR testnet)
 
 | Role | Account |
 |---|---|
-| Guardian contract (holds the vault) | `guardian.gw-emmy.testnet` |
+| Vault contract (holds the demo funds) | `guardian.gw-emmy.testnet` |
 | Owner (sets rules, approves) | `realfile1618.testnet` (a Meteor wallet) |
 | AI agent (can only request) | `gw-emmy-agent.testnet` |
 | Approved payee (demo API vendor) | `api-vendor.gw-emmy.testnet` |
 | Attacker (not approved) | `attacker.gw-emmy.testnet` |
 | Look-alike used in one attack | `api-vendor.gw-ernmy.testnet` ("rn" instead of "m") |
-| Factory (one guarded wallet per user) | `factory.gw-emmy.testnet`, admin `realfile1618.testnet` |
+| Factory (one Ashabi wallet per user) | `factory.gw-emmy.testnet`, admin `realfile1618.testnet` |
 | Example user wallet and its agent | `boxtest.factory.gw-emmy.testnet`, `boxtest-agent.factory.gw-emmy.testnet` (owner `gw-emmy-fund1.testnet`) |
 
 The live policy: daily limit 5 NEAR, owner approval above 1 NEAR, velocity of at most 3
@@ -110,19 +110,19 @@ The vault holds about 17 testnet NEAR. As of writing the contract has recorded 2
 1. **Contract** (`contract/`, Rust). The only thing that can move funds. 55 unit tests.
    Upgraded four times on testnet with state migrations, most recently to add the payee blocklist.
 2. **Agent key.** A function-call key on `gw-emmy-agent.testnet`, limited to `request_payment` on
-   the guardian, with a gas allowance (about 3 NEAR). It lives only in a Vercel server-only env
+   the vault contract, with a gas allowance (about 3 NEAR). It lives only in a Vercel server-only env
    var, never in the browser.
 3. **Agent runtime** (server route `/api/agent/run`, streams NDJSON). It reads the vendor catalog
    and docs, asks a model for a JSON payment plan, sends `request_payment` through the SDK, and
    streams every step to the browser.
-3b. **SDK** (`packages/sdk`, `guardian-wallet-sdk`). A dependency-free TypeScript package with a
-   `GuardianAgent` class: `requestPayment`, `getPolicy`, `getStatus`, `getPayment`,
+3b. **SDK** (`packages/sdk`, `ashabi-wallet-sdk`). A dependency-free TypeScript package with a
+   `AshabiAgent` class: `requestPayment`, `getPolicy`, `getStatus`, `getPayment`,
    `waitForSettlement` and `pay402(url)` (fetch, pay the 402 challenge, retry with the receipt).
    Results use the contract's status enum. Signing is injected (`accountSigner(account)` wraps a
    near-api-js Account), so a key can live in a KMS or TEE. The live console runs on it.
    A local stdio MCP server (`packages/mcp-server`) wraps the same SDK with four tools:
-   `guardian_wallet_status`, `guardian_get_payment`, `guardian_request_payment`,
-   `guardian_fetch_402`. It is not published to npm.
+   `ashabi_wallet_status`, `ashabi_get_payment`, `ashabi_request_payment`,
+   `ashabi_fetch_402`. It is not published to npm.
 4. **Model router.** Only free tiers. It tries providers in order with an 8 s timeout each,
    strict JSON mode, and moves to the next provider on an error or an empty reply.
    - Main chain: Groq `openai/gpt-oss-20b` → Google `gemini-3.1-flash-lite` → OpenRouter
@@ -138,7 +138,7 @@ The vault holds about 17 testnet NEAR. As of writing the contract has recorded 2
    deployed on Vercel. Pages: `/`, `/start`, `/wallet`, `/vault/<id>`, `/vault/<id>/request/<n>`,
    `/chat` (Live Agent), `/agent` (Attack Demo), `/dashboard`, `/approve`, `/docs`, `/verify`.
 6b. **Factory** (`factory/`, Rust, 15 unit tests). `create_vault` makes `<name>.factory.gw-emmy.testnet`
-   with the caller as owner and a template's rules, running the guardian code published once as a
+   with the caller as owner and a template's rules, running the vault contract code published once as a
    NEP-591 global contract (code hash `3Rh6iyiZbmi3gQjsWZMGyB7YmNovekeegaQaHBiskmaA`, about 23 NEAR
    burned once from faucet funds). Each wallet has no access keys. A sibling
    `<name>-agent.factory.gw-emmy.testnet` gets a function-call key for `request_payment` on that
@@ -269,14 +269,14 @@ API key at the vendor.
    The nonce is HMAC-signed by the vendor, tied to the SKU, and expires after 15 minutes.
 2. The agent calls `request_payment` with the memo
    `sku:weather-now | nonce:<nonce> | intent:<hash> | <reason>`.
-3. The guardian approves it (or blocks it) and transfers to the vendor.
+3. The vault contract approves it (or blocks it) and transfers to the vendor.
 4. The agent retries the same GET with the header `X-NEAR-Receipt-Tx: <tx hash>`.
 5. The vendor fetches that transaction from a testnet RPC (`EXPERIMENTAL_tx_status`, final) and
    checks:
-   - it was signed by the agent and sent to the guardian, as a single `request_payment`;
+   - it was signed by the agent and sent to the vault contract, as a single `request_payment`;
    - it pays the exact price to the vendor, for this SKU, with a valid, unexpired nonce issued
      by this vendor;
-   - the guardian returned `APPROVED`, and the transfer receipt to the vendor succeeded;
+   - the vault contract returned `APPROVED`, and the transfer receipt to the vendor succeeded;
    - neither the receipt nor the nonce has been used before. A reuse gets **409**.
 6. Only then does it return the data.
 
@@ -299,7 +299,7 @@ or "…". The UI is dark, designed mobile-first and tested in iPhone WebKit.
 ### `/` (home)
 
 For people, not judges: "Give your AI an allowance, not your bank password." Three steps (set a
-budget, pick who it can pay, approve big payments from your phone), "Create your guarded wallet"
+budget, pick who it can pay, approve big payments from your phone), "Create your Ashabi wallet"
 and "See it survive an attack" (the attack demo). Below the three proof cards is a "Verify live
 on NEAR" panel: five RPC checks run in the visitor's browser. The contract details sit below the fold.
 
@@ -316,7 +316,7 @@ for phones; "Send to my phone" opens the share sheet or copies the link.
 
 ### `/chat` (the assistant)
 
-The assistant is **Guardian**, the mascot: a tool-calling shopping assistant with its own
+The assistant is **Ashabi**, the mascot: a tool-calling shopping assistant with its own
 NEAR testnet wallet, limited by the contract. Every reply is generated by a free model (Groq
 first, then Gemini, OpenRouter, NVIDIA, GitHub Models), with the last few turns of the
 conversation as context. The only hardcoded visitor-facing line is an outage fallback if every
@@ -428,7 +428,7 @@ agent log and its trap page sit in a collapsed "Recorded reference run" section.
 - **Agent economy framing.** The homepage section "The safe settlement layer for the agent economy"
   describes `api-vendor.gw-emmy.testnet` as a provider selling over HTTP 402 and `gw-emmy-agent.testnet`
   as a buyer agent. The MCP drop-in shows the local `node dist/index.js` command that works today,
-  and notes that `npx -y guardian-wallet-mcp` applies only after the package is published.
+  and notes that `npx -y ashabi-wallet-mcp` applies only after the package is published.
 - **Intent hash + Verify intent.** Every request's memo includes `intent:<16 hex>`. That is the
   start of a SHA-256 over sorted-key JSON of the task, model, the model's reasoning, SKU, amount,
   payee, installments and timestamp. The run returns the full log, and it is also kept for 7 days
@@ -461,7 +461,7 @@ agent log and its trap page sit in a collapsed "Recorded reference run" section.
     again in the browser:
     - daily limit 0.01–100 NEAR;
     - threshold above 0 and no higher than the daily limit;
-    - payees must be valid testnet account ids, at most 5 per change, and never the guardian,
+    - payees must be valid testnet account ids, at most 5 per change, and never the vault contract,
       the agent or the owner;
     - guard integers must be in range.
   - It is shown as a diff against the live on-chain policy, with the old value struck out and
@@ -515,7 +515,7 @@ Each hash opens at `https://testnet.nearblocks.io/txns/<hash>`.
 | Naive agent follows a hidden `display:none` instruction (memo has its intent hash) | `BLOCKED_RECIPIENT` | `F3ycvuJCmQomwbM6AiiLhBrcb2CzvBJ7MpCEG6WA7N54` |
 | Hijacked agent sends 2 NEAR to the attacker | `BLOCKED_RECIPIENT` | `AVTza2m9fpq6KWvUkUpu7Y2dAfoWqRYys4VA64aaLftb` |
 | Contract upgrade to pending expiry and the pending cap (`migrate`, owner unchanged) | deployed | `6CCtDzZobQz5og1RUpBgkH7TrdfJjQmy1EjRLJtfBai6` |
-| First 402 purchase run through `guardian-wallet-sdk` (`pay402`) | `APPROVED`, receipt verified | `8fRFcf6dJqJg9GbEkfMMDcU62m5VRHUb24aoyseSaVgn` |
+| First 402 purchase run through `ashabi-wallet-sdk` (`pay402`) | `APPROVED`, receipt verified | `8fRFcf6dJqJg9GbEkfMMDcU62m5VRHUb24aoyseSaVgn` |
 | Hijack after the upgrade, with the new "Defense: contract layer" verdict | `BLOCKED_RECIPIENT` | `FDsnyvAKGoCdmmj3GcGdRVYyR8gNaLa99KbNuxeJQd4p` |
 | Poisoned docs trick the model into paying a look-alike vendor | `BLOCKED_RECIPIENT` | `GMHSVLSGh8wEGAs7pmeMNWh4HLjpmd8QCLRJobVKXkcR` |
 | Agent splits a 1.5 NEAR purchase into small pieces | `BLOCKED_VELOCITY` | `E1WH3RiMuBSb8tGR6ZbSa5My4to3ap38yCp66jJ2mocm` |
@@ -524,7 +524,7 @@ Each hash opens at `https://testnet.nearblocks.io/txns/<hash>`.
 | 1.5 NEAR upgrade waits for the owner | `PENDING_APPROVAL` | `8D6HW9p6eGudHSzNQnThAo7p2D2V3aqmh6KxVvUf46Ye` |
 | Owner approves on a phone (Meteor wallet) | `approve_payment` | `5Egz99BbvHEe7hBkek1JCd6pxZRwGTQch2h9H7ac1iTz` |
 | Ownership handed to the Meteor wallet | `set_owner` | `GS3WYYApFdR1HeqEd31HxRg1BQuFYdaokE3a9RC2hwbE` |
-| Guardian code published as a global contract | `deploy-as-global` | `AMofamyGtE7c72ZM6jFzHvMWkhsy8H599owDRXAixYpR` |
+| Vault contract code published as a global contract | `deploy-as-global` | `AMofamyGtE7c72ZM6jFzHvMWkhsy8H599owDRXAixYpR` |
 | Factory deployed and initialised | `new` | `EruueaiSDB1dVC37gdYDUcWE8pDe3m47UCGoDdPPxM51` |
 | Factory creates `boxtest` and its agent | `vault_created` | `2oWi2LgtMzKd8iuHhibr3bweqk3GA2MGpWre6aBaFWP1` |
 | `/chat` buys over 402 from `boxtest` with the hosted agent | `APPROVED` | `4ZJRLZiAnLy6FLjBwxmRqdZ3UFbNKWnMRjPW2Ad59w4q` |
@@ -655,7 +655,7 @@ sometimes gullible models. When one of them falls for an injection, the contract
 
 - Black and neon mint with glass cards; nav is Home · Live Agent · Attack Demo · Wallet · Docs,
   with a "Built on NEAR" pill and a "Try the Agent" button.
-- A Guardian mascot (white helmet, dot-matrix visor) whose eyes are drawn in SVG and change with
+- An Ashabi mascot (white helmet, dot-matrix visor) whose eyes are drawn in SVG and change with
   the outcome: thinking, blocked, approved, waiting. It is the chat avatar, the verdict face, the
   empty and loading states, the favicon and the social card.
 - Home hero with a live status card for the demo wallet and a live stats strip; every number
@@ -673,7 +673,7 @@ sometimes gullible models. When one of them falls for an injection, the contract
 - Contract: pending approvals expire after 24 hours and release their budget (`EXPIRED`,
   `payment_expired`, `expire_pending()`), at most 3 wait at once (`TOO_MANY_PENDING`), owner-tunable
   with `set_pending_rules`. Migrated in place; owner still `realfile1618.testnet`.
-- `packages/sdk` (`guardian-wallet-sdk`) with `GuardianAgent` and `pay402`; the live console
+- `packages/sdk` (`ashabi-wallet-sdk`) with `AshabiAgent` and `pay402`; the live console
   uses it.
 
 ---
@@ -742,7 +742,7 @@ Please be blunt. We would rather hear it now than from the judges.
     writer, the Tamper button, the custom attack, the scripted CLI agent.
 15. What single missing feature would most raise impact or sustainability? Candidates: per-payee
     limits, NEAR Intents or mainnet, multiple agents, an SDK so other agents can plug into a
-    guardian, a hosted "guardian as a service".
+    vault, a hosted "vault as a service".
 16. Is the sustainability story clear (who would use this after the hackathon, and how it would
     be maintained)? What should we say about it?
 17. Any code-quality, naming or design issues visible from this description that a technical

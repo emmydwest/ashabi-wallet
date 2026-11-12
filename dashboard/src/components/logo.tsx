@@ -31,7 +31,7 @@ export function Wordmark() {
   return (
     <span className="flex items-center gap-2.5">
       <Logo className="size-7 drop-shadow-[0_0_10px_rgb(61_242_166/0.45)]" />
-      <span className="text-[15px] font-semibold tracking-tight text-white">Guardian Wallet</span>
+      <span className="text-[15px] font-semibold tracking-tight text-white">Ashabi Wallet</span>
     </span>
   );
 }

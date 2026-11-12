@@ -1,6 +1,6 @@
-# guardian-wallet-sdk
+# ashabi-wallet-sdk
 
-The agent's side of a [Guardian Wallet](https://guardian-wallet.vercel.app). The agent can only ask for a payment; the contract on NEAR checks the payee allowlist, daily budget, approval threshold, velocity limit and kill-switch, then pays or refuses.
+The agent's side of a [Ashabi Wallet](https://ashabi-wallet.vercel.app). The agent can only ask for a payment; the contract on NEAR checks the payee allowlist, daily budget, approval threshold, velocity limit and kill-switch, then pays or refuses.
 
 No runtime dependencies. Reads go straight to NEAR RPC. Signing is a function you pass in, so the key can live in near-api-js, a KMS or a TEE.
 
@@ -15,14 +15,14 @@ npm install ./packages/sdk
 After it is published:
 
 ```sh
-npm install guardian-wallet-sdk
+npm install ashabi-wallet-sdk
 ```
 
 ```ts
 import { Account, JsonRpcProvider } from 'near-api-js';
-import { accountSigner, GuardianAgent, nearToYocto } from 'guardian-wallet-sdk';
+import { accountSigner, AshabiAgent, nearToYocto } from 'ashabi-wallet-sdk';
 
-const agent = new GuardianAgent({
+const agent = new AshabiAgent({
   contractId: 'guardian.gw-emmy.testnet',
   agentId: 'gw-emmy-agent.testnet',
   // A function-call key that can only call request_payment. Server-side only.
@@ -38,8 +38,8 @@ const result = await agent.requestPayment({
 });
 if (result.status === 'BLOCKED_RECIPIENT') console.log('refused:', result.reason, result.txHash);
 
-// HTTP 402: fetch, pay the challenge through the guardian, retry with the receipt.
-const paid = await agent.pay402('https://guardian-wallet.vercel.app/api/vendor/weather-now', {
+// HTTP 402: fetch, pay the challenge through the vault contract, retry with the receipt.
+const paid = await agent.pay402('https://ashabi-wallet.vercel.app/api/vendor/weather-now', {
   maxPrice: nearToYocto('0.1'),
   allowedPayees: ['api-vendor.gw-emmy.testnet'],
 });

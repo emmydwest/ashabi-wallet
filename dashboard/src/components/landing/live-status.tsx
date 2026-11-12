@@ -21,7 +21,7 @@ export function LiveStatus({ initial }: { initial: GuardianSnapshot }) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <ShieldCheck className="size-5 text-emerald-300" aria-hidden />
-          <span className="font-semibold text-white">Guardian Wallet</span>
+          <span className="font-semibold text-white">Ashabi Wallet</span>
         </div>
         <span className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400">
           <span className="relative flex size-1.5" aria-hidden>

@@ -1,4 +1,4 @@
-# Guardian Wallet testnet scenarios (run 1794330544, 2026-11-10T17:09:04Z)
+# Ashabi Wallet testnet scenarios (run 1794330544, 2026-11-10T17:09:04Z)
 Contract: `guardian.gw-emmy.testnet` · owner `gw-emmy-owner.testnet` · agent `gw-emmy-agent.testnet` · payee `api-vendor.gw-emmy.testnet` · attacker `attacker.gw-emmy.testnet`
 
 | Scenario | Expected | Got | Result | Tx |

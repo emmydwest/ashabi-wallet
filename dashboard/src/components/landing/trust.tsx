@@ -2,7 +2,7 @@ import { accountUrl, CONTRACT_ID, FACTORY_ID, REPO_URL } from '@/lib/config';
 
 const CONTRACTS = [
   { id: CONTRACT_ID, what: 'Demo wallet the Arena runs against' },
-  { id: FACTORY_ID, what: 'Creates one guarded wallet per user' },
+  { id: FACTORY_ID, what: 'Creates one Ashabi wallet per user' },
 ];
 
 const LIMITS = [
@@ -29,7 +29,7 @@ export function Trust() {
           <li className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <span className="text-zinc-400">Source code (public at submission)</span>
             <a href={REPO_URL} target="_blank" rel="noreferrer" className="font-mono text-sky-300">
-              github.com/emmydwest/guardian-wallet ↗
+              github.com/emmydwest/ashabi-wallet ↗
             </a>
           </li>
           <li className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the Guardian Wallet security scenarios against a deployed contract on NEAR testnet.
+# Runs the Ashabi Wallet security scenarios against a deployed contract on NEAR testnet.
 # Requires near-cli-rs (`near`) and keys for OWNER/AGENT/ATTACKER in ~/.near-credentials (legacy keychain).
 # Usage: CONTRACT=guardian.gw-emmy.testnet OWNER=... AGENT=... VENDOR=... ATTACKER=... ./scripts/testnet-scenarios.sh
 set -uo pipefail
@@ -60,7 +60,7 @@ agent_req() { # rid receiver amountNEAR memo
   call "$AGENT" request_payment "{\"request_id\":\"$1\",\"receiver_id\":\"$2\",\"amount\":\"$(yocto "$3")\",\"memo\":\"$4\"}"
 }
 
-echo "# Guardian Wallet testnet scenarios (run $RUN, $(date -u +%FT%TZ))" > "$OUT"
+echo "# Ashabi Wallet testnet scenarios (run $RUN, $(date -u +%FT%TZ))" > "$OUT"
 echo "Contract: \`$CONTRACT\` · owner \`$OWNER\` · agent \`$AGENT\` · payee \`$VENDOR\` · attacker \`$ATTACKER\`" >> "$OUT"
 echo >> "$OUT"
 echo "| Scenario | Expected | Got | Result | Tx |" | tee -a "$OUT"

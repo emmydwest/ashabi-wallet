@@ -64,8 +64,8 @@ function headers(p: Provider) {
     authorization: `Bearer ${keyFor(p)}`,
   };
   if (p.name === 'openrouter') {
-    h['HTTP-Referer'] = 'https://guardian-wallet.vercel.app';
-    h['X-Title'] = 'Guardian Wallet';
+    h['HTTP-Referer'] = 'https://ashabi-wallet.vercel.app';
+    h['X-Title'] = 'Ashabi Wallet';
   }
   return h;
 }

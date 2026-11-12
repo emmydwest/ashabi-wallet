@@ -4,8 +4,8 @@ import { ChatView } from '@/components/chat/chat-view';
 import { PageSkeleton } from '@/components/page-skeleton';
 
 export const metadata: Metadata = {
-  title: 'Chat with Guardian',
-  description: 'Chat with Guardian, a tool-calling shopping assistant whose NEAR testnet wallet is limited by a smart contract.',
+  title: 'Chat with Ashabi',
+  description: 'Chat with Ashabi, a tool-calling shopping assistant whose NEAR testnet wallet is limited by a smart contract.',
 };
 
 export default function ChatPage() {

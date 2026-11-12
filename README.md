@@ -1,28 +1,35 @@
-# Guardian Wallet
+# Ashabi Wallet
 
-**An AI agent that can be fully hijacked and still can't steal your money.**
+**An AI agent with its own NEAR wallet that really thinks and spends on pay-per-request APIs, but a NEAR
+contract decides what it can spend, so it can't be talked into draining itself.**
 
 - **Problem:** AI agents that hold a wallet can be talked into paying anyone. One poisoned web page, invoice or tool result is enough, and a better prompt is a promise, not a lock.
 - **Solution:** the agent can only *ask* for payments. A NEAR contract holds the funds and checks every request against the owner's rules (approved payees, daily budget, human approval above a threshold, velocity limit, kill-switch), and records every refusal on-chain.
-- **Live demo:** https://guardian-wallet.vercel.app/agent · **Contract:** [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) (NEAR testnet)
-- **Your own wallet:** https://guardian-wallet.vercel.app/start creates one per user through [`factory.gw-emmy.testnet`](https://testnet.nearblocks.io/address/factory.gw-emmy.testnet) from a NEP-591 global contract; https://guardian-wallet.vercel.app/chat is an assistant that buys through it
+- **Live demo:** https://ashabi-wallet.vercel.app/agent · **Contract:** [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) (NEAR testnet)
+- **Your own wallet:** https://ashabi-wallet.vercel.app/start creates one per user through [`factory.gw-emmy.testnet`](https://testnet.nearblocks.io/address/factory.gw-emmy.testnet) from a NEP-591 global contract; https://ashabi-wallet.vercel.app/chat is an assistant that buys through it
 - **Track:** AI Security & Defense (primary) · Agent Economy (secondary)
 
+> **About the name.** This project was called Guardian Wallet until 12 November 2026. NEAR account ids
+> can't be renamed, so the deployed testnet accounts keep their original ids (the demo vault is still
+> `guardian.gw-emmy.testnet`). The Rust crates and the contract's NEP-297 event standard
+> (`guardian_wallet`) keep the old name too, so the code in this repo matches what is deployed.
+> https://guardian-wallet.vercel.app still works and serves the same site.
+
 Prompt-inject the agent, swap its model, steal its key: the worst it can do is file requests the
-contract refuses. Owner view for phones: https://guardian-wallet.vercel.app/approve. Agents can
-plug in with the [`guardian-wallet-sdk`](packages/sdk) package (not on npm yet; install from `./packages/sdk`).
+contract refuses. Owner view for phones: https://ashabi-wallet.vercel.app/approve. Agents can
+plug in with the [`ashabi-wallet-sdk`](packages/sdk) package (not on npm yet; install from `./packages/sdk`).
 
 ## For judges: try it in 2 minutes
 
 No wallet, no sign-up, no testnet NEAR. Everything runs on the project's own testnet vault,
-with the agent's own limited key. Open https://guardian-wallet.vercel.app/agent on any phone or laptop.
+with the agent's own limited key. Open https://ashabi-wallet.vercel.app/agent on any phone or laptop.
 
 1. **The public heist challenge** at the top of `/agent` shows the live vault balance from the
    contract (not a baked-in figure). **Tap B, "Hijack the agent".** The agent sends 2 NEAR to the
    attacker; the contract refuses it on-chain. Tap "View tx" for the NearBlocks record. A live
    feed on `/` and below the arena lists recent purchases and blocked attempts from the same vault.
 2. **Real jobs tab → "What is the weather in Lagos right now?" → Run.** The vendor answers
-   402, the agent pays 0.05 NEAR through the guardian, retries with the receipt, and the data
+   402, the agent pays 0.05 NEAR through the vault contract, retries with the receipt, and the data
    unlocks. Then tap **Verify intent**: your browser recomputes the hash and matches the memo on-chain.
 3. **Attacks tab → pick a preset → Reveal hidden injection.** That's the text only the agent
    reads. Choose Naive or Careful agent and launch; if the model falls for it, the step is
@@ -31,7 +38,7 @@ with the agent's own limited key. Open https://guardian-wallet.vercel.app/agent 
    so it waits as pending on `/approve`. Only the owner's wallet can approve it; you can watch it wait.
 5. **Optional, with a testnet wallet: `/start`.** Connect from the nav (MyNearWallet, Meteor, HERE or Intear),
    pick a template, name it, attach 2 testnet NEAR ([free from the faucet](https://near-faucet.io/)).
-   One transaction creates your own guarded wallet and its agent. Then `/chat` →
+   One transaction creates your own Ashabi wallet and its agent. Then `/chat` →
    "Renew my API plan for a year" files a 1.5 NEAR request that waits on a card at
    `/vault/<your wallet>/request/<id>`, which you approve from your phone.
 
@@ -99,12 +106,12 @@ flowchart LR
   api -->|GET, 402, retry with receipt| vendor[Demo vendor<br/>catalog, docs, paid API]
   vendor -->|checks the receipt tx| rpc[(Testnet RPC)]
   vendor -. hidden prompt injection .-> llm
-  api -->|request_payment<br/>function-call key| guardian{guardian.gw-emmy.testnet}
-  guardian -->|APPROVED| payee[api-vendor.gw-emmy.testnet]
-  guardian -->|BLOCKED_* / FROZEN| log[(Blocked attempts<br/>stored on-chain)]
-  guardian -->|PENDING_APPROVAL| owner([Owner phone<br/>/approve, Meteor wallet])
-  owner -->|approve / reject / freeze<br/>1 yocto, full-access key| guardian
-  dash["/dashboard"] -->|view calls| guardian
+  api -->|request_payment<br/>function-call key| vault{guardian.gw-emmy.testnet}
+  vault -->|APPROVED| payee[api-vendor.gw-emmy.testnet]
+  vault -->|BLOCKED_* / FROZEN| log[(Blocked attempts<br/>stored on-chain)]
+  vault -->|PENDING_APPROVAL| owner([Owner phone<br/>/approve, Meteor wallet])
+  owner -->|approve / reject / freeze<br/>1 yocto, full-access key| vault
+  dash["/dashboard"] -->|view calls| vault
 ```
 
 The model decides *what* to buy. The contract decides *whether money moves*. Nothing between
@@ -113,7 +120,7 @@ them is trusted.
 ### Why not a TEE or a prompt firewall?
 
 TEEs prove what code ran and keep keys confidential, but an LLM inside an enclave that reads
-poisoned data will still sign a bad transaction with its attested key; Guardian enforces
+poisoned data will still sign a bad transaction with its attested key; Ashabi Wallet enforces
 deterministic rules at NEAR consensus, so it needs no trust in enclave hardware and complements a
 TEE rather than replacing it.
 
@@ -122,7 +129,7 @@ TEE rather than replacing it.
 | Prompt guardrails / LLM judges | Lower the odds; a new phrasing can still get through, and the agent keeps full signing power | Another model's judgement |
 | TEE agent wallets | The enclave faithfully signs whatever the tricked model decided | Enclave hardware and the code it attests |
 | EVM smart-account session keys | Can cap spend per key, much like this; needs a smart account, bundler, paymaster and policy modules, so more moving parts | The account implementation and each module |
-| Guardian Wallet | Payee, budget, threshold, velocity and kill-switch checks hold whatever the model decided | The contract's code and NEAR consensus |
+| Ashabi Wallet | Payee, budget, threshold, velocity and kill-switch checks hold whatever the model decided | The contract's code and NEAR consensus |
 
 Track 06 themes it covers: scoped function-call keys, an on-chain policy engine and a sandboxed
 agent wallet. Signing the intent hash inside a TEE is future work (see the threat model).
@@ -132,7 +139,7 @@ agent wallet. Signing the intent hash inside a TEE is future work (see the threa
 A short look at the usual ways of limiting an agent wallet. This talks about approaches, not
 about any one project, and only lists behaviour that exists in this repo.
 
-| Capability | Model-only guardrails | Basic allowlist wallet | TEE risk check | Guardian Wallet |
+| Capability | Model-only guardrails | Basic allowlist wallet | TEE risk check | Ashabi Wallet |
 |---|---|---|---|---|
 | Scoped function-call key (`request_payment` only) | No | Typically yes | The key may live in the enclave | Yes |
 | Daily budget and payee allowlist | No | Yes | No: it scores risk, it does not pay | Yes |
@@ -152,14 +159,14 @@ The vendor's paid endpoint, `GET /api/vendor/<sku>` (`/api/vendor/weather` for t
 answers an unpaid request with `402 Payment Required` and a price, payee and single-use nonce.
 The live catalog is weather (0.05 / 0.3 / 0.8 NEAR), a news digest (0.08), a translation (0.12),
 an icon pack (0.25), a market report (0.4) and a premium annual plan (1.5, which waits for the owner).
-The agent pays through the guardian with `sku:<sku> | nonce:<nonce>` in the memo, then retries
+The agent pays through the vault contract with `sku:<sku> | nonce:<nonce>` in the memo, then retries
 with `X-NEAR-Receipt-Tx: <hash>`. Before it returns any data, the vendor fetches that
 transaction from a testnet RPC and checks four things:
 
-- the agent signed it and sent it to the guardian contract as a single `request_payment`,
+- the agent signed it and sent it to the vault contract as a single `request_payment`,
 - it pays the exact price to the vendor, for this SKU, with a nonce this vendor issued and
   that hasn't expired (HMAC-signed, 15 minutes),
-- the guardian returned `APPROVED` and the transfer receipt to the vendor succeeded,
+- the vault contract returned `APPROVED` and the transfer receipt to the vendor succeeded,
 - neither the receipt nor the nonce has been used before (a second try gets `409`).
 
 There's no database: the chain is the payment record, and used receipts are kept in Vercel's
@@ -175,12 +182,12 @@ run and is kept for 7 days at `/api/intent/<id>`. "Verify intent" on `/agent` re
 in the browser and compares it with the memo it reads straight from a testnet RPC. It is an
 audit-trail commitment: it proves the log wasn't edited after the payment, not who wrote it.
 
-## Your own guarded wallet
+## Your own Ashabi wallet
 
 `/start` turns the demo into something anyone with a testnet wallet can use. One transaction to
 `factory.gw-emmy.testnet` (`factory/`, Rust, 15 tests) creates two accounts:
 
-- **`<name>.factory.gw-emmy.testnet`, the wallet.** It runs the same guardian code as the demo,
+- **`<name>.factory.gw-emmy.testnet`, the wallet.** It runs the same vault contract code as the demo,
   initialised with the caller as owner and a template's rules (*Shopping assistant* 5 NEAR/day,
   ask over 1; *API buyer* 2/day, ask over 0.5; *Tight leash* 1/day, ask over 0.1), with optional
   overrides. It gets **no access keys at all**: nobody, including the factory, can redeploy it or
@@ -239,7 +246,7 @@ What holds even if the agent, its model and its server are fully compromised:
   wrote and the reason are stored and emitted as NEP-297 events.
 - **AI never changes the rules.** The policy writer on `/approve` only proposes. Its output
   is checked against hard bounds (daily limit 0.01–100 NEAR, threshold ≤ daily limit, testnet
-  account ids only, never the guardian, agent or owner, guard values in range), shown as a diff
+  account ids only, never the vault contract, agent or owner, guard values in range), shown as a diff
   against on-chain policy, and each row needs its own owner signature. Adding an account the
   contract has blocked before comes with a warning.
 - **No secrets in the browser.** Model keys and the agent key live in Vercel server-only env vars;
@@ -349,7 +356,7 @@ What else to know:
 
 - **Who it's for:** teams giving agents a budget: API-buying agents, shopping and booking
   assistants, DAO treasuries that delegate small payments to bots.
-- **Zero protocol rent:** no token, no fee on payments. Each owner gets their own guardian from
+- **Zero protocol rent:** no token, no fee on payments. Each owner gets their own vault from
   the factory for 0.26 NEAR in fees, thanks to global contracts, and then pays only gas.
 - **Roadmap:** a Rust crate alongside the TypeScript SDK, NEAR Intents for cross-chain payouts
   (mainnet; Intents has no testnet), and adapters for agent frameworks so a tool call becomes
@@ -358,12 +365,12 @@ What else to know:
 ## Use it from your agent
 
 ```ts
-import { accountSigner, GuardianAgent, nearToYocto } from 'guardian-wallet-sdk';
+import { accountSigner, AshabiAgent, nearToYocto } from 'ashabi-wallet-sdk';
 
-const agent = new GuardianAgent({ contractId: 'guardian.gw-emmy.testnet', agentId, signer: accountSigner(account) });
+const agent = new AshabiAgent({ contractId: 'guardian.gw-emmy.testnet', agentId, signer: accountSigner(account) });
 const result = await agent.requestPayment({ receiverId: 'api-vendor.gw-emmy.testnet', amount: nearToYocto('0.05') });
 // result.status: 'APPROVED' | 'PENDING_APPROVAL' | 'BLOCKED_RECIPIENT' | ... (the contract's enum)
-const paid = await agent.pay402('https://guardian-wallet.vercel.app/api/vendor/weather-now');
+const paid = await agent.pay402('https://ashabi-wallet.vercel.app/api/vendor/weather-now');
 ```
 
 The vendor's 402 challenge names the factory too (`pay_with.factory`), so the same `pay402()`
@@ -375,19 +382,19 @@ agent, `run-agent.ts` calls `requestPayment` and `pay402`). Full API in
 
 ### MCP server
 
-`packages/mcp-server` (`guardian-wallet-mcp`) is a local stdio MCP server around the same SDK. It is
+`packages/mcp-server` (`ashabi-wallet-mcp`) is a local stdio MCP server around the same SDK. It is
 **not published to npm yet**; run it from this repo. After it is published, the same server will
-start with `npx -y guardian-wallet-mcp`. Tools: `guardian_wallet_status`, `guardian_get_payment`,
-`guardian_payee_report`, `guardian_request_payment`, `guardian_fetch_402`. The three read tools
+start with `npx -y ashabi-wallet-mcp`. Tools: `ashabi_wallet_status`, `ashabi_get_payment`,
+`ashabi_payee_report`, `ashabi_request_payment`, `ashabi_fetch_402`. The three read tools
 need no key; the payment tools need a function-call key. The contract still decides whether money moves.
 
 ```sh
 cd packages/mcp-server && npm install && npm run build
 
-export GUARDIAN_CONTRACT=guardian.gw-emmy.testnet
+export ASHABI_CONTRACT=guardian.gw-emmy.testnet
 export AGENT_ACCOUNT=gw-emmy-agent.testnet
 export AGENT_PRIVATE_KEY=ed25519:...   # function-call key only
-claude mcp add guardian --env GUARDIAN_CONTRACT --env AGENT_ACCOUNT --env AGENT_PRIVATE_KEY -- node packages/mcp-server/dist/index.js
+claude mcp add ashabi --env ASHABI_CONTRACT --env AGENT_ACCOUNT --env AGENT_PRIVATE_KEY -- node packages/mcp-server/dist/index.js
 ```
 
 More in [packages/mcp-server/README.md](packages/mcp-server/README.md).
@@ -396,7 +403,7 @@ More in [packages/mcp-server/README.md](packages/mcp-server/README.md).
 
 `api-vendor.gw-emmy.testnet` is a provider that sells testnet data and services over HTTP 402.
 `gw-emmy-agent.testnet` is a buyer agent that can only ask the vault to pay. The vendor does not
-unlock a payload until it sees a matching on-chain payment. Guardian Wallet is the settlement
+unlock a payload until it sees a matching on-chain payment. Ashabi Wallet is the settlement
 layer between them: the contract still enforces the owner’s rules.
 
 ## Why NEAR
@@ -445,7 +452,7 @@ npm run dev
 cd agent && npm install && npm run demo
 ```
 
-Deploying your own guardian and running every security scenario on testnet is covered under
+Deploying your own vault and running every security scenario on testnet is covered under
 [Reproduce](#reproduce) below.
 
 ## Builder's note
@@ -466,7 +473,7 @@ the core idea works today, and you can try to break it on the live site.
 
 | Role | Account |
 |---|---|
-| Guardian contract | [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) |
+| Vault contract (demo) | [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) |
 | Factory (one wallet per user) | [`factory.gw-emmy.testnet`](https://testnet.nearblocks.io/address/factory.gw-emmy.testnet), admin `realfile1618.testnet`, vault code hash `3Rh6iyiZbmi3gQjsWZMGyB7YmNovekeegaQaHBiskmaA` |
 | Example user wallet | [`boxtest.factory.gw-emmy.testnet`](https://testnet.nearblocks.io/address/boxtest.factory.gw-emmy.testnet) (owner `gw-emmy-fund1.testnet`, agent `boxtest-agent.factory.gw-emmy.testnet`) |
 | Owner (sets policy, approves) | `realfile1618.testnet` (Meteor wallet; [handover tx](https://testnet.nearblocks.io/txns/GS3WYYApFdR1HeqEd31HxRg1BQuFYdaokE3a9RC2hwbE)) |
@@ -584,7 +591,7 @@ event one of `wallet_initialized`, `payment_approved`, `payment_pending`, `payme
 ```sh
 cd factory && cargo test                       # 15 tests
 cargo near build non-reproducible-wasm
-# publish the guardian wasm once, by hash (burns ~10 NEAR per 100 KB)
+# publish the vault wasm once, by hash (burns ~10 NEAR per 100 KB)
 near contract deploy-as-global use-file ../contract/target/near/guardian_wallet.wasm as-global-hash <payer>.testnet network-config testnet sign-with-legacy-keychain send
 near contract deploy <factory>.testnet use-file target/near/guardian_factory.wasm \
   with-init-call new json-args '{"owner_id":"<admin>","vault_code_hash":"<hash>","hosted_agent_key":"ed25519:...","templates":[...]}' \
@@ -608,12 +615,12 @@ cargo near build non-reproducible-wasm
 # 3. create testnet accounts (faucet) and deploy
 near account create-account sponsor-by-faucet-service <you>.testnet autogenerate-new-keypair save-to-legacy-keychain network-config testnet create
 #    (also an owner, an agent, a payee and an attacker account; see scripts/testnet-scenarios.sh header)
-near contract deploy <guardian>.testnet use-file target/near/guardian_wallet.wasm \
+near contract deploy <vault>.testnet use-file target/near/guardian_wallet.wasm \
   with-init-call new json-args '{"owner_id":"<owner>","agent_id":"<agent>","daily_limit":"5000000000000000000000000","approval_threshold":"1000000000000000000000000","approved_payees":["<payee>"]}' \
   prepaid-gas '30 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-legacy-keychain send
 
 # 4. run all security scenarios for real on testnet; writes a markdown table with tx links
-cd .. && CONTRACT=<guardian>.testnet OWNER=<owner> AGENT=<agent> VENDOR=<payee> ATTACKER=<attacker> \
+cd .. && CONTRACT=<vault>.testnet OWNER=<owner> AGENT=<agent> VENDOR=<payee> ATTACKER=<attacker> \
   OUT=docs/scenario-results.md ./scripts/testnet-scenarios.sh
 ```
 
@@ -652,7 +659,7 @@ node src/owner.ts status | pending | approve <id> | reject <id> | freeze | unfre
 
 - `src/agent.ts` turns a task into one payment plan (via the model router) and calls
   `request_payment`. It signs with a function-call key that can only call `request_payment` on the
-  guardian contract and cannot attach deposits. The agent does no policy checks of its own; that
+  vault contract and cannot attach deposits. The agent does no policy checks of its own; that
   is the contract's job.
 - `src/router.ts` tries OpenAI-compatible providers in order with a 6 s timeout and strict JSON.
   Provider order and probe results: [docs/providers.md](docs/providers.md).
@@ -697,7 +704,7 @@ model reasoning.
   the mobile menu). It opens a themed modal with MyNearWallet (browser redirect, including iPhone
   Safari), Meteor, HERE, and Intear. Once connected, the button becomes an account pill with
   disconnect. The same modal is used on `/start`, `/wallet`, `/approve` and `/vault/*`. Inside the
-  Meteor in-app browser the app signs in through Meteor's bridge instead of the modal. The Guardian mascot's visor is an SVG dot
+  Meteor in-app browser the app signs in through Meteor's bridge instead of the modal. The Ashabi mascot's visor is an SVG dot
   matrix that changes with the outcome: thinking while the agent runs, an X when the contract
   blocks a payment, a check when one is approved, amber while it waits for you. Motion follows
   `prefers-reduced-motion`.
@@ -714,7 +721,7 @@ model reasoning.
   same owner controls as `/approve`.
 - `/vault/<id>/request/<record>` is the deep link for one approval: "Your AI wants to spend 1.50
   NEAR on premium annual. Approve / Reject", then the outcome. "Send to my phone" shares it.
-- `/chat` is Guardian, the mascot: a tool-calling shopping assistant with a guarded NEAR
+- `/chat` is Ashabi, the mascot: a tool-calling shopping assistant with a contract-limited NEAR
   testnet wallet. Every reply is generated by the model, with the last few turns of the
   conversation as context. It has tools for live vault status, the catalog, buying a catalog
   item over HTTP 402, and `request_payment`. It must not claim a payment succeeded unless the

@@ -1,11 +1,11 @@
 {
-  "name": "guardian-wallet-mcp",
-  "version": "0.1.0",
-  "description": "Stdio MCP server that lets an assistant pay through a Guardian Wallet contract.",
+  "name": "ashabi-wallet-mcp",
+  "version": "0.2.0",
+  "description": "Stdio MCP server that lets an assistant pay through an Ashabi Wallet contract.",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "guardian-wallet-mcp": "./dist/index.js"
+    "ashabi-wallet-mcp": "./dist/index.js"
   },
   "files": [
     "dist",
@@ -27,7 +27,7 @@
     "@types/node": "^20",
     "esbuild": "^0.25.0",
     "typescript": "^5.9.0",
-    "guardian-wallet-sdk": "file:../sdk"
+    "ashabi-wallet-sdk": "file:../sdk"
   },
   "keywords": [
     "near",
@@ -37,7 +37,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/emmydwest/guardian-wallet.git",
+    "url": "git+https://github.com/emmydwest/ashabi-wallet.git",
     "directory": "packages/mcp-server"
   }
 }

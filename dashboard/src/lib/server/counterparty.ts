@@ -1,5 +1,5 @@
 import 'server-only';
-import type { PayeeReport } from 'guardian-wallet-sdk';
+import type { PayeeReport } from 'ashabi-wallet-sdk';
 import { viewCall } from '@/lib/near';
 
 // The agent's own look at a payee before it asks the vault to pay. BLOCK mirrors the vault's

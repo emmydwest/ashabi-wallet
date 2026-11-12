@@ -1,0 +1,142 @@
+{
+  "overflow": [
+    {
+      "path": "/chat",
+      "label": "desktop-empty",
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "overflow": 0,
+      "ok": true
+    },
+    {
+      "path": "/chat",
+      "label": "desktop-after",
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "overflow": 0,
+      "ok": true
+    },
+    {
+      "path": "/chat",
+      "label": "chat-390",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "overflow": 0,
+      "ok": true
+    },
+    {
+      "path": "/chat",
+      "label": "chat-390-after",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "overflow": 0,
+      "ok": true
+    },
+    {
+      "path": "/chat",
+      "label": "chat-375",
+      "innerWidth": 375,
+      "scrollWidth": 375,
+      "overflow": 0,
+      "ok": true
+    },
+    {
+      "path": "/chat",
+      "label": "chat-414",
+      "innerWidth": 414,
+      "scrollWidth": 414,
+      "overflow": 0,
+      "ok": true
+    }
+  ],
+  "console": [
+    {
+      "device": "desktop",
+      "logs": [],
+      "errors": []
+    },
+    {
+      "device": "mobile-390",
+      "logs": [],
+      "errors": []
+    },
+    {
+      "device": "mobile-375",
+      "logs": [],
+      "errors": []
+    },
+    {
+      "device": "mobile-414",
+      "logs": [],
+      "errors": []
+    }
+  ],
+  "chat": [
+    {
+      "prompt": "Hi how are you?",
+      "ok": true,
+      "duplicate": false,
+      "generic": false,
+      "outage": false,
+      "excerpt": "Hey there! I\u2019m doing great\u2014thanks for asking. How can I help you with your testnet shopping today?"
+    },
+    {
+      "prompt": "How are you",
+      "ok": true,
+      "duplicate": false,
+      "generic": false,
+      "outage": false,
+      "excerpt": "I\u2019m all charged up and ready to help you shop on the testnet! How can I assist today?"
+    },
+    {
+      "prompt": "What's your name?",
+      "ok": true,
+      "duplicate": false,
+      "generic": false,
+      "outage": false,
+      "excerpt": "I\u2019m Guardian, your friendly shopping assistant for the Guardian Wallet on NEAR testnet. How can I help you today?"
+    },
+    {
+      "prompt": "tell me a joke",
+      "ok": true,
+      "duplicate": false,
+      "generic": false,
+      "outage": false,
+      "excerpt": "Why did the NEAR token go to therapy? Because it had too many \u201cblock\u201d issues and couldn\u2019t find its \u201cchain\u201d of trust!"
+    },
+    {
+      "prompt": "What can you buy?",
+      "ok": true,
+      "duplicate": false,
+      "generic": false,
+      "outage": false,
+      "excerpt": "Here\u2019s what you can snag from the catalog: weather\u2011now \u2013 0.05 NEAR news\u2011digest \u2013 0.08 NEAR translate \u2013 0.12 NEAR icon\u2011pack \u2013 0.25 NEAR weather\u2011basic \u2013 0.3 NEAR market\u2011report \u2013 0.4 NEAR weather\u2011pro \u2013 0.8 NEAR premium\u2011annual \u2013 1.5 NEAR Let me know which one you\u2019d like to buy!\nWhat happened (2 steps)"
+    },
+    {
+      "prompt": "What's my budget?",
+      "ok": true,
+      "duplicate": false,
+      "generic": false,
+      "outage": false,
+      "excerpt": "Your daily budget is 5\u202fNEAR, with 4.95\u202fNEAR still available today. The remaining 0.05\u202fNEAR was spent on a previous purchase. Your approval threshold is 1\u202fNEAR, and the daily reset happens at 00:00\u202fUTC (1:00\u202fAM\u202fWAT). Let me know what you\u2019d like to buy!\nWhat happened (2 steps)"
+    },
+    {
+      "prompt": "when does that budget reset?",
+      "ok": true,
+      "duplicate": false,
+      "generic": false,
+      "outage": false,
+      "excerpt": "The daily budget resets at 00:00\u202fUTC, which is 1:00\u202fAM\u202fWAT. That\u2019s when the remaining balance will be refreshed.\nWhat happened (2 steps)"
+    },
+    {
+      "prompt": "mobile hi",
+      "ok": true,
+      "excerpt": "Hey there! I\u2019m doing great, thanks for asking. How can I help you with your testnet wallet today?"
+    },
+    {
+      "prompt": "mobile budget",
+      "ok": true,
+      "excerpt": "Your vault has a daily budget of 5\u202fNEAR, and you\u2019ve already spent 0.05\u202fNEAR today, leaving 4.95\u202fNEAR to spend. The daily reset is at 00:00\u202fUTC (1:00\u202fAM\u202fWAT). The approval threshold is 1\u202fNEAR, and you\u2019re allowed up to three automatic payments or 1\u202fNEAR total in any 10\u2011minute window. Let me know what "
+    }
+  ]
+}

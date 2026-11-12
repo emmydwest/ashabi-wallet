@@ -10,7 +10,7 @@ const SCREENS = [
   },
   {
     src: '/screens/wallet.webp',
-    alt: 'A guarded wallet page with today’s spending and the freeze button',
+    alt: 'An Ashabi wallet page with today’s spending and the freeze button',
     caption: 'Your wallet: what’s left today, one-tap freeze',
     href: '/wallet',
   },

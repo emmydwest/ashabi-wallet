@@ -10,10 +10,10 @@ export function nearToYocto(near) {
 }
 const randomId = () => `agent-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 /**
- * The agent's side of a Guardian Wallet. It can only ask for payments; the contract decides.
+ * The agent's side of an Ashabi Wallet. It can only ask for payments; the contract decides.
  * Read methods need no key.
  */
-export class GuardianAgent {
+export class AshabiAgent {
     contractId;
     agentId;
     signer;
@@ -80,7 +80,7 @@ export class GuardianAgent {
     }
     async requestPayment({ receiverId, amount, memo = '', requestId = randomId() }) {
         if (!this.signer)
-            throw new Error('GuardianAgent needs a signer to request payments');
+            throw new Error('AshabiAgent needs a signer to request payments');
         const args = {
             request_id: requestId,
             receiver_id: receiverId,
@@ -141,7 +141,7 @@ export class GuardianAgent {
         return { ...base, status: null, error: 'could not send the transaction' };
     }
     /**
-     * Fetches `url`; if it answers 402 with a Guardian payment challenge, pays it through the
+     * Fetches `url`; if it answers 402 with an Ashabi payment challenge, pays it through the
      * contract and retries with `X-NEAR-Receipt-Tx`. Hooks let a caller log or veto each step.
      */
     async pay402(url, options = {}) {
@@ -194,7 +194,7 @@ export class GuardianAgent {
                     signal: AbortSignal.timeout(this.timeoutMs),
                     body: JSON.stringify({
                         jsonrpc: '2.0',
-                        id: 'guardian-sdk',
+                        id: 'ashabi-sdk',
                         method,
                         params,
                     }),
@@ -215,7 +215,7 @@ export class GuardianAgent {
 }
 function challengeProblem(c, contractId, options) {
     if (!c?.payee || !c.price_yocto || !c.pay_with?.memo_must_include)
-        return 'not a Guardian payment challenge';
+        return 'not an Ashabi payment challenge';
     const viaFactory = Boolean(c.pay_with.factory) && contractId.endsWith(`.${c.pay_with.factory}`);
     if (c.pay_with.contract !== contractId && !viaFactory)
         return `challenge asks to pay through ${c.pay_with.contract}`;

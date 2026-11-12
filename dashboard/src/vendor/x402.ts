@@ -6,7 +6,7 @@ import { claim, get } from '@/lib/server/store';
 import type { CATALOG } from './catalog';
 
 // HTTP 402 for agents: the vendor answers an unpaid request with a price and a one-time
-// nonce, the agent pays through its guardian wallet with that nonce in the memo, then
+// nonce, the agent pays through its Ashabi wallet with that nonce in the memo, then
 // retries with the transaction hash. The vendor checks the transaction itself on-chain.
 
 type Item = (typeof CATALOG)[number];
@@ -118,11 +118,11 @@ export async function verifyReceipt(hash: string, item: Item, signerHint?: strin
   if (typeof tx === 'string') return fail(tx);
 
   const vault = tx.transaction.receiver_id;
-  if (!isVaultId(vault)) return fail(`transaction was sent to ${vault}, not a guardian wallet`);
+  if (!isVaultId(vault)) return fail(`transaction was sent to ${vault}, not an Ashabi wallet`);
   const agentId =
     vault === CONTRACT_ID ? AGENT_ID : (await viewCall<{ agent_id: string }>('get_wallet_status', {}, vault)).agent_id;
   if (tx.transaction.signer_id !== agentId) return fail(`transaction was not signed by ${vault}'s agent`);
-  checks.push(`Signed by ${agentId}, sent to the guardian wallet ${vault}`);
+  checks.push(`Signed by ${agentId}, sent to the Ashabi wallet ${vault}`);
 
   const call = tx.transaction.actions[0]?.FunctionCall;
   if (tx.transaction.actions.length !== 1 || call?.method_name !== 'request_payment')
@@ -142,8 +142,8 @@ export async function verifyReceipt(hash: string, item: Item, signerHint?: strin
   if (!tx.status.SuccessValue) return fail('the contract call did not succeed');
   const outcome = JSON.parse(decode(tx.status.SuccessValue)) as { status: string; record_id: number | null };
   if (outcome.status !== 'APPROVED' || outcome.record_id === null)
-    return fail(`the guardian answered ${outcome.status}, so nothing was paid`);
-  checks.push(`Guardian approved it as payment #${outcome.record_id}`);
+    return fail(`the vault contract answered ${outcome.status}, so nothing was paid`);
+  checks.push(`The vault contract approved it as payment #${outcome.record_id}`);
 
   const transfer = tx.receipts.find(
     (r) =>

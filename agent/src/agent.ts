@@ -105,7 +105,7 @@ export async function requestPayment(log: ActionLog, act: number, requestId: str
     log.add(act, 'error', `request_payment transaction failed: ${tx.error}`, { tx_hash: tx.txHash });
     return null;
   }
-  log.add(act, 'contract_decision', `Guardian contract: ${tx.value.reason}`, {
+  log.add(act, 'contract_decision', `Vault contract: ${tx.value.reason}`, {
     status: tx.value.status,
     tx_hash: tx.txHash,
     detail: { ...tx.value },

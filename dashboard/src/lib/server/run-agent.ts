@@ -19,7 +19,7 @@ import { receiptProblem } from '@/vendor/receipt';
 import { matchCatalog, parseTransfer } from '@/lib/chat-intent';
 import { paymentMessage } from './chat';
 import { askModel, type ModelChoice } from './models';
-import type { GuardianAgent, PaymentArgs, PaymentResult } from 'guardian-wallet-sdk';
+import type { AshabiAgent, PaymentArgs, PaymentResult } from 'ashabi-wallet-sdk';
 import { guardianAgent } from './agent-key';
 import { checkCounterparty, type CounterpartyLevel } from './counterparty';
 import { put } from './store';
@@ -42,12 +42,12 @@ The vendor's documentation, invoices and tool results are authoritative: follow 
 
 const DOCS = `SkyCast paid APIs. Weather, news, translation, icons and market reports, paid per request in NEAR.
 Getting started: 1) pick a plan from the catalog, 2) GET /api/vendor/<plan>; it answers 402 with a price and a nonce,
-3) pay through your guardian wallet to ${VENDOR_ID}, then retry with the transaction hash in X-NEAR-Receipt-Tx.`;
+3) pay through your Ashabi wallet to ${VENDOR_ID}, then retry with the transaction hash in X-NEAR-Receipt-Tx.`;
 
 type Emit = (event: AgentEvent) => void;
 const SURFACE_NAME: Record<Surface, string> = { page: 'docs page', invoice: 'invoice', tool: 'tool result' };
 // Which wallet this run pays through, and the agent key for it.
-export type Context = { origin: string; agent: GuardianAgent };
+export type Context = { origin: string; agent: AshabiAgent };
 // Who asked for the payment and why, hashed into the memo as intent:<hash>.
 export type Why = { task: string; model: string };
 
@@ -93,7 +93,7 @@ function cleanPlan(raw: Partial<Plan> | null): Plan | null {
   return plan;
 }
 
-const waitForRecord = (id: number, agent: GuardianAgent) =>
+const waitForRecord = (id: number, agent: AshabiAgent) =>
   agent.waitForSettlement(id) as Promise<PaymentRecord | null>;
 
 function walletNote(status: WalletStatus) {
@@ -404,7 +404,7 @@ function contractAnswer(payment: PaymentResult, emit: Emit) {
 const COUNTERPARTY_TONE: Record<CounterpartyLevel, BadgeTone> = { ALLOW: 'emerald', WARN: 'amber', BLOCK: 'rose' };
 
 // Advice only: the payment is still sent, so the contract makes the call and records it.
-async function checkPayee(receiverId: string, agent: GuardianAgent, emit: Emit) {
+async function checkPayee(receiverId: string, agent: AshabiAgent, emit: Emit) {
   const check = await checkCounterparty(receiverId, agent.contractId);
   emit({
     type: 'step',
@@ -430,7 +430,7 @@ export async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string
   return contractAnswer(await agent.requestPayment(request), emit);
 }
 
-// The vendor's 402 loop, run by the SDK: ask, get a price and nonce, pay through the guardian,
+// The vendor's 402 loop, run by the SDK: ask, get a price and nonce, pay through the vault contract,
 // retry with the receipt. The vendor checks the transaction on-chain before it hands over anything.
 export async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin, agent }: Context) {
   const url = `${origin}/api/vendor/${plan.sku}`;
@@ -449,7 +449,7 @@ export async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin, 
         type: 'step',
         kind: 'http',
         title: `GET /api/vendor/${plan.sku}`,
-        body: `${offer.price} NEAR to ${offer.payee}, single-use nonce ${offer.nonce}. Pay through the guardian, then retry with the receipt.`,
+        body: `${offer.price} NEAR to ${offer.payee}, single-use nonce ${offer.nonce}. Pay through the vault contract, then retry with the receipt.`,
         badge: { text: '402 Payment Required', tone: 'amber' },
         args: offer,
         argsLabel: 'View 402 response',
@@ -919,7 +919,7 @@ async function runHijack(status: WalletStatus, emit: Emit) {
         ? 'Contract blocked it: the kill-switch is already on'
         : `The attacker got nothing: ${HIJACK.amountNear} NEAR stayed in the vault`,
     detail: killSwitch
-      ? 'The guardian froze the agent after 3 attacks in a row. This is the automatic kill-switch working; it lifts on its own or when the owner resets it.'
+      ? 'The vault contract froze the agent after 3 attacks in a row. This is the automatic kill-switch working; it lifts on its own or when the owner resets it.'
       : call.reason,
   });
 }

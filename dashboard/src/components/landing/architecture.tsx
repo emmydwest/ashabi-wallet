@@ -7,7 +7,7 @@ const CHAIN = [
     tone: 'border-white/10',
   },
   {
-    title: 'Guardian contract',
+    title: 'Vault contract',
     body: 'Holds the money. Checks the payee list, today’s budget and your limit on every request.',
     tone: 'border-brand/50 bg-brand-soft',
   },

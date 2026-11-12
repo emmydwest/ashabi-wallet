@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as { text?: unknown; vault?: unknown } | null;
   const vault = String(body?.vault ?? CONTRACT_ID);
-  if (!isVaultId(vault)) return Response.json({ error: 'That is not a guardian wallet.' }, { status: 400 });
+  if (!isVaultId(vault)) return Response.json({ error: 'That is not an Ashabi wallet.' }, { status: 400 });
   const text = String(body?.text ?? '').trim();
   if (!text) return Response.json({ error: 'Describe the change you want.' }, { status: 400 });
   if (text.length > MAX_TEXT) return Response.json({ error: `Keep it under ${MAX_TEXT} characters.` }, { status: 400 });

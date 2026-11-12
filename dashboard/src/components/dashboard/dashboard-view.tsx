@@ -35,7 +35,7 @@ export function DashboardView({ log, initial }: { log: ActionLog; initial: Guard
       <div className="flex min-w-0 flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-emerald-300/80">Live from the contract</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Guardian dashboard</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Owner dashboard</h1>
           <DemoWalletLabel className="mt-3" />
         </div>
         {snapshot.stale || error ? (

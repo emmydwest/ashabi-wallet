@@ -84,7 +84,7 @@ export type PaymentResult = {
         memo: string;
     };
 };
-/** The body a Guardian-aware vendor sends with HTTP 402. */
+/** The body an Ashabi-aware vendor sends with HTTP 402. */
 export type PaymentChallenge = {
     sku: string;
     price: string;

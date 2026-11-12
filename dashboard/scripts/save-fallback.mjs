@@ -2,7 +2,7 @@
 // Usage: npm run save-fallback [-- https://your-deployment.vercel.app]
 import { writeFileSync } from 'node:fs';
 
-const site = process.argv[2] ?? 'https://guardian-wallet.vercel.app';
+const site = process.argv[2] ?? 'https://ashabi-wallet.vercel.app';
 const res = await fetch(`${site}/api/guardian`, { cache: 'no-store' });
 if (!res.ok) throw new Error(`${site} answered ${res.status}`);
 const snapshot = await res.json();

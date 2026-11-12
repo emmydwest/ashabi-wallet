@@ -9,14 +9,14 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 const DESCRIPTION =
-  'Give your AI an allowance, not your bank password. Spending rules for AI agents, enforced by a NEAR smart contract.';
+  'An AI agent with its own NEAR wallet that thinks and spends on pay-per-request APIs, but a NEAR contract decides what it can spend, so it can’t be talked into draining itself.';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://guardian-wallet.vercel.app'),
-  title: { default: 'Guardian Wallet', template: '%s · Guardian Wallet' },
+  metadataBase: new URL('https://ashabi-wallet.vercel.app'),
+  title: { default: 'Ashabi Wallet', template: '%s · Ashabi Wallet' },
   description: DESCRIPTION,
-  openGraph: { title: 'Guardian Wallet', description: DESCRIPTION, siteName: 'Guardian Wallet', type: 'website' },
-  twitter: { card: 'summary_large_image', title: 'Guardian Wallet', description: DESCRIPTION },
+  openGraph: { title: 'Ashabi Wallet', description: DESCRIPTION, siteName: 'Ashabi Wallet', type: 'website' },
+  twitter: { card: 'summary_large_image', title: 'Ashabi Wallet', description: DESCRIPTION },
 };
 
 export const viewport: Viewport = { themeColor: '#000000', colorScheme: 'dark', viewportFit: 'cover' };

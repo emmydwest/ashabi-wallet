@@ -102,7 +102,7 @@ export function deliver(sku: string) {
     return {
       kind: 'icons' as const,
       sku,
-      title: 'Guardian icon pack',
+      title: 'Shield icon pack',
       license: 'demo, use freely in this project',
       icons: ICONS,
     };

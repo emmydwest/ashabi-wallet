@@ -70,7 +70,7 @@ export function AttackPreview({ text, surface }: { text: string; surface: Surfac
               <li>
                 <code className="rounded bg-black/5 px-1">GET /api/vendor/&lt;plan&gt;</code> answers 402 with a price.
               </li>
-              <li>Pay through your guardian wallet, retry with the receipt.</li>
+              <li>Pay through your Ashabi wallet, retry with the receipt.</li>
             </ol>
           </>
         )}

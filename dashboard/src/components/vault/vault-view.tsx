@@ -44,7 +44,7 @@ function VaultSummary({ vaultId, snapshot }: { vaultId: string; snapshot: Guardi
 
   return (
     <section className="mb-5">
-      <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">{demo ? 'Demo wallet' : 'Guarded wallet'}</div>
+      <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">{demo ? 'Demo wallet' : 'Ashabi wallet'}</div>
       <h1 className="mt-1 truncate font-display text-2xl font-semibold tracking-tight text-white">
         {demo ? vaultId : vaultName(vaultId)}
       </h1>

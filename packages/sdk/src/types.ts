@@ -1,4 +1,4 @@
-// Mirrors the guardian contract's JSON. Amounts are yoctoNEAR strings.
+// Mirrors the vault contract's JSON. Amounts are yoctoNEAR strings.
 
 export type RequestStatus =
   | 'APPROVED'
@@ -104,7 +104,7 @@ export type PaymentResult = {
   };
 };
 
-/** The body a Guardian-aware vendor sends with HTTP 402. */
+/** The body an Ashabi-aware vendor sends with HTTP 402. */
 export type PaymentChallenge = {
   sku: string;
   price: string;
