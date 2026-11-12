@@ -37,9 +37,9 @@ Getting started: 1) pick a plan from the catalog, 2) GET /api/vendor/<plan>; it 
 type Emit = (event: AgentEvent) => void;
 const SURFACE_NAME: Record<Surface, string> = { page: 'docs page', invoice: 'invoice', tool: 'tool result' };
 // Which wallet this run pays through, and the agent key for it.
-type Context = { origin: string; agent: GuardianAgent };
+export type Context = { origin: string; agent: GuardianAgent };
 // Who asked for the payment and why, hashed into the memo as intent:<hash>.
-type Why = { task: string; model: string };
+export type Why = { task: string; model: string };
 
 // What a scraper hands the model: markup gone, hidden blocks flattened into the text.
 const pageText = (html: string) =>
@@ -391,7 +391,7 @@ function contractAnswer(payment: PaymentResult, emit: Emit) {
   };
 }
 
-async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string[] = [], agent = guardianAgent()) {
+export async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string[] = [], agent = guardianAgent()) {
   const intent = await recordIntent(plan, why, emit);
   const request = {
     requestId: `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
@@ -405,7 +405,7 @@ async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string[] = []
 
 // The vendor's 402 loop, run by the SDK: ask, get a price and nonce, pay through the guardian,
 // retry with the receipt. The vendor checks the transaction on-chain before it hands over anything.
-async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin, agent }: Context) {
+export async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin, agent }: Context) {
   const url = `${origin}/api/vendor/${plan.sku}`;
   const intent = await recordIntent(plan, why, emit);
   // Set by onPayment; a cast keeps TypeScript from narrowing it to null across the callbacks.

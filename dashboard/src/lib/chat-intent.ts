@@ -1,7 +1,7 @@
 import { CATALOG, itemFor } from '@/vendor/catalog';
 
-// Pure intent routing for /chat. Payment-shaped messages always go to the
-// contract; greetings and questions about the assistant never start a payment.
+// Pure helpers for /chat. Named transfers are forced to the contract if the
+// model does not call request_payment itself; catalog matching fills buy_item.
 
 export type ChatTopic = 'greeting' | 'identity' | 'budget' | 'catalog' | 'safety' | 'thanks' | 'other';
 export type ChatIntent = { kind: 'chat'; topic: ChatTopic } | { kind: 'purchase' };
@@ -24,6 +24,11 @@ function norm(text: string) {
 
 export function accountsIn(text: string): string[] {
   return [...text.toLowerCase().matchAll(ACCOUNT)].map((m) => m[0]);
+}
+
+export function shouldForcePayment(task: string, toolsCalled: string[]) {
+  if (toolsCalled.includes('request_payment') || toolsCalled.includes('buy_item')) return false;
+  return Boolean(parseTransfer(task));
 }
 
 export function parseTransfer(text: string): TransferAsk | null {

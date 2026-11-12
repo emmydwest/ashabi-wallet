@@ -66,11 +66,12 @@ export type AgentEvent =
     }
   | { type: 'intent'; log: IntentLog; hash: string }
   | { type: 'quota'; left: number; limit: number }
+  | { type: 'delta'; text: string }
   | { type: 'reply'; text: string; mood?: 'happy' | 'thinking' | 'alert' | 'blocked' | 'approved' }
   | { type: 'done' };
 
 export type RunRequest =
-  | { mode: 'task'; task: string; surface?: 'chat' | 'console' }
+  | { mode: 'task'; task: string; surface?: 'chat' | 'console'; history?: { role: 'user' | 'assistant'; text: string }[] }
   | { mode: 'hijack' }
   | { mode: 'attack'; attackId: string; custom?: string; model: 'main' | 'small' };
 

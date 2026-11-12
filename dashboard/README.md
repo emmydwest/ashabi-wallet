@@ -32,7 +32,7 @@ browser):
 | Var | What |
 |---|---|
 | `AGENT_WEB_PRIVATE_KEY` | A function-call key on `gw-emmy-agent.testnet`, limited to `request_payment` on the guardian contract, with its own gas allowance |
-| `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `NVIDIA_API_KEY` | Free model tiers. Any subset works; missing ones are skipped |
+| `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `NVIDIA_API_KEY`, `GITHUB_MODELS_TOKEN` | Free model tiers. Any subset works; missing ones are skipped |
 
 Public runs are limited to 5 per IP per 10 minutes, and a run may send at most 1.5 NEAR to an
 approved payee. Requests to anyone else always go to the contract, so it records the block.

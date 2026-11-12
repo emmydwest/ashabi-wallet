@@ -77,9 +77,22 @@ export function ChatView() {
     end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages]);
 
+  const priorTurns = () => {
+    const turns: { role: 'user' | 'assistant'; text: string }[] = [];
+    for (const m of messages) {
+      if (m.role === 'user') turns.push({ role: 'user', text: m.text });
+      else {
+        const text = m.reply ?? m.summary?.message ?? '';
+        if (text) turns.push({ role: 'assistant', text });
+      }
+    }
+    return turns.slice(-12);
+  };
+
   async function ask(task: string) {
     const trimmed = task.trim();
     if (!trimmed || running) return;
+    const history = priorTurns();
     setText('');
     setRunning(true);
     const index = messages.length + 1;
@@ -93,7 +106,7 @@ export function ChatView() {
       const res = await fetch('/api/agent/run', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ mode: 'task', surface: 'chat', task: trimmed, vault }),
+        body: JSON.stringify({ mode: 'task', surface: 'chat', task: trimmed, vault, history }),
       });
       if (!res.ok || !res.body) {
         const body = await res.json().catch(() => ({}));
@@ -113,6 +126,7 @@ export function ChatView() {
           const event = JSON.parse(line) as AgentEvent;
           if (event.type === 'step') update((m) => ({ steps: [...m.steps, event] }));
           if (event.type === 'summary') update(() => ({ summary: event }));
+          if (event.type === 'delta') update((m) => ({ reply: (m.reply ?? '') + event.text }));
           if (event.type === 'reply') update(() => ({ reply: event.text, mood: event.mood }));
           if (event.type === 'quota') setLeft(event.left);
         }

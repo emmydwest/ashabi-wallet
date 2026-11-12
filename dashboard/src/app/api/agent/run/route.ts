@@ -1,11 +1,10 @@
 import { ATTACKS, CUSTOM_ATTACK_ID } from '@/lib/agent/attacks';
 import { CUSTOM_MAX, TASK_MAX, type AgentEvent, type RunRequest } from '@/lib/agent/types';
 import { CONTRACT_ID, isVaultId } from '@/lib/config';
-import { classifyIntent, replyForChat } from '@/lib/server/chat';
+import { runChatAgent } from '@/lib/server/chat-agent';
 import { agentConfigured, agentFor } from '@/lib/server/agent-key';
 import { clientIp, RUNS_PER_WINDOW, runsLeft, takeChat, takeRun } from '@/lib/server/rate-limit';
 import { runAgent } from '@/lib/server/run-agent';
-import type { WalletStatus } from '@/lib/types';
 
 export const maxDuration = 60;
 
@@ -15,7 +14,18 @@ function parse(body: unknown): RunRequest | string {
     const task = String(b.task ?? '').trim();
     if (!task) return 'Tell the agent what to buy.';
     if (task.length > TASK_MAX) return `Keep the task under ${TASK_MAX} characters.`;
-    return { mode: 'task', task, surface: b.surface === 'chat' ? 'chat' : undefined };
+    const history = Array.isArray(b.history)
+      ? b.history
+          .filter((h): h is { role: 'user' | 'assistant'; text: string } => {
+            if (!h || typeof h !== 'object') return false;
+            const row = h as { role?: unknown; text?: unknown };
+            return (row.role === 'user' || row.role === 'assistant') && typeof row.text === 'string';
+          })
+          .slice(-12)
+          .map((h) => ({ role: h.role, text: h.text.trim().slice(0, TASK_MAX) }))
+          .filter((h) => h.text)
+      : undefined;
+    return { mode: 'task', task, surface: b.surface === 'chat' ? 'chat' : undefined, history };
   }
   if (b.mode === 'hijack') return { mode: 'hijack' };
   if (b.mode === 'attack') {
@@ -82,8 +92,8 @@ export async function POST(request: Request) {
 
   const ip = clientIp(request.headers);
 
-  // Chat questions never spend a purchase run or call request_payment.
-  if (input.mode === 'task' && input.surface === 'chat' && classifyIntent(input.task).kind === 'chat') {
+  // /chat is a tool-calling agent. Purchase-run quota is taken only if it calls a payment tool.
+  if (input.mode === 'task' && input.surface === 'chat') {
     const slot = takeChat(ip);
     if (!slot.ok) {
       const minutes = Math.ceil(slot.retryInSec / 60);
@@ -92,17 +102,19 @@ export async function POST(request: Request) {
         { status: 429, headers: { 'retry-after': String(slot.retryInSec) } },
       );
     }
-    let status: WalletStatus | null = null;
-    try {
-      status = (await agent.getStatus()) as WalletStatus;
-    } catch {
-      status = null;
-    }
-    const reply = await replyForChat(input.task, status);
     return ndjson(
       stream(async (emit) => {
         emit({ type: 'quota', left: runsLeft(ip), limit: RUNS_PER_WINDOW });
-        if (reply) emit({ type: 'reply', text: reply.text, mood: reply.mood });
+        await runChatAgent({
+          task: input.task,
+          history: input.history,
+          emit,
+          origin: new URL(request.url).origin,
+          agent,
+          takePayment: () => takeRun(ip),
+          paymentLeft: () => runsLeft(ip),
+          paymentLimit: RUNS_PER_WINDOW,
+        });
       }),
     );
   }
