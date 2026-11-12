@@ -326,3 +326,50 @@ body:has(.chat-page) .site-footer {
     animation: none;
   }
 }
+
+/* The payment flow's moving rails and the coin bobbing while it waits. */
+@keyframes art-rail {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.art-rail {
+  animation: art-rail 0.8s linear infinite;
+}
+
+@keyframes float-sm {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-float-sm {
+  animation: float-sm 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art-rail,
+  .animate-float-sm {
+    animation: none;
+  }
+}
+
+/* ---- Scroll reveal (components/reveal.tsx) ---- */
+
+[data-reveal] {
+  transition:
+    opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+[data-reveal='waiting'] {
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    transition: none;
+  }
+}

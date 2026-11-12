@@ -2,6 +2,9 @@ import { ArrowRight, CircleCheck, Coins, ShieldAlert, Smartphone, Swords, Timer,
 import Link from 'next/link';
 import { AboveLimit } from '@/components/landing/above-limit';
 import { Architecture } from '@/components/landing/architecture';
+import { FlowShowcase } from '@/components/landing/flow-showcase';
+import { AgentArt, CoinStackArt, OwnerArt, VendorArt } from '@/components/art/pieces';
+import { Reveal } from '@/components/reveal';
 import { HeroStage } from '@/components/landing/hero-stage';
 import { ProofFlow } from '@/components/proof/proof-flow';
 import { LiveStatus } from '@/components/landing/live-status';
@@ -26,31 +29,31 @@ const RULES = [
 const STEPS = [
   {
     n: '01',
-    icon: Coins,
+    art: <CoinStackArt size={76} columns={[3, 5, 2]} />,
     title: 'Set a budget',
     body: 'Choose how much your AI can spend in a day. The money sits in your own wallet, not with the AI.',
   },
   {
     n: '02',
-    icon: UserCheck,
+    art: <VendorArt size={76} />,
     title: 'Pick who it can pay',
     body: 'Only the shops and services you list. A trick on some web page can’t add a new one.',
   },
   {
     n: '03',
-    icon: Smartphone,
+    art: <OwnerArt size={76} state="asking" />,
     title: 'Approve big payments from your phone',
     body: 'Anything over your limit waits for a tap. One button freezes everything if something looks off.',
   },
   {
     n: '04',
-    icon: Timer,
+    art: <AgentArt size={76} pose="paying" />,
     title: 'Cap how fast it can pay',
     body: 'Automatic payments are limited to 3, or 1 NEAR, in any 10-minute window. Splitting a large payment into small pieces does not get around it.',
   },
   {
     n: '05',
-    icon: ShieldAlert,
+    art: <AgentArt size={76} pose="frozen" />,
     title: 'A kill-switch for runaway agents',
     body: 'Three blocked unknown-payee requests in a row pause spending automatically. It cools down on its own, or the owner can reset it.',
   },
@@ -150,28 +153,32 @@ export default async function Home() {
           The rules your AI can’t talk its way past.
         </h2>
         <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {STEPS.map(({ n, icon: Icon, title, body }) => (
-            <article key={n} className="glass rounded-card p-6 transition hover:border-emerald-400/25">
-              <div className="flex items-center justify-between">
-                <span className="grid size-11 place-items-center rounded-xl border border-emerald-400/20 bg-emerald-400/[0.07] text-emerald-300">
-                  <Icon className="size-5" aria-hidden />
+          {STEPS.map(({ n, art, title, body }, i) => (
+            <Reveal
+              key={n}
+              delay={(i % 3) * 80}
+              className="glass lift group rounded-card p-6 hover:border-emerald-400/25"
+            >
+              <div className="flex items-start justify-between">
+                <span className="-m-1 transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-105">
+                  {art}
                 </span>
                 <span className="font-mono text-sm text-zinc-500">{n}</span>
               </div>
-              <h3 className="mt-6 text-lg font-semibold tracking-tight text-white">{title}</h3>
+              <h3 className="mt-4 text-lg font-semibold tracking-tight text-white">{title}</h3>
               <p className="mt-2 leading-relaxed text-zinc-300">{body}</p>
-            </article>
+            </Reveal>
           ))}
           <Link
             href="/agent?try=hijack"
-            className="glass group relative flex flex-col overflow-hidden rounded-card border-danger/25 p-6 transition hover:border-danger/50"
+            className="glass lift group relative flex flex-col overflow-hidden rounded-card border-danger/25 p-6 hover:border-danger/50"
           >
             <div aria-hidden className="absolute -right-10 -top-10 size-40 rounded-full bg-danger/15 blur-3xl" />
             <div className="relative flex items-center justify-between">
               <span className="grid size-11 place-items-center rounded-xl border border-danger/25 bg-danger/[0.08] text-danger">
                 <Swords className="size-5" aria-hidden />
               </span>
-              <Mascot mood="blocked" size={56} decorative />
+              <AgentArt pose="stopped" size={76} className="-m-1" />
             </div>
             <h3 className="relative mt-6 text-lg font-semibold tracking-tight text-white">Watch the attack demo</h3>
             <p className="relative mt-2 leading-relaxed text-zinc-300">
@@ -185,15 +192,25 @@ export default async function Home() {
         </div>
         <p className="mt-6 max-w-3xl text-sm leading-relaxed text-zinc-400">
           Under the hood: the rules live in a NEAR smart contract that holds the money. Your AI’s key can only ask that
-          contract for a payment. It can’t move funds or change the rules, even if it’s fully hijacked. The same contract
-          enforces a rolling 10-minute payment cap and an automatic kill-switch.{' '}
+          contract for a payment. It can’t move funds or change the rules, even if it’s fully hijacked. The same
+          contract enforces a rolling 10-minute payment cap and an automatic kill-switch.{' '}
           <a href={accountUrl(CONTRACT_ID)} target="_blank" rel="noreferrer" className="text-emerald-300">
             See the demo contract ↗
           </a>
         </p>
       </section>
 
-      <section id="proof" className="pt-24">
+      <Reveal as="section" className="pt-24">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">Follow the money</p>
+        <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          Every coin goes through the contract first.
+        </h2>
+        <div className="mt-8">
+          <FlowShowcase />
+        </div>
+      </Reveal>
+
+      <Reveal as="section" id="proof" className="pt-24">
         <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] text-brand/80">
           <CircleCheck className="size-4" aria-hidden />
           Proof, not promises
@@ -207,17 +224,17 @@ export default async function Home() {
         <div className="mt-8">
           <ProofFlow snapshot={snapshot} />
         </div>
-      </section>
+      </Reveal>
 
-      <section id="activity" className="pt-24">
+      <Reveal as="section" id="activity" className="pt-24">
         <OnChainFeed initial={snapshot} />
-      </section>
+      </Reveal>
 
-      <section id="verify" className="pt-24">
+      <Reveal as="section" id="verify" className="pt-24">
         <LiveChecks compact />
-      </section>
+      </Reveal>
 
-      <section className="pt-24">
+      <Reveal as="section" className="pt-24">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">The app</p>
         <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Built for your phone.
@@ -225,9 +242,9 @@ export default async function Home() {
         <div className="mt-8">
           <ScreensStrip />
         </div>
-      </section>
+      </Reveal>
 
-      <section className="pt-24">
+      <Reveal as="section" className="pt-24">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-pending/90">Above your limit</p>
         <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           What happens when your AI wants to spend more.
@@ -235,9 +252,9 @@ export default async function Home() {
         <div className="mt-8">
           <AboveLimit />
         </div>
-      </section>
+      </Reveal>
 
-      <section className="pt-24">
+      <Reveal as="section" className="pt-24">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">Who can do what</p>
         <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           The AI can ask. Only the contract can pay.
@@ -245,9 +262,9 @@ export default async function Home() {
         <div className="mt-8">
           <Architecture />
         </div>
-      </section>
+      </Reveal>
 
-      <section className="pt-24">
+      <Reveal as="section" className="pt-24">
         <div className="grid gap-10 lg:grid-cols-[1fr_1.3fr] lg:items-center">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">Why a contract</p>
@@ -297,13 +314,13 @@ export default async function Home() {
             </table>
           </div>
         </div>
-      </section>
+      </Reveal>
 
-      <section className="pt-24">
+      <Reveal as="section" className="pt-24">
         <Economy />
-      </section>
+      </Reveal>
 
-      <section className="pt-24">
+      <Reveal as="section" className="pt-24">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">Trust</p>
         <h2 className="mt-3 max-w-3xl font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Open, tested, and honest about its limits.
@@ -311,9 +328,12 @@ export default async function Home() {
         <div className="mt-8">
           <Trust />
         </div>
-      </section>
+      </Reveal>
 
-      <section className="glass glass-glow relative mt-24 overflow-hidden rounded-3xl px-6 py-14 text-center sm:px-12">
+      <Reveal
+        as="section"
+        className="glass glass-glow relative mt-24 overflow-hidden rounded-3xl px-6 py-14 text-center sm:px-12"
+      >
         <div
           aria-hidden
           className="absolute inset-x-0 -top-24 mx-auto h-48 w-2/3 rounded-full bg-emerald-400/20 blur-3xl"
@@ -352,8 +372,7 @@ export default async function Home() {
             Live dashboard
           </Link>
         </div>
-      </section>
+      </Reveal>
     </main>
   );
 }
-

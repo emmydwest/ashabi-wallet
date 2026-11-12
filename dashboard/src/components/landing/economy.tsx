@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AgentArt, VendorArt } from '@/components/art/pieces';
 
 // Factual framing: one agent sells data over HTTP 402, another buys through the vault.
 // The MCP snippet is the local command that works today; the package is not on npm yet.
@@ -16,6 +17,7 @@ export function Economy() {
       </p>
       <div className="mt-8 grid min-w-0 gap-4 md:grid-cols-2">
         <article className="glass min-w-0 rounded-card p-6">
+          <AgentArt pose="paying" size={60} className="float-right -mt-1 ml-3" />
           <p className="font-mono text-xs uppercase tracking-[0.16em] text-emerald-300/80">Buyer agent</p>
           <h3 className="mt-2 text-lg font-semibold text-white">Pays only what the vault allows</h3>
           <p className="mt-2 wrap-ids text-sm leading-relaxed text-zinc-400">
@@ -25,6 +27,7 @@ export function Economy() {
           </p>
         </article>
         <article className="glass min-w-0 rounded-card p-6">
+          <VendorArt size={60} className="float-right -mt-1 ml-3" />
           <p className="font-mono text-xs uppercase tracking-[0.16em] text-emerald-300/80">Provider agent</p>
           <h3 className="mt-2 text-lg font-semibold text-white">Sells over HTTP 402</h3>
           <p className="mt-2 wrap-ids text-sm leading-relaxed text-zinc-400">

@@ -1,3 +1,4 @@
+import { CoinFace } from '@/components/art/parts';
 import { Mascot } from '@/components/mascot/mascot';
 
 // The glowing platform the mascot floats over. Pure decoration; the live card sits beside it.
@@ -29,6 +30,19 @@ export function HeroStage() {
           strokeWidth="1.5"
         />
         <ellipse cx="200" cy="336" rx="96" ry="15" fill="none" stroke="#3df2a6" strokeOpacity="0.4" />
+        {/* The allowance, floating where the agent can see it but not grab it. */}
+        {[
+          { x: 62, y: 120, r: 13, delay: '0s' },
+          { x: 342, y: 92, r: 10, delay: '-2.2s' },
+          { x: 352, y: 262, r: 15, delay: '-4.1s' },
+          { x: 50, y: 280, r: 9, delay: '-1.3s' },
+        ].map((c) => (
+          <g key={c.x} transform={`translate(${c.x} ${c.y})`}>
+            <g className="animate-coin-drift" style={{ animationDelay: c.delay }}>
+              <CoinFace r={c.r} />
+            </g>
+          </g>
+        ))}
       </svg>
       <div className="animate-float relative -mt-[12%] w-[72%]">
         <Mascot size={320} fluid priority decorative />
