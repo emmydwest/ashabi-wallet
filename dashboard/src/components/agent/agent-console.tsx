@@ -19,6 +19,9 @@ import { PendingInline } from './pending-inline';
 import { RecentVerdicts } from './recent-verdicts';
 import { Mascot, type Mood } from '@/components/mascot/mascot';
 import { RulesBar } from './rules-bar';
+import { AgentArt } from '@/components/art/pieces';
+import { CountUp } from '@/components/count-up';
+import { RunFlow } from './run-flow';
 import { RunTimeline } from './run-timeline';
 import { AttackPreview } from './attack-preview';
 import { HowToTry } from './how-to-try';
@@ -43,7 +46,14 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
   const [model, setModel] = useState<'small' | 'main'>('small');
   const [walletNotice, setWalletNotice] = useState<string | null>(null);
   const [confirmBreaker, setConfirmBreaker] = useState(false);
+  const [runs, setRuns] = useState(0);
   const runCard = useRef<HTMLDivElement>(null);
+
+  // Each new run replays the payment drawing from the start.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (running) setRuns((n) => n + 1);
+  }, [running]);
   const attacksCard = useRef<HTMLDivElement>(null);
 
   // Back from a MyNearWallet approval: say what happened, then tidy the URL.
@@ -316,7 +326,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
               type="button"
               onClick={start}
               disabled={!canRun}
-              className={`w-full rounded-xl px-4 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`press w-full rounded-xl px-4 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
                 mode === 'task'
                   ? 'bg-emerald-400 text-black hover:bg-emerald-300'
                   : 'bg-rose-400 text-black hover:bg-rose-300'
@@ -357,6 +367,7 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
                 </p>
               )}
               {steps.length === 0 && !running && !error && <RecentVerdicts feed={snapshot.feed} now={new Date(snapshot.fetchedAt).getTime()} />}
+              <RunFlow steps={steps} summary={summary} running={running} status={status} runs={runs} />
               <RunTimeline steps={steps} running={running} />
               {summary && <Verdict {...summary} />}
               {summary?.txHash && intent && (
@@ -437,11 +448,41 @@ function Scoreboard({ status }: { status: WalletStatus }) {
       <p className="mt-2 text-xs text-zinc-500">
         All-time totals, since the contract was deployed. Blocked includes budget and speed limits, not just attacks.
       </p>
-      <p className={`mt-3 text-xs ${breaker.on ? 'text-danger' : 'text-zinc-300'}`}>
-        {breaker.text}
-        {breaker.detail && <span className="text-zinc-500"> · {breaker.detail}</span>}
-      </p>
+      {breaker.on || status.frozen ? (
+        <div className="animate-in mt-3 flex items-center gap-3 rounded-xl border border-sky-300/20 bg-sky-400/[0.05] p-3">
+          <AgentArt pose="frozen" size={56} />
+          <p className="min-w-0 text-xs leading-relaxed text-sky-100">
+            {status.frozen ? 'Frozen by the owner. No payment can move until they unfreeze it.' : breaker.text}
+            {!status.frozen && breaker.detail && <span className="text-zinc-400"> · {breaker.detail}</span>}
+          </p>
+        </div>
+      ) : (
+        <div className="mt-3 flex items-center gap-3">
+          <StrikeMeter strikes={status.strikes} max={status.guards.breaker_strikes} />
+          <p className="min-w-0 text-xs text-zinc-300">
+            {breaker.text}
+            {breaker.detail && <span className="text-zinc-500"> · {breaker.detail}</span>}
+          </p>
+        </div>
+      )}
     </section>
+  );
+}
+
+// One pip per strike the kill-switch allows; they light up as blocked unknown-payee requests land.
+function StrikeMeter({ strikes, max }: { strikes: number; max: number }) {
+  if (max === 0) return null;
+  return (
+    <span className="flex shrink-0 gap-1" aria-hidden>
+      {Array.from({ length: max }, (_, i) => (
+        <span
+          key={i}
+          className={`h-2 w-5 rounded-full transition-all duration-500 ${
+            i < strikes ? 'bg-danger shadow-[0_0_10px_rgb(251_113_133/0.7)]' : 'bg-white/10'
+          }`}
+        />
+      ))}
+    </span>
   );
 }
 
@@ -449,7 +490,9 @@ function Count({ value, label, tone }: { value: number; label: string; tone: str
   return (
     <div className="rounded-xl bg-black/25 px-3 py-2.5">
       <dt className="text-xs text-zinc-400">{label}</dt>
-      <dd className={`mt-0.5 font-mono text-xl font-semibold tabular ${tone}`}>{value}</dd>
+      <dd className={`mt-0.5 font-mono text-xl font-semibold ${tone}`}>
+        <CountUp value={value} />
+      </dd>
     </div>
   );
 }

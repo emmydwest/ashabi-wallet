@@ -392,3 +392,34 @@ body:has(.chat-page) .site-footer {
     animation: none;
   }
 }
+
+/* Chat bubbles: yours slides in from the right, Ashabi's rises from its avatar. */
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+@keyframes msg-out {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+.animate-msg-in {
+  transform-origin: top left;
+  animation: msg-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-msg-out {
+  animation: msg-out 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-msg-in,
+  .animate-msg-out {
+    animation: none;
+  }
+}

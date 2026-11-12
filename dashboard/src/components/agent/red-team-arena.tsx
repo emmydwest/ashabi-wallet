@@ -1,6 +1,7 @@
 'use client';
 
 import { Zap } from 'lucide-react';
+import { CountUp } from '@/components/count-up';
 import { ExplorerLink } from '@/components/explorer-link';
 import { TimeAgo } from '@/components/time-ago';
 import { QUICK_ATTACKS, type QuickAttack } from '@/lib/agent/attacks';
@@ -41,10 +42,10 @@ export function RedTeamArena({ snapshot, busy, onRun }: Props) {
             type="button"
             disabled={busy}
             onClick={() => onRun(attack)}
-            className="group flex min-w-0 items-center gap-3 rounded-xl border border-rose-400/20 bg-rose-400/[0.05] px-3.5 py-3 text-left transition-colors hover:border-rose-300/50 hover:bg-rose-400/[0.09] disabled:cursor-not-allowed disabled:opacity-50"
+            className="press lift group flex min-w-0 items-center gap-3 rounded-xl border border-rose-400/20 bg-rose-400/[0.05] px-3.5 py-3 text-left hover:border-rose-300/50 hover:bg-rose-400/[0.09] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-rose-400/15 text-rose-200 group-hover:bg-rose-400/25">
-              <Zap className="size-4" aria-hidden />
+            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-rose-400/15 text-rose-200 transition-colors group-hover:bg-rose-400/25">
+              <Zap className="size-4 transition-transform group-hover:-rotate-12 group-hover:scale-110" aria-hidden />
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-medium text-white">{attack.label}</span>
@@ -80,12 +81,14 @@ function DefenseStats({ snapshot }: { snapshot: GuardianSnapshot }) {
       <dl className="grid grid-cols-2 gap-2">
         <div className="rounded-xl bg-black/25 px-3 py-2.5">
           <dt className="text-xs text-zinc-400">Requests blocked</dt>
-          <dd className="mt-0.5 font-mono text-xl font-semibold text-danger">{total}</dd>
+          <dd className="mt-0.5 font-mono text-xl font-semibold text-danger">
+            <CountUp value={total} />
+          </dd>
         </div>
         <div className="rounded-xl bg-black/25 px-3 py-2.5">
           <dt className="text-xs text-zinc-400">NEAR kept in the vault</dt>
           <dd className="mt-0.5 font-mono text-xl font-semibold text-safe">
-            {nearNumber(refused).toLocaleString('en-US', { maximumFractionDigits: 2 })}
+            <CountUp value={Math.round(nearNumber(refused) * 100) / 100} decimals={2} />
           </dd>
         </div>
       </dl>
