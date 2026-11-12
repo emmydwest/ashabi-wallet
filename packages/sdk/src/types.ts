@@ -9,7 +9,8 @@ export type RequestStatus =
   | 'INSUFFICIENT_FUNDS'
   | 'FROZEN'
   | 'DUPLICATE'
-  | 'TOO_MANY_PENDING';
+  | 'TOO_MANY_PENDING'
+  | 'BLOCKED_COUNTERPARTY';
 
 export type PaymentStatus = 'PENDING_APPROVAL' | 'TRANSFERRING' | 'COMPLETED' | 'FAILED' | 'REJECTED' | 'EXPIRED';
 
@@ -44,7 +45,20 @@ export type WalletStatus = {
   strikes: number;
   breaker_until: number | null;
   pending_rules?: PendingRules;
+  /** How many payees are on the blocklist. Missing on wallets running code from before it. */
+  reported_payees?: number;
+  /** Accounts the owner trusts to report payees. */
+  reporters?: string[];
 };
+
+export type PayeeReport = {
+  reason: string;
+  evidence_tx: string | null;
+  reported_by: string;
+  reported_at: number;
+};
+
+export type ReportedPayee = { account_id: string; report: PayeeReport };
 
 export type Policy = Pick<
   WalletStatus,

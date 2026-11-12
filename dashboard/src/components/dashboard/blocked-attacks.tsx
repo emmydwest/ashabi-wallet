@@ -9,12 +9,15 @@ import { ShieldX } from './payment-feed';
 export function BlockedAttacks({ feed, now }: { feed: FeedItem[]; now?: number }) {
   const attacks = feed
     .filter((i): i is Extract<FeedItem, { kind: 'blocked' }> => i.kind === 'blocked')
-    .filter((i) => i.attempt.status === 'BLOCKED_RECIPIENT')
+    .filter((i) => i.attempt.status === 'BLOCKED_RECIPIENT' || i.attempt.status === 'BLOCKED_COUNTERPARTY')
     .slice(0, 3);
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader title="Blocked attacks" hint="Payments to unapproved accounts. Stored on-chain, funds untouched." />
+      <CardHeader
+        title="Blocked attacks"
+        hint="Payments to unapproved or reported accounts. Stored on-chain, funds untouched."
+      />
       <div className="space-y-3 p-5 sm:p-6">
         {attacks.length === 0 && <p className="text-sm text-zinc-400">No attacks recorded yet.</p>}
         {attacks.map(({ key, at, txHash, attempt }) => (

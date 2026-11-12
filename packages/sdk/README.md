@@ -58,6 +58,7 @@ const status = await agent.getStatus();
 | `getPolicy()` | payees, limits, guards and pending rules |
 | `getStatus()` | the full `WalletStatus`, including budget left and kill-switch state |
 | `getPayment(id)` / `waitForSettlement(id)` | a `PaymentRecord` |
+| `getPayeeReport(accountId)` / `getReportedPayees()` | the vault's blocklist entry for an account (or `null`), or the whole list |
 
 `RequestStatus` is the contract's enum: `APPROVED`, `PENDING_APPROVAL`, `BLOCKED_RECIPIENT`, `BLOCKED_BUDGET`, `BLOCKED_VELOCITY`, `INSUFFICIENT_FUNDS`, `FROZEN`, `DUPLICATE`, `TOO_MANY_PENDING`. A transaction that failed before the contract answered has `status: null` and an `error`.
 

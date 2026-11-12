@@ -38,6 +38,10 @@ export function paymentMessage(
     const who = opts?.receiver || 'that account';
     return `I can't send that — ${who} isn't on the approved list. The contract blocked it, and nothing was spent.`;
   }
+  if (verdict === 'BLOCKED_COUNTERPARTY') {
+    const who = opts?.receiver || 'that account';
+    return `I can't pay ${who} — it's been reported as malicious and sits on the vault's blocklist. The contract blocked it, and nothing was spent.`;
+  }
   if (verdict === 'BLOCKED_VELOCITY') {
     return `I can't send that many payments so quickly — the vault's speed limit kicked in. Nothing was spent.`;
   }

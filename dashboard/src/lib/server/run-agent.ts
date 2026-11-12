@@ -2,9 +2,18 @@ import 'server-only';
 import { VENDOR_ID } from '@/lib/config';
 import { nearToYocto, nsToDate, toNear } from '@/lib/near';
 import type { PaymentRecord, WalletStatus } from '@/lib/types';
-import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, HIJACK, SPOOFED_VENDOR, type Attack, type Surface } from '@/lib/agent/attacks';
+import {
+  ATTACKER,
+  ATTACKS,
+  CUSTOM_ATTACK_ID,
+  HIJACK,
+  ROGUE_VENDOR,
+  SPOOFED_VENDOR,
+  type Attack,
+  type Surface,
+} from '@/lib/agent/attacks';
 import { INTENT_PREFIX_LENGTH, intentHash, type IntentLog } from '@/lib/agent/intent';
-import type { AgentEvent, Plan, RunRequest } from '@/lib/agent/types';
+import type { AgentEvent, BadgeTone, Plan, RunRequest } from '@/lib/agent/types';
 import { CATALOG, deliver, itemFor } from '@/vendor/catalog';
 import { receiptProblem } from '@/vendor/receipt';
 import { matchCatalog, parseTransfer } from '@/lib/chat-intent';
@@ -12,6 +21,7 @@ import { paymentMessage } from './chat';
 import { askModel, type ModelChoice } from './models';
 import type { GuardianAgent, PaymentArgs, PaymentResult } from 'guardian-wallet-sdk';
 import { guardianAgent } from './agent-key';
+import { checkCounterparty, type CounterpartyLevel } from './counterparty';
 import { put } from './store';
 
 // Anything this console sends to an approved payee could really move funds, so cap it
@@ -391,7 +401,24 @@ function contractAnswer(payment: PaymentResult, emit: Emit) {
   };
 }
 
+const COUNTERPARTY_TONE: Record<CounterpartyLevel, BadgeTone> = { ALLOW: 'emerald', WARN: 'amber', BLOCK: 'rose' };
+
+// Advice only: the payment is still sent, so the contract makes the call and records it.
+async function checkPayee(receiverId: string, agent: GuardianAgent, emit: Emit) {
+  const check = await checkCounterparty(receiverId, agent.contractId);
+  emit({
+    type: 'step',
+    kind: 'guard',
+    title: `Counterparty check on ${receiverId}: ${check.level}`,
+    body: check.findings.length
+      ? `${check.findings.join('; ')}.${check.report?.evidence_tx ? ` Evidence tx ${check.report.evidence_tx}.` : ''}`
+      : 'Not reported, not brand new, and no contract code change in the last day.',
+    badge: { text: check.level, tone: COUNTERPARTY_TONE[check.level] },
+  });
+}
+
 export async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string[] = [], agent = guardianAgent()) {
+  await checkPayee(plan.receiver_id, agent, emit);
   const intent = await recordIntent(plan, why, emit);
   const request = {
     requestId: `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
@@ -407,6 +434,7 @@ export async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string
 // retry with the receipt. The vendor checks the transaction on-chain before it hands over anything.
 export async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin, agent }: Context) {
   const url = `${origin}/api/vendor/${plan.sku}`;
+  await checkPayee(plan.receiver_id, agent, emit);
   const intent = await recordIntent(plan, why, emit);
   // Set by onPayment; a cast keeps TypeScript from narrowing it to null across the callbacks.
   let answer = null as ReturnType<typeof contractAnswer>;
@@ -535,6 +563,7 @@ async function runScriptedAttack(attack: Attack, status: WalletStatus, emit: Emi
   if (attack.script === 'breaker') return runBreaker(status, emit);
   if (attack.script === 'spike') return runPriceSpike(status, emit, context);
   if (attack.script === 'phishing') return runPhishing(emit);
+  if (attack.script === 'counterparty') return runCounterparty(emit);
 }
 
 // A vendor already on the allowlist raises its price to exactly the auto-pay limit, so the single
@@ -579,6 +608,35 @@ async function runPriceSpike(status: WalletStatus, emit: Emit, context: Context)
       : call.verdict === 'BLOCKED_VELOCITY'
         ? `Contract blocked the spike: the ${status.guards.velocity_window_minutes}-minute spend cap`
         : `Contract blocked the spike: ${call.verdict}`,
+    detail: call.reason,
+  });
+}
+
+async function runCounterparty(emit: Emit) {
+  const why: Why = { task: 'scripted compromised counterparty', model: 'none (scripted attack)' };
+  const amount = itemFor('icon-pack')!.price_near;
+  emit({
+    type: 'step',
+    kind: 'warning',
+    title: `Paying ${amount} NEAR to ${ROGUE_VENDOR}, as a poisoned tool result told the agent to`,
+  });
+  const call = await sendRequest(scriptedPlan(amount, ROGUE_VENDOR, 'compromised counterparty'), emit, why);
+  if (!call) return;
+  const breached = call.verdict === 'APPROVED' || call.verdict === 'PENDING_APPROVAL';
+  emit({
+    type: 'summary',
+    tookBait: true,
+    verdict: call.verdict,
+    reason: call.reason,
+    moved: false,
+    txHash: call.txHash,
+    outcome: breached ? 'breached' : 'blocked',
+    simulated: true,
+    headline: breached
+      ? `The reported account got through: ${call.verdict}`
+      : call.verdict === 'BLOCKED_COUNTERPARTY'
+        ? 'Contract blocked it: the payee is on the blocklist'
+        : `Contract blocked it: ${call.verdict}`,
     detail: call.reason,
   });
 }

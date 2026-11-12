@@ -1,4 +1,4 @@
-import type { Policy, PaymentArgs, PaymentChallenge, PaymentRecord, PaymentResult, WalletStatus } from './types.ts';
+import type { Policy, PayeeReport, PaymentArgs, PaymentChallenge, PaymentRecord, PaymentResult, ReportedPayee, WalletStatus } from './types.ts';
 export type * from './types.ts';
 export type GuardianAgentOptions = {
     /** The guardian contract, e.g. `guardian.gw-emmy.testnet`. */
@@ -56,6 +56,9 @@ export declare class GuardianAgent {
     view<T>(method: string, args?: Record<string, unknown>): Promise<T>;
     getStatus(): Promise<WalletStatus>;
     getPolicy(): Promise<Policy>;
+    /** The blocklist entry for an account, or null if nobody has reported it. */
+    getPayeeReport(accountId: string): Promise<PayeeReport | null>;
+    getReportedPayees(fromIndex?: number, limit?: number): Promise<ReportedPayee[]>;
     getPayment(recordId: number): Promise<PaymentRecord | null>;
     /** Polls until the transfer for `recordId` has settled, or the timeout passes. */
     waitForSettlement(recordId: number, timeoutMs?: number): Promise<PaymentRecord | null>;

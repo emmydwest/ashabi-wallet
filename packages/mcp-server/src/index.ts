@@ -59,6 +59,20 @@ server.registerTool(
 );
 
 server.registerTool(
+  'guardian_payee_report',
+  {
+    title: 'Check a payee against the blocklist',
+    description:
+      'Read whether an account is on the vault\'s blocklist of reported payees, with the reason, the reporter and any evidence transaction. The contract refuses payments to listed accounts. No key needed.',
+    inputSchema: { account_id: z.string().min(2) },
+  },
+  async ({ account_id }) => {
+    const report = await agent.getPayeeReport(account_id);
+    return text({ account_id, reported: Boolean(report), report });
+  },
+);
+
+server.registerTool(
   'guardian_request_payment',
   {
     title: 'Request a payment',

@@ -466,6 +466,8 @@ function defenseOf({ outcome, verdict, reason }: Summary) {
   const what =
     verdict === 'BLOCKED_RECIPIENT'
       ? 'contract blocked unapproved payee'
+      : verdict === 'BLOCKED_COUNTERPARTY'
+        ? 'contract blocked a reported payee'
       : `contract blocked it (${shortReason(verdict, reason)})`;
   return { layer: 'contract layer', text: `model compromised, ${what}` };
 }
@@ -562,6 +564,8 @@ function shortReason(verdict: string | null, reason?: string) {
   switch (verdict) {
     case 'BLOCKED_RECIPIENT':
       return 'unapproved payee';
+    case 'BLOCKED_COUNTERPARTY':
+      return 'reported payee';
     case 'BLOCKED_VELOCITY':
       return 'too many small payments';
     case 'BLOCKED_BUDGET':

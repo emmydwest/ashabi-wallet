@@ -13,6 +13,7 @@ const STATUS_TONE: Record<string, keyof typeof TONES> = {
   PENDING_APPROVAL: 'pending',
   TRANSFERRING: 'info',
   BLOCKED_RECIPIENT: 'danger',
+  BLOCKED_COUNTERPARTY: 'danger',
   BLOCKED_BUDGET: 'danger',
   BLOCKED_VELOCITY: 'danger',
   INSUFFICIENT_FUNDS: 'danger',

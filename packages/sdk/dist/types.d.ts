@@ -1,4 +1,4 @@
-export type RequestStatus = 'APPROVED' | 'PENDING_APPROVAL' | 'BLOCKED_RECIPIENT' | 'BLOCKED_BUDGET' | 'BLOCKED_VELOCITY' | 'INSUFFICIENT_FUNDS' | 'FROZEN' | 'DUPLICATE' | 'TOO_MANY_PENDING';
+export type RequestStatus = 'APPROVED' | 'PENDING_APPROVAL' | 'BLOCKED_RECIPIENT' | 'BLOCKED_BUDGET' | 'BLOCKED_VELOCITY' | 'INSUFFICIENT_FUNDS' | 'FROZEN' | 'DUPLICATE' | 'TOO_MANY_PENDING' | 'BLOCKED_COUNTERPARTY';
 export type PaymentStatus = 'PENDING_APPROVAL' | 'TRANSFERRING' | 'COMPLETED' | 'FAILED' | 'REJECTED' | 'EXPIRED';
 export type Guards = {
     max_auto_payments: number;
@@ -32,6 +32,20 @@ export type WalletStatus = {
     strikes: number;
     breaker_until: number | null;
     pending_rules?: PendingRules;
+    /** How many payees are on the blocklist. Missing on wallets running code from before it. */
+    reported_payees?: number;
+    /** Accounts the owner trusts to report payees. */
+    reporters?: string[];
+};
+export type PayeeReport = {
+    reason: string;
+    evidence_tx: string | null;
+    reported_by: string;
+    reported_at: number;
+};
+export type ReportedPayee = {
+    account_id: string;
+    report: PayeeReport;
 };
 export type Policy = Pick<WalletStatus, 'owner_id' | 'agent_id' | 'daily_limit' | 'approval_threshold' | 'approved_payees' | 'guards' | 'pending_rules'>;
 export type PaymentRecord = {

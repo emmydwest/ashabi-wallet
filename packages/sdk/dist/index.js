@@ -56,6 +56,13 @@ export class GuardianAgent {
             pending_rules: s.pending_rules,
         };
     }
+    /** The blocklist entry for an account, or null if nobody has reported it. */
+    getPayeeReport(accountId) {
+        return this.view('get_payee_report', { account_id: accountId });
+    }
+    getReportedPayees(fromIndex = 0, limit = 50) {
+        return this.view('get_reported_payees', { from_index: fromIndex, limit });
+    }
     getPayment(recordId) {
         return this.view('get_payment', {
             record_id: recordId,

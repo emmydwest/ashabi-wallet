@@ -52,6 +52,7 @@ npx -y guardian-wallet-mcp
 | --- | --- | --- |
 | `guardian_wallet_status` | no | `get_wallet_status` on the contract |
 | `guardian_get_payment` | no | `get_payment(record_id)` |
+| `guardian_payee_report` | no | `get_payee_report(account_id)`: is the account on the vault's blocklist, and why |
 | `guardian_request_payment` | yes | `requestPayment({ receiverId, amount, memo })` |
 | `guardian_fetch_402` | yes | `pay402(url)` — fetch, pay a 402 challenge, retry with the receipt |
 

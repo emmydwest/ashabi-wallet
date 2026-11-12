@@ -1,9 +1,11 @@
 import type {
   Policy,
+  PayeeReport,
   PaymentArgs,
   PaymentChallenge,
   PaymentRecord,
   PaymentResult,
+  ReportedPayee,
   RequestStatus,
   WalletStatus,
 } from './types.ts';
@@ -108,6 +110,15 @@ export class GuardianAgent {
       guards: s.guards,
       pending_rules: s.pending_rules,
     };
+  }
+
+  /** The blocklist entry for an account, or null if nobody has reported it. */
+  getPayeeReport(accountId: string) {
+    return this.view<PayeeReport | null>('get_payee_report', { account_id: accountId });
+  }
+
+  getReportedPayees(fromIndex = 0, limit = 50) {
+    return this.view<ReportedPayee[]>('get_reported_payees', { from_index: fromIndex, limit });
   }
 
   getPayment(recordId: number) {
