@@ -280,6 +280,26 @@ Each row is a real attack the contract (and, where noted, the live demo) is buil
 
 ## Threat model
 
+Each attack, the check in the contract that stops it, and the NEAR key rule underneath. All
+contract references are `contract/src/lib.rs`; every check runs inside `request_payment`
+before any `Promise` transfer is created, so a blocked request never moves funds.
+
+| Attack | Contract check that stops it | NEAR key primitive | Try it |
+|---|---|---|---|
+| **Prompt-injection drain**: a page, invoice or tool result tells the agent to send everything to an attacker | `request_payment`: `approved_payees.contains(&receiver_id)` returns `BLOCKED_RECIPIENT`; the daily budget check (`spent_today + reserved + amount > daily_limit`) returns `BLOCKED_BUDGET`; `record_strike` trips the kill-switch after 3 unknown-payee blocks in a row | The agent signs with a function-call key limited to `request_payment` on the vault; the vault holds the funds, and only the vault's code can send them | `/agent` → One-tap attacks → Prompt-injection drain, or Hijack the agent |
+| **Runaway loop / salami slicing**: many small payments, each under the approval threshold | `velocity_problem` (via `auto_paid_in_window`): automatic payments in the window may not add up past `approval_threshold`, and at most `guards.max_auto_payments` of them, else `BLOCKED_VELOCITY`; reused `request_id` returns `DUPLICATE` (`used_request_ids`) | The function-call key's gas allowance (about 2.98 NEAR, shown live on `/agent`) caps how much gas a loop can burn | One-tap attacks → Split-payment bypass |
+| **Stolen agent server key** | `request_payment` accepts only `agent_id` as caller, and every check above still applies to it; owner methods go through `assert_owner`, which needs the owner account **and** exactly 1 yoctoNEAR attached | A function-call key cannot attach a deposit, send NEAR, add or delete keys, or deploy code. So the stolen key can only ask the contract, and can't call `approve_payment`, `add_payee`, `set_daily_limit`, `unfreeze` or `withdraw`. The owner rotates it with `set_agent` | Key scope badge on `/agent`, `/dashboard`, `/verify` reads `view_access_key_list` live and shows which key signed the latest request |
+| **Rogue API price spike**: an approved vendor raises its 402 price | Above `approval_threshold`: `request_payment` holds it as `PENDING_APPROVAL` and only `approve_payment` (owner + 1 yoctoNEAR) releases it. At or below the threshold: `velocity_problem` keeps all automatic spend in a window at or under the threshold (`BLOCKED_VELOCITY`), so the most a greedy vendor gets without the owner is one threshold's worth per window, and never more than what's left today (`BLOCKED_BUDGET`) | Owner approval is a transaction from the owner's own wallet; the agent's function-call key can't produce it | One-tap attacks → Malicious price spike |
+| **Phishing / unknown payee**: a look-alike account such as `api-vendor.gw-ernmy.testnet` | `request_payment`: allowlist check returns `BLOCKED_RECIPIENT`, and the attempt is stored by `block` and counted towards the kill-switch | Only `add_payee` changes the allowlist, and it needs the owner's signature and 1 yoctoNEAR | One-tap attacks → Phishing payee |
+
+Outside the contract, the agent code adds two more checks that a compromised agent could skip,
+which is why the contract doesn't rely on them: the SDK refuses a 402 offer above `maxPrice` or to
+a payee outside `allowedPayees` (`packages/sdk/src/index.ts`, `challengeProblem`), and the demo
+vendor refuses a payment that isn't one catalog item at its listed price
+(`dashboard/src/lib/server/run-agent.ts`, `priceProblem`).
+
+What else to know:
+
 - **What it guarantees:** where funds can go and how much, how fast, and when a human has to
   sign. It does not guarantee that a vendor delivers what it was paid for; the 402 receipt check
   covers the payment side only.
@@ -290,6 +310,10 @@ Each row is a real attack the contract (and, where noted, the live demo) is buil
   vendor should keep them in Redis or a KV store with durable writes.
 - **Intent hash:** an audit-trail commitment in the memo, not a signature. Production would sign
   the intent log inside a TEE so the hash also proves which agent code produced it.
+- **Agent account keys:** `gw-emmy-agent.testnet` still has one full-access key from
+  development next to its scoped function-call keys. The server doesn't sign with it, and it
+  can't change the vault's rules, but it goes at code freeze too. The key scope badge shows the
+  live count, so it reads 0 on its own afterwards.
 - **Contract upgrades:** the contract account keeps a full-access key on testnet for evaluation
   stability; it will be removed about 2 hours before the deadline. In production you would burn
   it or hand upgrades to a DAO or multisig with a timelock.
