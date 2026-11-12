@@ -2,9 +2,10 @@
 //! funds and decides. Policy violations return a status instead of panicking,
 //! because a panic would roll back the record of the blocked attempt.
 
+use near_sdk::borsh::BorshDeserialize;
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
-use near_sdk::store::{IterableSet, LookupSet, Vector};
+use near_sdk::store::{IterableMap, IterableSet, LookupSet, Vector};
 use near_sdk::{
     env, near, require, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
 };
@@ -25,6 +26,11 @@ pub const DEFAULT_BREAKER_STRIKES: u32 = 3;
 pub const DEFAULT_BREAKER_COOLDOWN_MINUTES: u32 = 10;
 pub const DEFAULT_MAX_PENDING: u32 = 3;
 pub const DEFAULT_PENDING_TTL_MINUTES: u32 = 24 * 60;
+/// Bounds the storage a reporter can make the vault pay for.
+pub const MAX_REPORTED_PAYEES: u32 = 200;
+pub const MAX_REPORT_REASON_LEN: usize = 256;
+/// A NEAR transaction hash is 43 or 44 base58 characters.
+pub const MAX_EVIDENCE_LEN: usize = 64;
 const EVENT_STANDARD: &str = "guardian_wallet";
 const EVENT_VERSION: &str = "1.0.0";
 
@@ -36,6 +42,8 @@ enum StorageKey {
     Pending,
     Blocked,
     UsedRequestIds,
+    ReportedPayees,
+    Reporters,
 }
 
 #[near(serializers = [json, borsh])]
@@ -53,6 +61,8 @@ pub enum RequestStatus {
     /// Too many requests already wait for the owner. New variants go last: blocked attempts
     /// are stored with Borsh, which encodes the variant index.
     TooManyPending,
+    /// The recipient is on the vault's blocklist of reported payees.
+    BlockedCounterparty,
 }
 
 #[near(serializers = [json, borsh])]
@@ -98,6 +108,24 @@ pub struct BlockedAttempt {
     pub timestamp: u64,
 }
 
+/// Why a payee was put on the blocklist, and by whom.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug)]
+pub struct PayeeReport {
+    pub reason: String,
+    /// Hash of a transaction that shows the payee misbehaving, if the reporter has one.
+    pub evidence_tx: Option<String>,
+    pub reported_by: AccountId,
+    pub reported_at: u64,
+}
+
+#[near(serializers = [json])]
+#[derive(Clone, Debug)]
+pub struct ReportedPayee {
+    pub account_id: AccountId,
+    pub report: PayeeReport,
+}
+
 #[near(serializers = [json])]
 #[derive(Clone, Debug)]
 pub struct RequestOutcome {
@@ -133,6 +161,8 @@ pub struct WalletStatus {
     /// Block timestamp (ns) the breaker cools down at, if it has tripped.
     pub breaker_until: Option<u64>,
     pub pending_rules: PendingRules,
+    pub reported_payees: u32,
+    pub reporters: Vec<AccountId>,
 }
 
 /// Limits that catch patterns a single request cannot show. Zero turns a guard off.
@@ -179,7 +209,7 @@ impl Default for PendingRules {
     }
 }
 
-/// The previous state layout, kept so `migrate` can read it. It had no pending rules.
+/// An older state layout, kept so `migrate` can read it. It had no pending rules.
 #[near(serializers = [borsh])]
 pub struct GuardianWalletV3 {
     owner_id: AccountId,
@@ -199,6 +229,66 @@ pub struct GuardianWalletV3 {
     guards: Guards,
     strikes: u32,
     breaker_until: Option<u64>,
+}
+
+/// The layout before the payee blocklist.
+#[near(serializers = [borsh])]
+pub struct GuardianWalletV4 {
+    owner_id: AccountId,
+    agent_id: AccountId,
+    daily_limit: u128,
+    approval_threshold: u128,
+    spent_today: u128,
+    current_day: u64,
+    reserved: u128,
+    frozen: bool,
+    approved_payees: IterableSet<AccountId>,
+    payment_records: Vector<PaymentRecord>,
+    pending: IterableSet<u64>,
+    blocked_attempts: Vector<BlockedAttempt>,
+    blocked_total: u64,
+    used_request_ids: LookupSet<String>,
+    guards: Guards,
+    strikes: u32,
+    breaker_until: Option<u64>,
+    pending_rules: PendingRules,
+}
+
+impl From<GuardianWalletV3> for GuardianWalletV4 {
+    fn from(old: GuardianWalletV3) -> Self {
+        Self {
+            owner_id: old.owner_id,
+            agent_id: old.agent_id,
+            daily_limit: old.daily_limit,
+            approval_threshold: old.approval_threshold,
+            spent_today: old.spent_today,
+            current_day: old.current_day,
+            reserved: old.reserved,
+            frozen: old.frozen,
+            approved_payees: old.approved_payees,
+            payment_records: old.payment_records,
+            pending: old.pending,
+            blocked_attempts: old.blocked_attempts,
+            blocked_total: old.blocked_total,
+            used_request_ids: old.used_request_ids,
+            guards: old.guards,
+            strikes: old.strikes,
+            breaker_until: old.breaker_until,
+            pending_rules: PendingRules::default(),
+        }
+    }
+}
+
+/// Reads whichever older layout is stored. Borsh refuses leftover or missing bytes, so the two
+/// can't be mistaken for each other.
+fn read_old_state() -> GuardianWalletV4 {
+    let raw = env::storage_read(b"STATE").expect("no state to migrate");
+    if let Ok(v4) = GuardianWalletV4::try_from_slice(&raw) {
+        return v4;
+    }
+    GuardianWalletV3::try_from_slice(&raw)
+        .map(GuardianWalletV4::from)
+        .unwrap_or_else(|_| env::panic_str("stored state matches no known layout"))
 }
 
 #[near(contract_state)]
@@ -224,6 +314,11 @@ pub struct GuardianWallet {
     strikes: u32,
     breaker_until: Option<u64>,
     pending_rules: PendingRules,
+    /// Payees reported as malicious. Checked before the allowlist, so a listed account stays
+    /// blocked even if it is also an approved payee.
+    reported_payees: IterableMap<AccountId, PayeeReport>,
+    /// Accounts the owner trusts to report payees. They can add to the list, never clear it.
+    reporters: IterableSet<AccountId>,
 }
 
 fn emit(event: &str, data: near_sdk::serde_json::Value) {
@@ -270,6 +365,8 @@ impl GuardianWallet {
             strikes: 0,
             breaker_until: None,
             pending_rules: PendingRules::default(),
+            reported_payees: IterableMap::new(StorageKey::ReportedPayees),
+            reporters: IterableSet::new(StorageKey::Reporters),
         };
         for p in approved_payees.unwrap_or_default() {
             c.approved_payees.insert(p);
@@ -284,13 +381,14 @@ impl GuardianWallet {
         c
     }
 
-    /// One-off upgrade from the V3 layout; keeps every record, the guards and the current owner,
-    /// and starts the pending rules at their defaults.
+    /// Upgrades from the V3 or V4 layout, keeping every record, the guards, the pending rules and
+    /// the current owner. The blocklist starts empty; `reporters` seeds who may add to it. Only the
+    /// contract account can call this, and it already controls the code.
     #[private]
     #[init(ignore_state)]
-    pub fn migrate() -> Self {
-        let old: GuardianWalletV3 = env::state_read().expect("no state to migrate");
-        Self {
+    pub fn migrate(reporters: Option<Vec<AccountId>>) -> Self {
+        let old = read_old_state();
+        let mut wallet = Self {
             owner_id: old.owner_id,
             agent_id: old.agent_id,
             daily_limit: old.daily_limit,
@@ -308,8 +406,14 @@ impl GuardianWallet {
             guards: old.guards,
             strikes: old.strikes,
             breaker_until: old.breaker_until,
-            pending_rules: PendingRules::default(),
+            pending_rules: old.pending_rules,
+            reported_payees: IterableMap::new(StorageKey::ReportedPayees),
+            reporters: IterableSet::new(StorageKey::Reporters),
+        };
+        for reporter in reporters.unwrap_or_default() {
+            wallet.insert_reporter(reporter);
         }
+        wallet
     }
 
     #[payable]
@@ -377,6 +481,20 @@ impl GuardianWallet {
                     "circuit breaker tripped after repeated suspicious requests; resumes in {} min or when the owner unfreezes",
                     minutes
                 ),
+            );
+        }
+        if let Some(report) = self.reported_payees.get(&receiver_id) {
+            let reason = format!(
+                "recipient {} was reported by {}: {}; funds not transferred",
+                receiver_id, report.reported_by, report.reason
+            );
+            return self.block(
+                request_id,
+                receiver_id,
+                amount,
+                memo,
+                RequestStatus::BlockedCounterparty,
+                reason,
             );
         }
         if !self.approved_payees.contains(&receiver_id) {
@@ -520,6 +638,10 @@ impl GuardianWallet {
         require!(
             !self.is_stale(&rec, env::block_timestamp()),
             "this request has expired; the agent has to ask again"
+        );
+        require!(
+            !self.reported_payees.contains_key(&rec.receiver_id),
+            "this payee has been reported; clear the report before approving"
         );
         require!(
             rec.amount.0
@@ -673,6 +795,80 @@ impl GuardianWallet {
         );
     }
 
+    /// Puts a payee on the blocklist. The owner or a trusted reporter signs, with 1 yoctoNEAR, so
+    /// the agent's function-call key can never do it. Re-reporting updates the entry.
+    #[payable]
+    pub fn report_payee(
+        &mut self,
+        account_id: AccountId,
+        reason: String,
+        evidence_tx: Option<String>,
+    ) {
+        let caller = env::predecessor_account_id();
+        require!(
+            caller == self.owner_id || self.reporters.contains(&caller),
+            "Unauthorized: only the owner or a trusted reporter can report a payee"
+        );
+        require!(
+            env::attached_deposit() == NearToken::from_yoctonear(1),
+            "Requires attached deposit of exactly 1 yoctoNEAR"
+        );
+        require!(
+            !reason.trim().is_empty() && reason.len() <= MAX_REPORT_REASON_LEN,
+            "reason must be 1..=256 bytes"
+        );
+        if let Some(tx) = &evidence_tx {
+            require!(
+                !tx.is_empty() && tx.len() <= MAX_EVIDENCE_LEN,
+                "evidence_tx must be a transaction hash"
+            );
+        }
+        require!(
+            account_id != self.owner_id && account_id != env::current_account_id(),
+            "the owner and the vault itself cannot be reported"
+        );
+        require!(
+            self.reported_payees.contains_key(&account_id)
+                || self.reported_payees.len() < MAX_REPORTED_PAYEES,
+            "the blocklist is full; the owner has to clear an entry first"
+        );
+        let report = PayeeReport {
+            reason,
+            evidence_tx,
+            reported_by: caller,
+            reported_at: env::block_timestamp(),
+        };
+        emit(
+            "payee_reported",
+            json!({ "account_id": account_id, "report": report }),
+        );
+        self.reported_payees.insert(account_id, report);
+    }
+
+    /// Only the owner takes a payee off the blocklist.
+    #[payable]
+    pub fn clear_payee_report(&mut self, account_id: AccountId) {
+        self.assert_owner();
+        require!(
+            self.reported_payees.remove(&account_id).is_some(),
+            "this payee is not reported"
+        );
+        emit("payee_report_cleared", json!({ "account_id": account_id }));
+    }
+
+    #[payable]
+    pub fn add_reporter(&mut self, account_id: AccountId) {
+        self.assert_owner();
+        self.insert_reporter(account_id);
+    }
+
+    #[payable]
+    pub fn remove_reporter(&mut self, account_id: AccountId) {
+        self.assert_owner();
+        self.reporters.remove(&account_id);
+        emit("reporter_removed", json!({ "account_id": account_id }));
+    }
+
     #[payable]
     pub fn withdraw(&mut self, amount: U128) -> Promise {
         self.assert_owner();
@@ -753,6 +949,8 @@ impl GuardianWallet {
             strikes: self.strikes,
             breaker_until: self.breaker_until.filter(|until| now < *until),
             pending_rules: self.pending_rules.clone(),
+            reported_payees: self.reported_payees.len(),
+            reporters: self.reporters.iter().cloned().collect(),
         }
     }
 
@@ -809,6 +1007,36 @@ impl GuardianWallet {
 
     pub fn is_request_id_used(&self, request_id: String) -> bool {
         self.used_request_ids.contains(&request_id)
+    }
+
+    pub fn get_payee_report(&self, account_id: AccountId) -> Option<PayeeReport> {
+        self.reported_payees.get(&account_id).cloned()
+    }
+
+    pub fn get_reported_payees(
+        &self,
+        from_index: Option<u32>,
+        limit: Option<u32>,
+    ) -> Vec<ReportedPayee> {
+        let limit = limit.unwrap_or(50).min(100) as usize;
+        self.reported_payees
+            .iter()
+            .skip(from_index.unwrap_or(0) as usize)
+            .take(limit)
+            .map(|(account_id, report)| ReportedPayee {
+                account_id: account_id.clone(),
+                report: report.clone(),
+            })
+            .collect()
+    }
+
+    fn insert_reporter(&mut self, account_id: AccountId) {
+        require!(
+            account_id != self.agent_id,
+            "the agent cannot be a reporter"
+        );
+        self.reporters.insert(account_id.clone());
+        emit("reporter_added", json!({ "account_id": account_id }));
     }
 
     fn assert_owner(&self) {
@@ -915,10 +1143,13 @@ impl GuardianWallet {
         None
     }
 
-    /// Paying a stranger looks like a hijacked agent. Budget, balance and velocity blocks also
+    /// Paying a stranger or a reported account looks like a hijacked agent. Budget, balance and velocity blocks also
     /// happen to honest agents, so they don't count towards the breaker.
     fn record_strike(&mut self, status: &RequestStatus) {
-        if *status != RequestStatus::BlockedRecipient {
+        if !matches!(
+            status,
+            RequestStatus::BlockedRecipient | RequestStatus::BlockedCounterparty
+        ) {
             return;
         }
         self.strikes += 1;

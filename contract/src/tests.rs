@@ -658,7 +658,7 @@ fn migrate_keeps_v3_state() {
         breaker_until: None,
     };
     env::state_write(&old);
-    let c = GuardianWallet::migrate();
+    let c = GuardianWallet::migrate(None);
     let s = c.get_wallet_status();
     assert_eq!(s.owner_id, owner());
     assert_eq!(s.blocked_count, 24);
@@ -666,10 +666,16 @@ fn migrate_keeps_v3_state() {
     assert_eq!(s.approved_payees, vec![vendor()]);
     assert_eq!(s.strikes, 2);
     assert_eq!(s.pending_rules.max_pending, DEFAULT_MAX_PENDING);
-    assert_eq!(s.pending_rules.pending_ttl_minutes, DEFAULT_PENDING_TTL_MINUTES);
+    assert_eq!(
+        s.pending_rules.pending_ttl_minutes,
+        DEFAULT_PENDING_TTL_MINUTES
+    );
     assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Completed);
     assert_eq!(c.get_pending().len(), 1);
-    assert_eq!(c.get_blocked_attempts(None, None)[0].status, RequestStatus::BlockedRecipient);
+    assert_eq!(
+        c.get_blocked_attempts(None, None)[0].status,
+        RequestStatus::BlockedRecipient
+    );
 }
 
 #[test]
@@ -703,17 +709,23 @@ fn migrated_pending_request_still_expires_and_can_be_approved_in_time() {
         strikes: 0,
         breaker_until: None,
     });
-    let mut c = GuardianWallet::migrate();
+    let mut c = GuardianWallet::migrate(None);
     as_owner(T0 + 60 * MINUTE);
     c.approve_payment(0);
-    assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Transferring);
+    assert_eq!(
+        c.get_payment(0).unwrap().status,
+        PaymentStatus::Transferring
+    );
 }
 
 #[test]
 fn pending_request_expires_and_releases_budget() {
     let mut c = setup();
     as_agent(T0);
-    assert_eq!(pay(&mut c, "big", vendor(), 2 * NEAR), RequestStatus::PendingApproval);
+    assert_eq!(
+        pay(&mut c, "big", vendor(), 2 * NEAR),
+        RequestStatus::PendingApproval
+    );
     assert_eq!(c.get_wallet_status().reserved.0, 2 * NEAR);
 
     let later = T0 + DEFAULT_PENDING_TTL_MINUTES as u64 * MINUTE;
@@ -724,7 +736,10 @@ fn pending_request_expires_and_releases_budget() {
     assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Expired);
     assert!(c.get_pending().is_empty());
 
-    assert_eq!(pay(&mut c, "small", vendor(), NEAR / 2), RequestStatus::Approved);
+    assert_eq!(
+        pay(&mut c, "small", vendor(), NEAR / 2),
+        RequestStatus::Approved
+    );
     assert_eq!(events("payment_expired"), 1);
     assert_eq!(c.get_payment(0).unwrap().status, PaymentStatus::Expired);
     assert_eq!(c.get_wallet_status().reserved.0, 0);
@@ -745,7 +760,12 @@ fn anyone_can_release_expired_requests() {
     let mut c = setup();
     as_agent(T0);
     pay(&mut c, "big", vendor(), 2 * NEAR);
-    testing_env!(ctx(attacker(), 0, T0 + DEFAULT_PENDING_TTL_MINUTES as u64 * MINUTE).build());
+    testing_env!(ctx(
+        attacker(),
+        0,
+        T0 + DEFAULT_PENDING_TTL_MINUTES as u64 * MINUTE
+    )
+    .build());
     assert_eq!(c.expire_pending(), 1);
     assert_eq!(c.expire_pending(), 0);
     assert_eq!(c.get_wallet_status().reserved.0, 0);
@@ -766,19 +786,28 @@ fn too_many_pending_requests_are_refused() {
     assert!(r.reason.contains("approve or reject"));
     // Not a sign of a stranger being paid, so no strike; small payments still go through.
     assert_eq!(c.get_wallet_status().strikes, 0);
-    assert_eq!(pay(&mut c, "small", vendor(), NEAR / 2), RequestStatus::Approved);
+    assert_eq!(
+        pay(&mut c, "small", vendor(), NEAR / 2),
+        RequestStatus::Approved
+    );
 
     as_owner(T0 + 1);
     c.reject_payment(0);
     as_agent(T0 + 2);
-    assert_eq!(pay(&mut c, "now-fits", vendor(), NEAR + 1), RequestStatus::PendingApproval);
+    assert_eq!(
+        pay(&mut c, "now-fits", vendor(), NEAR + 1),
+        RequestStatus::PendingApproval
+    );
 }
 
 #[test]
 fn owner_can_tune_or_disable_pending_rules() {
     let mut c = setup();
     as_owner(T0);
-    c.set_pending_rules(PendingRules { max_pending: 0, pending_ttl_minutes: 0 });
+    c.set_pending_rules(PendingRules {
+        max_pending: 0,
+        pending_ttl_minutes: 0,
+    });
     assert_eq!(events("pending_rules_updated"), 1);
     as_agent(T0);
     for i in 0..5 {
@@ -794,5 +823,233 @@ fn owner_can_tune_or_disable_pending_rules() {
 fn agent_cannot_change_pending_rules() {
     let mut c = setup();
     testing_env!(ctx(agent(), 1, T0).build());
-    c.set_pending_rules(PendingRules { max_pending: 0, pending_ttl_minutes: 0 });
+    c.set_pending_rules(PendingRules {
+        max_pending: 0,
+        pending_ttl_minutes: 0,
+    });
+}
+
+fn reporter() -> AccountId {
+    "security-desk.testnet".parse().unwrap()
+}
+
+fn report(c: &mut GuardianWallet, by: AccountId, target: AccountId) {
+    testing_env!(ctx(by, 1, T0).build());
+    c.report_payee(
+        target,
+        "drained another vault".into(),
+        Some("9v7FThK3Kz5qzAidyHdbrrtFsss4wgQUNES1RavZb2ya".into()),
+    );
+}
+
+#[test]
+fn reported_payee_is_blocked_even_when_approved() {
+    let mut c = setup();
+    report(&mut c, owner(), vendor());
+    as_agent(T0 + 1);
+    let r = c.request_payment("r1".into(), vendor(), U128(NEAR / 10), None);
+    assert_eq!(r.status, RequestStatus::BlockedCounterparty);
+    assert!(r.reason.contains("drained another vault"));
+    assert_eq!(events("payment_blocked"), 1);
+    let s = c.get_wallet_status();
+    assert_eq!((s.spent_today.0, s.reported_payees), (0, 1));
+    assert_eq!(
+        c.get_blocked_attempts(None, None)[0].status,
+        RequestStatus::BlockedCounterparty
+    );
+}
+
+#[test]
+fn trusted_reporter_can_report_but_not_clear() {
+    let mut c = setup();
+    as_owner(T0);
+    c.add_reporter(reporter());
+    report(&mut c, reporter(), attacker());
+    let saved = c.get_payee_report(attacker()).unwrap();
+    assert_eq!(saved.reported_by, reporter());
+    assert_eq!(
+        saved.evidence_tx.as_deref(),
+        Some("9v7FThK3Kz5qzAidyHdbrrtFsss4wgQUNES1RavZb2ya")
+    );
+    assert_eq!(events("payee_reported"), 1);
+
+    testing_env!(ctx(reporter(), 1, T0).build());
+    let cleared = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        c.clear_payee_report(attacker())
+    }));
+    assert!(cleared.is_err());
+    assert!(c.get_payee_report(attacker()).is_some());
+}
+
+#[test]
+#[should_panic(expected = "only the owner or a trusted reporter")]
+fn strangers_cannot_report() {
+    let mut c = setup();
+    report(&mut c, attacker(), vendor());
+}
+
+#[test]
+#[should_panic(expected = "only the owner or a trusted reporter")]
+fn the_agent_cannot_report() {
+    let mut c = setup();
+    report(&mut c, agent(), vendor());
+}
+
+#[test]
+#[should_panic(expected = "the agent cannot be a reporter")]
+fn the_agent_cannot_be_made_a_reporter() {
+    let mut c = setup();
+    as_owner(T0);
+    c.add_reporter(agent());
+}
+
+#[test]
+#[should_panic(expected = "exactly 1 yoctoNEAR")]
+fn reporting_needs_one_yocto() {
+    let mut c = setup();
+    testing_env!(ctx(owner(), 0, T0).build());
+    c.report_payee(attacker(), "scam".into(), None);
+}
+
+#[test]
+#[should_panic(expected = "cannot be reported")]
+fn the_owner_cannot_be_reported() {
+    let mut c = setup();
+    as_owner(T0);
+    c.add_reporter(reporter());
+    report(&mut c, reporter(), owner());
+}
+
+#[test]
+fn owner_clears_a_report_and_payments_resume() {
+    let mut c = setup();
+    report(&mut c, owner(), vendor());
+    as_owner(T0 + 1);
+    c.clear_payee_report(vendor());
+    assert_eq!(events("payee_report_cleared"), 1);
+    as_agent(T0 + 2);
+    assert_eq!(
+        pay(&mut c, "r1", vendor(), NEAR / 10),
+        RequestStatus::Approved
+    );
+}
+
+#[test]
+fn removed_reporter_loses_access() {
+    let mut c = setup();
+    as_owner(T0);
+    c.add_reporter(reporter());
+    c.remove_reporter(reporter());
+    assert!(c.get_wallet_status().reporters.is_empty());
+    testing_env!(ctx(reporter(), 1, T0).build());
+    let reported = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        c.report_payee(vendor(), "grief".into(), None)
+    }));
+    assert!(reported.is_err());
+}
+
+#[test]
+fn counterparty_blocks_count_towards_the_breaker() {
+    let mut c = setup();
+    report(&mut c, owner(), attacker());
+    as_agent(T0 + 1);
+    for i in 0..3 {
+        assert_eq!(
+            pay(&mut c, &format!("a{i}"), attacker(), NEAR / 10),
+            RequestStatus::BlockedCounterparty
+        );
+    }
+    assert_eq!(events("breaker_tripped"), 1);
+    assert_eq!(
+        pay(&mut c, "ok", vendor(), NEAR / 10),
+        RequestStatus::Frozen
+    );
+}
+
+#[test]
+#[should_panic(expected = "this payee has been reported")]
+fn owner_cannot_approve_a_payment_to_a_reported_payee() {
+    let mut c = setup();
+    as_agent(T0);
+    assert_eq!(
+        pay(&mut c, "big", vendor(), 2 * NEAR),
+        RequestStatus::PendingApproval
+    );
+    report(&mut c, owner(), vendor());
+    as_owner(T0 + 1);
+    c.approve_payment(0);
+}
+
+#[test]
+fn the_blocklist_is_capped() {
+    let mut c = setup();
+    testing_env!(ctx(owner(), 1, T0).build());
+    for i in 0..MAX_REPORTED_PAYEES {
+        // A fresh context every few reports keeps the event logs under the per-call limit.
+        if i % 40 == 0 {
+            testing_env!(ctx(owner(), 1, T0).build());
+        }
+        c.report_payee(
+            format!("scam{i}.testnet").parse().unwrap(),
+            "scam".into(),
+            None,
+        );
+    }
+    testing_env!(ctx(owner(), 1, T0).build());
+    // Updating an entry that is already listed still works when the list is full.
+    c.report_payee(
+        "scam0.testnet".parse().unwrap(),
+        "scam, confirmed".into(),
+        None,
+    );
+    let full = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        c.report_payee("one-more.testnet".parse().unwrap(), "scam".into(), None)
+    }));
+    assert!(full.is_err());
+    assert_eq!(c.get_reported_payees(Some(0), Some(100)).len(), 100);
+}
+
+#[test]
+fn migrate_keeps_v4_state_and_seeds_reporters() {
+    testing_env!(ctx(contract_id(), 0, T0).build());
+    let mut payees = IterableSet::new(StorageKey::Payees);
+    payees.insert(vendor());
+    payees.flush();
+    let mut records = Vector::new(StorageKey::Records);
+    records.push(record(0, NEAR / 2, PaymentStatus::Completed, T0));
+    records.flush();
+    env::state_write(&GuardianWalletV4 {
+        owner_id: owner(),
+        agent_id: agent(),
+        daily_limit: 5 * NEAR,
+        approval_threshold: NEAR,
+        spent_today: NEAR / 2,
+        current_day: day_of(T0),
+        reserved: 0,
+        frozen: false,
+        approved_payees: payees,
+        payment_records: records,
+        pending: IterableSet::new(StorageKey::Pending),
+        blocked_attempts: Vector::new(StorageKey::Blocked),
+        blocked_total: 78,
+        used_request_ids: LookupSet::new(StorageKey::UsedRequestIds),
+        guards: Guards {
+            breaker_cooldown_minutes: 3,
+            ..Guards::default()
+        },
+        strikes: 2,
+        breaker_until: None,
+        pending_rules: PendingRules {
+            max_pending: 2,
+            pending_ttl_minutes: 60,
+        },
+    });
+    let c = GuardianWallet::migrate(Some(vec![reporter()]));
+    let s = c.get_wallet_status();
+    assert_eq!((s.owner_id, s.blocked_count, s.strikes), (owner(), 78, 2));
+    assert_eq!((s.spent_today.0, s.daily_limit.0), (NEAR / 2, 5 * NEAR));
+    assert_eq!(s.guards.breaker_cooldown_minutes, 3);
+    assert_eq!(s.pending_rules.max_pending, 2);
+    assert_eq!((s.reported_payees, s.reporters), (0, vec![reporter()]));
+    assert_eq!(c.get_payment(0).unwrap().amount.0, NEAR / 2);
 }
