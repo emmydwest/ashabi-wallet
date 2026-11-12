@@ -6,7 +6,8 @@ import { readWalletReturn } from '@/components/approve/wallet-link';
 import { Card, CardHeader } from '@/components/card';
 import { ExplorerLink } from '@/components/explorer-link';
 import { useGuardian } from '@/components/use-guardian';
-import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, JOBS } from '@/lib/agent/attacks';
+import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, JOBS, type QuickAttack } from '@/lib/agent/attacks';
+import { RedTeamArena } from './red-team-arena';
 import { LiveChecks } from '@/components/verify/live-checks';
 import { KeyScopeBadge } from '@/components/keys/key-scope-badge';
 import { AsOf } from '@/components/as-of';
@@ -68,6 +69,14 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
   const hijack = () => {
     showRun();
     run({ mode: 'hijack' });
+  };
+  const quickAttack = (attack: QuickAttack) => {
+    if (!attack.attackId) return hijack();
+    setMode('attack');
+    setAttackId(attack.attackId);
+    if (attack.model) setModel(attack.model);
+    showRun();
+    run({ mode: 'attack', attackId: attack.attackId, custom: '', model: attack.model ?? 'small' });
   };
   const tryProof = (kind: ProofKind) => {
     if (kind === 'hijack') return hijack();
@@ -144,6 +153,10 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
         <HowToTry />
         <Scoreboard status={status} />
+      </div>
+
+      <div className="mt-4">
+        <RedTeamArena snapshot={snapshot} busy={running || outOfRuns} onRun={quickAttack} />
       </div>
 
       <div className="mt-6 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">

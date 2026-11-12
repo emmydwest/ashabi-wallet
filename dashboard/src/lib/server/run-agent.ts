@@ -2,7 +2,7 @@ import 'server-only';
 import { VENDOR_ID } from '@/lib/config';
 import { nearToYocto, nsToDate, toNear } from '@/lib/near';
 import type { PaymentRecord, WalletStatus } from '@/lib/types';
-import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, HIJACK, type Attack, type Surface } from '@/lib/agent/attacks';
+import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, HIJACK, SPOOFED_VENDOR, type Attack, type Surface } from '@/lib/agent/attacks';
 import { INTENT_PREFIX_LENGTH, intentHash, type IntentLog } from '@/lib/agent/intent';
 import type { AgentEvent, Plan, RunRequest } from '@/lib/agent/types';
 import { CATALOG, deliver, itemFor } from '@/vendor/catalog';
@@ -114,7 +114,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
     input.mode === 'attack' && input.attackId !== CUSTOM_ATTACK_ID
       ? ATTACKS.find((a) => a.id === input.attackId && a.script)
       : undefined;
-  if (scripted) return runScriptedAttack(scripted, status, emit);
+  if (scripted) return runScriptedAttack(scripted, status, emit, context);
 
   const attack =
     input.mode === 'attack'
@@ -523,7 +523,7 @@ function scriptedPlan(amountNear: string, receiver: string, reason: string, sku 
   return { action: 'pay', receiver_id: receiver, amount_near: amountNear, sku, reason, installments: 1 };
 }
 
-async function runScriptedAttack(attack: Attack, status: WalletStatus, emit: Emit) {
+async function runScriptedAttack(attack: Attack, status: WalletStatus, emit: Emit, context: Context) {
   emit({
     type: 'step',
     kind: 'warning',
@@ -533,6 +533,82 @@ async function runScriptedAttack(attack: Attack, status: WalletStatus, emit: Emi
   if (attack.script === 'velocity') return runVelocity(status, emit);
   if (attack.script === 'budget') return runBudgetDrain(status, emit);
   if (attack.script === 'breaker') return runBreaker(status, emit);
+  if (attack.script === 'spike') return runPriceSpike(status, emit, context);
+  if (attack.script === 'phishing') return runPhishing(emit);
+}
+
+// A vendor already on the allowlist raises its price to exactly the auto-pay limit, so the single
+// payment would skip the owner. The first, honest purchase goes through the real 402 flow; the
+// spiked quote is simulated, and the contract call that answers it is real.
+async function runPriceSpike(status: WalletStatus, emit: Emit, context: Context) {
+  const item = itemFor('weather-now')!;
+  const spiked = yoctoNear(BigInt(status.approval_threshold), 3);
+  const why: Why = { task: 'scripted price spike', model: 'none (scripted attack)' };
+  emit({
+    type: 'step',
+    kind: 'warning',
+    title: `Call 1: ${item.sku} at its listed ${item.price_near} NEAR, through the real 402 flow`,
+  });
+  const withoutSummary: Emit = (event) => {
+    if (event.type !== 'summary') emit(event);
+  };
+  const honest = scriptedPlan(item.price_near, VENDOR_ID, 'price spike: first call at the listed price', item.sku);
+  await payPerRequest(honest, withoutSummary, why, context);
+
+  emit({
+    type: 'step',
+    kind: 'http',
+    title: `Call 2: GET /api/vendor/${item.sku} answers 402 with ${spiked} NEAR`,
+    body: `Simulated rogue quote: ${item.price_near} NEAR became ${spiked} NEAR, the most a single payment can be without the owner. The payee is still the approved vendor, and the compromised agent pays it as asked.`,
+    badge: { text: `${item.price_near} → ${spiked} NEAR`, tone: 'rose' },
+  });
+  const call = await sendRequest(scriptedPlan(spiked, VENDOR_ID, 'price spike: rogue quote', item.sku), emit, why);
+  if (!call) return;
+  const breached = call.verdict === 'APPROVED' || call.verdict === 'PENDING_APPROVAL';
+  emit({
+    type: 'summary',
+    tookBait: true,
+    verdict: call.verdict,
+    reason: call.reason,
+    moved: false,
+    txHash: call.txHash,
+    outcome: breached ? 'breached' : 'blocked',
+    simulated: true,
+    headline: breached
+      ? `The spiked price got through: ${call.verdict}`
+      : call.verdict === 'BLOCKED_VELOCITY'
+        ? `Contract blocked the spike: the ${status.guards.velocity_window_minutes}-minute spend cap`
+        : `Contract blocked the spike: ${call.verdict}`,
+    detail: call.reason,
+  });
+}
+
+async function runPhishing(emit: Emit) {
+  const why: Why = { task: 'scripted phishing payee', model: 'none (scripted attack)' };
+  const amount = itemFor('weather-basic')!.price_near;
+  emit({
+    type: 'step',
+    kind: 'warning',
+    title: `Paying ${amount} NEAR to ${SPOOFED_VENDOR}, one letter off the real vendor`,
+    body: `Real vendor: ${VENDOR_ID}. Look-alike: ${SPOOFED_VENDOR} ("rn" instead of "m").`,
+  });
+  const call = await sendRequest(scriptedPlan(amount, SPOOFED_VENDOR, 'phishing payee'), emit, why);
+  if (!call) return;
+  const breached = call.verdict === 'APPROVED' || call.verdict === 'PENDING_APPROVAL';
+  emit({
+    type: 'summary',
+    tookBait: true,
+    verdict: call.verdict,
+    reason: call.reason,
+    moved: false,
+    txHash: call.txHash,
+    outcome: breached ? 'breached' : 'blocked',
+    simulated: true,
+    headline: breached
+      ? `The look-alike payee got through: ${call.verdict}`
+      : `The look-alike got nothing: ${amount} NEAR stayed in the vault`,
+    detail: call.reason,
+  });
 }
 
 async function runVelocity(status: WalletStatus, emit: Emit) {
