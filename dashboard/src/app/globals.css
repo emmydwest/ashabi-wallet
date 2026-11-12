@@ -231,3 +231,98 @@ body {
 body:has(.chat-page) .site-footer {
   display: none;
 }
+
+/* ---- Illustrations (components/art) ---- */
+
+@keyframes art-blink {
+  0%,
+  93%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.1);
+  }
+}
+
+.art-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: art-blink 5.2s ease-in-out infinite;
+}
+
+.art-spin {
+  animation: spin-slow 3s linear infinite;
+}
+
+@keyframes art-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(1.5px);
+  }
+}
+
+.art-drop {
+  animation: art-drop 0.5s cubic-bezier(0.3, 0.7, 0.4, 1) both;
+}
+
+@keyframes art-frost-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.art-frost {
+  animation: art-frost-in 0.9s ease-out both;
+}
+
+@keyframes art-coin-out {
+  0% {
+    opacity: 0;
+    transform: translate(-14px, -6px) scale(0.6);
+  }
+  25%,
+  75% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(10px, 4px) scale(0.9);
+  }
+}
+
+.art-coin-out {
+  animation: art-coin-out 2.4s ease-in-out infinite;
+}
+
+@keyframes coin-drift {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(8deg);
+  }
+}
+
+.animate-coin-drift {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: coin-drift 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art-blink,
+  .art-spin,
+  .art-drop,
+  .art-frost,
+  .art-coin-out,
+  .animate-coin-drift {
+    animation: none;
+  }
+}

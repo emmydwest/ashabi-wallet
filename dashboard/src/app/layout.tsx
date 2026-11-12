@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { ArtDefs } from '@/components/art/defs';
 import { Providers } from '@/components/providers';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       <body className="relative min-h-full max-w-full overflow-x-clip bg-ink">
         <div aria-hidden className="backdrop pointer-events-none fixed inset-0 -z-10" />
         <div aria-hidden className="grid-lines pointer-events-none fixed inset-x-0 top-0 -z-10 h-[40rem]" />
+        <ArtDefs />
         <Providers>
           <SiteHeader />
           {children}
