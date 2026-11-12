@@ -23,13 +23,17 @@ near account list-keys guardian.gw-emmy.testnet network-config testnet now
 ```
 
 This is irreversible. The owner can still withdraw funds with `withdraw`, so nothing is stranded.
+`migrate` is private to the contract account, so after this it can never run again either; do any
+last upgrade first.
 
 ## Agent account
 
 The agent process signs only with its function-call key
-(`ed25519:uQGVJnq7rQY2ixMqVcFtePsVFKucFYnUKMLupfq5Z3Z`, receiver `guardian.gw-emmy.testnet`,
-method `request_payment`, 0.5 NEAR gas allowance). The account also has a full-access key that
-the agent code never loads. Deleting it as well makes the account itself unable to do anything
+(`ed25519:HKUFAQxs88g2ENFMyVjqQXrj2gDWTKQWz4ApoJLEX8YX`, receiver `guardian.gw-emmy.testnet`,
+method `request_payment`, about 3 NEAR gas allowance); the key scope badge on `/agent` shows which
+key signed the latest request. An older key with the same scope
+(`ed25519:uQGVJnq7rQY2ixMqVcFtePsVFKucFYnUKMLupfq5Z3Z`) is still on the account. The account also
+has a full-access key that the agent code never loads. Deleting it as well makes the account itself unable to do anything
 but request payments:
 
 ```sh

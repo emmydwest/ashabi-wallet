@@ -68,6 +68,12 @@ Every row is a real transaction from the live demo.
 | Agent splits a 1.5 NEAR purchase into small pieces | `BLOCKED_VELOCITY` | [E1WH3RiM…](https://testnet.nearblocks.io/txns/E1WH3RiMuBSb8tGR6ZbSa5My4to3ap38yCp66jJ2mocm) |
 | Third attack in a row trips the circuit breaker | `breaker_tripped` | [ERmLh6Kn…](https://testnet.nearblocks.io/txns/ERmLh6KnkYfGKnKjiwNQ3v4srU7RfhzQh8KCz8wcZoDY) |
 | Next request while the breaker is on | `FROZEN` | [DoNJY3xx…](https://testnet.nearblocks.io/txns/DoNJY3xxvwr3FRZCeq4ngiWZ7jda6wBzpa3SLuRB7xkZ) |
+| An approved vendor's quote jumps from 0.05 to 1 NEAR right after a normal purchase | `BLOCKED_VELOCITY` | [67nR9apJ…](https://testnet.nearblocks.io/txns/67nR9apJXtrWJaVgwooPc1dFkFBc6HXE2xRK6A9VEi8y) |
+| Agent pays the look-alike `api-vendor.gw-ernmy.testnet` | `BLOCKED_RECIPIENT` | [BmBFDFtM…](https://testnet.nearblocks.io/txns/BmBFDFtMG4CQio3Xh18uCxAtiq3UtjQkNuYJ3sc1Hr3e) |
+| Vault upgraded in place to the blocklist code; budget, records and guards kept | `deploy` + `migrate` | [EHXQs4iz…](https://testnet.nearblocks.io/txns/EHXQs4izxEDWvXVHcmE4mB1D9q5DfsU3MRpb5YwLtc77) |
+| A fresh account swaps in new contract code | `deploy` | [8dMgBbVC…](https://testnet.nearblocks.io/txns/8dMgBbVCaVdKtsNosAVDQVMEKrcGrer6incceUUgPUNd) |
+| The security desk reports it, citing that transaction | `payee_reported` | [6WWMRu6A…](https://testnet.nearblocks.io/txns/6WWMRu6Az2Yu8uJBiHyZ7doAUDmVrjZANQoMHFVcaoms) |
+| Agent tries to pay the reported account | `BLOCKED_COUNTERPARTY` | [AEydt7eQ…](https://testnet.nearblocks.io/txns/AEydt7eQR6BSKURaDAi5EXiaKg8jcVRYMLrHn4YBfE1n) |
 | 1.5 NEAR upgrade waits for the owner | `PENDING_APPROVAL` | [8D6HW9p6…](https://testnet.nearblocks.io/txns/8D6HW9p6eGudHSzNQnThAo7p2D2V3aqmh6KxVvUf46Ye) |
 | Owner approves on a phone (Meteor wallet) | `approve_payment` | [5Egz99Bb…](https://testnet.nearblocks.io/txns/5Egz99BbvHEe7hBkek1JCd6pxZRwGTQch2h9H7ac1iTz) |
 | Vault code published once as a global contract (hash `3Rh6iyiZ…`) | `deploy-as-global` | [AMofamyG…](https://testnet.nearblocks.io/txns/AMofamyGtE7c72ZM6jFzHvMWkhsy8H599owDRXAixYpR) |
@@ -81,6 +87,7 @@ Read it yourself, no keys needed:
 ```sh
 near contract call-function as-read-only guardian.gw-emmy.testnet get_wallet_status json-args '{}' network-config testnet now
 near contract call-function as-read-only guardian.gw-emmy.testnet get_blocked_attempts json-args '{"limit":5}' network-config testnet now
+near contract call-function as-read-only guardian.gw-emmy.testnet get_reported_payees json-args '{}' network-config testnet now
 ```
 
 ## How it fits together
@@ -216,7 +223,11 @@ What holds even if the agent, its model and its server are fully compromised:
 - **Big payments need a human.** Above 1 NEAR the request waits for the owner's wallet signature.
 - **No salami slicing.** Automatic payments in any 10 minutes can't add up past the 1 NEAR
   threshold (and at most 3 of them), so splitting a big payment just produces `BLOCKED_VELOCITY`.
-- **Automatic kill-switch.** 3 payments to unknown accounts in a row trip a circuit breaker that
+- **Reported payees stay blocked.** The owner, or a reporter the owner trusts, can put an account
+  on the vault's blocklist with a reason and an evidence transaction. Payments to it are
+  `BLOCKED_COUNTERPARTY`, even if it's also an approved payee, and the owner can't approve a
+  waiting payment to it either. Only the owner takes an entry off.
+- **Automatic kill-switch.** 3 payments to unknown or reported accounts in a row trip a circuit breaker that
   refuses every request for a cooldown (10 minutes by default), or until the owner resets it.
 - **No replays.** A `request_id` works once.
 - **Approvals can't pile up.** At most 3 requests wait for the owner at once (`TOO_MANY_PENDING`
@@ -240,18 +251,24 @@ Every claim, where it lives, and the test that pins it (`cd contract && cargo te
 
 | Claim | Code | Test |
 |---|---|---|
-| Only the registered agent can request a payment | `contract/src/lib.rs:332` | `non_agent_cannot_request` |
-| Unknown payees are refused and the attempt is stored | `contract/src/lib.rs:388`, `:980` | `attacker_recipient_is_blocked_and_persisted` |
-| Replayed `request_id` is refused | `contract/src/lib.rs:351` | `duplicate_request_id_is_rejected` |
-| Freeze and the kill-switch stop everything | `contract/src/lib.rs:363`, `:375`, `:925` | `freeze_blocks_everything`, `breaker_trips_after_three_suspicious_blocks_then_cools_down` |
-| At most 3 requests wait for the owner | `contract/src/lib.rs:403` | `too_many_pending_requests_are_refused` |
-| Daily budget counts pending reservations | `contract/src/lib.rs:421` | `budget_counts_pending_reservations` |
-| Splitting a payment is caught | `contract/src/lib.rs:445` | `splitting_below_threshold_is_capped_by_the_window_total` |
-| Unapproved requests expire after 24 h and free the budget | `contract/src/lib.rs:827`, `:842` | `pending_request_expires_and_releases_budget`, `owner_cannot_approve_an_expired_request` |
-| Rule changes need the owner and 1 yoctoNEAR | `contract/src/lib.rs:814` | `agent_cannot_add_payee`, `agent_cannot_change_guards`, `agent_cannot_change_pending_rules` |
-| Upgrades keep existing state | `contract/src/lib.rs:291` | `migrate_keeps_v3_state` |
-| The agent key can only call `request_payment` | on-chain: `near account list-keys gw-emmy-agent.testnet network-config testnet now` | |
-| The live console uses the SDK | `dashboard/src/app/api/agent/run/route.ts:50`, `:70` → `dashboard/src/lib/server/run-agent.ts:364`, `:375` → `dashboard/src/lib/server/agent-key.ts:20` | |
+| Only the registered agent can request a payment | `contract/src/lib.rs:436` | `non_agent_cannot_request` |
+| Unknown payees are refused and the attempt is stored | `contract/src/lib.rs:500`, `:1210` | `attacker_recipient_is_blocked_and_persisted` |
+| Replayed `request_id` is refused | `contract/src/lib.rs:449` | `duplicate_request_id_is_rejected` |
+| Freeze and the kill-switch stop everything | `contract/src/lib.rs:461`, `:472`, `:1156` | `freeze_blocks_everything`, `breaker_trips_after_three_suspicious_blocks_then_cools_down` |
+| At most 3 requests wait for the owner | `contract/src/lib.rs:515` | `too_many_pending_requests_are_refused` |
+| Daily budget counts pending reservations | `contract/src/lib.rs:528` | `budget_counts_pending_reservations` |
+| Splitting a payment is caught | `contract/src/lib.rs:557` | `splitting_below_threshold_is_capped_by_the_window_total` |
+| Unapproved requests expire after 24 h and free the budget | `contract/src/lib.rs:1055`, `:1070` | `pending_request_expires_and_releases_budget`, `owner_cannot_approve_an_expired_request` |
+| Rule changes need the owner and 1 yoctoNEAR | `contract/src/lib.rs:1042` | `agent_cannot_add_payee`, `agent_cannot_change_guards`, `agent_cannot_change_pending_rules` |
+| Upgrades keep existing state, from either older layout | `contract/src/lib.rs:284`, `:389` | `migrate_keeps_v3_state`, `migrate_keeps_v4_state_and_seeds_reporters` |
+| Reported payees are refused before the allowlist is even checked | `contract/src/lib.rs:486` | `reported_payee_is_blocked_even_when_approved` |
+| Only the owner or a trusted reporter can report, with 1 yoctoNEAR; never the agent | `contract/src/lib.rs:809`, `:1035` | `strangers_cannot_report`, `the_agent_cannot_report`, `the_agent_cannot_be_made_a_reporter`, `reporting_needs_one_yocto` |
+| Only the owner clears a report; a removed reporter loses access | `contract/src/lib.rs:850` | `trusted_reporter_can_report_but_not_clear`, `owner_clears_a_report_and_payments_resume`, `removed_reporter_loses_access` |
+| The owner can't approve a waiting payment to a reported payee | `contract/src/lib.rs:643` | `owner_cannot_approve_a_payment_to_a_reported_payee` |
+| Reported-payee blocks count towards the kill-switch | `contract/src/lib.rs:1148` | `counterparty_blocks_count_towards_the_breaker` |
+| The blocklist is capped at 200 entries | `contract/src/lib.rs:832` | `the_blocklist_is_capped` |
+| The agent key can only call `request_payment` | on-chain: `near account list-keys gw-emmy-agent.testnet network-config testnet now`; live on `/agent`, `/dashboard` and `/verify` (`dashboard/src/lib/key-scope.ts`), which also shows which key signed the latest request | |
+| The live console uses the SDK | `dashboard/src/app/api/agent/run/route.ts:88`, `:134` → `dashboard/src/lib/server/run-agent.ts:430`, `:442` → `dashboard/src/lib/server/agent-key.ts:20` | |
 | The vendor checks the receipt on-chain and refuses replays | `dashboard/src/vendor/x402.ts:109`–`160` | run a paid job on `/agent`; the last step shows the `409` |
 | A factory wallet's receipt must come from that wallet's own agent | `dashboard/src/vendor/x402.ts:121`–`123`, `:150` | the `/chat` purchase above |
 | The factory makes the caller the owner and needs at least 0.5 NEAR | `factory/src/lib.rs:123`, `:134` | `create_vault_claims_the_name_for_the_caller`, `too_small_a_deposit_is_refused` (`cd factory && cargo test`) |
@@ -259,7 +276,7 @@ Every claim, where it lives, and the test that pins it (`cd contract && cargo te
 | The agent key can only call `request_payment` on its own wallet | `factory/src/lib.rs:254`–`259` | `a_created_wallet_gets_its_agent_then_is_ready`; on-chain: `list-keys boxtest-agent.factory.gw-emmy.testnet` |
 | A failed wallet refunds and frees the name; a failed agent leaves a usable wallet | `factory/src/lib.rs:225`, `:269` | `a_failed_wallet_frees_the_name_and_refunds`, `a_failed_agent_leaves_a_usable_wallet` |
 | Only the factory owner changes templates or the code hash, with 1 yoctoNEAR | `factory/src/lib.rs:296`, `:366` | `others_cannot_change_templates`, `owner_changes_need_one_yocto` |
-| 5 runs per 10 minutes per visitor | `dashboard/src/lib/server/rate-limit.ts:5` | |
+| 5 runs per 10 minutes per visitor | `dashboard/src/lib/server/rate-limit.ts:6` | |
 
 ### Attack coverage
 
@@ -274,6 +291,9 @@ Each row is a real attack the contract (and, where noted, the live demo) is buil
 | Poisoned tool output | `BLOCKED_RECIPIENT` | same | Attacks → Poisoned tool output |
 | Threshold splitting, as an injection | The vendor check refuses a split of a catalog price; a contract send is `BLOCKED_VELOCITY` | `splitting_below_threshold_is_capped_by_the_window_total` | Attacks → Threshold splitting (injection) |
 | Smurfing / velocity (scripted) | `BLOCKED_VELOCITY` | `splitting_below_threshold_is_capped_by_the_window_total`, `the_count_cap_still_stops_dust` | Attacks → Smurfing / velocity block. Needs budget left today; otherwise it says so and points at the earlier proof on `/verify`. |
+| Rogue price spike (scripted) | One real 402 purchase at 0.05 NEAR, then the vendor's quote becomes the full 1 NEAR auto-pay limit: `BLOCKED_VELOCITY`, since the window total would pass the threshold | `splitting_below_threshold_is_capped_by_the_window_total` | One-tap attacks → Malicious price spike |
+| Phishing payee (scripted) | `BLOCKED_RECIPIENT` for the look-alike account, no model involved | `attacker_recipient_is_blocked_and_persisted` | One-tap attacks → Phishing payee |
+| Compromised counterparty (scripted) | Pre-pay check says `BLOCK` (and `WARN`: new account, code changed today); the contract answers `BLOCKED_COUNTERPARTY` | `reported_payee_is_blocked_even_when_approved` | One-tap attacks → Compromised counterparty |
 | Over-budget drain (scripted) | `BLOCKED_BUDGET`, nothing spent | `over_budget_is_blocked` | Attacks → Over-budget drain |
 | Repeated unknown payees (scripted) | Third `BLOCKED_RECIPIENT` trips the breaker; the next request is `FROZEN` | `breaker_trips_after_three_suspicious_blocks_then_cools_down` | Attacks → Trip the kill-switch. Pauses the shared demo for the cooldown the owner set; there is no public reset. |
 | 1.5 NEAR annual plan | `PENDING_APPROVAL` until the owner signs | `above_threshold_pending_then_owner_approves_then_completes` | Real jobs → Buy the premium annual plan |
@@ -290,7 +310,14 @@ before any `Promise` transfer is created, so a blocked request never moves funds
 | **Runaway loop / salami slicing**: many small payments, each under the approval threshold | `velocity_problem` (via `auto_paid_in_window`): automatic payments in the window may not add up past `approval_threshold`, and at most `guards.max_auto_payments` of them, else `BLOCKED_VELOCITY`; reused `request_id` returns `DUPLICATE` (`used_request_ids`) | The function-call key's gas allowance (about 2.98 NEAR, shown live on `/agent`) caps how much gas a loop can burn | One-tap attacks → Split-payment bypass |
 | **Stolen agent server key** | `request_payment` accepts only `agent_id` as caller, and every check above still applies to it; owner methods go through `assert_owner`, which needs the owner account **and** exactly 1 yoctoNEAR attached | A function-call key cannot attach a deposit, send NEAR, add or delete keys, or deploy code. So the stolen key can only ask the contract, and can't call `approve_payment`, `add_payee`, `set_daily_limit`, `unfreeze` or `withdraw`. The owner rotates it with `set_agent` | Key scope badge on `/agent`, `/dashboard`, `/verify` reads `view_access_key_list` live and shows which key signed the latest request |
 | **Rogue API price spike**: an approved vendor raises its 402 price | Above `approval_threshold`: `request_payment` holds it as `PENDING_APPROVAL` and only `approve_payment` (owner + 1 yoctoNEAR) releases it. At or below the threshold: `velocity_problem` keeps all automatic spend in a window at or under the threshold (`BLOCKED_VELOCITY`), so the most a greedy vendor gets without the owner is one threshold's worth per window, and never more than what's left today (`BLOCKED_BUDGET`) | Owner approval is a transaction from the owner's own wallet; the agent's function-call key can't produce it | One-tap attacks → Malicious price spike |
+| **Compromised counterparty**: an account that turned malicious, reported with evidence | `request_payment`: `reported_payees.get(&receiver_id)` returns `BLOCKED_COUNTERPARTY` before the allowlist check, and counts as a strike in `record_strike`; `approve_payment` refuses a reported payee; `report_payee` accepts only the owner or a trusted reporter, `clear_payee_report` only the owner | `report_payee` and `clear_payee_report` need 1 yoctoNEAR, so they need a full-access key; a leaked function-call key can't add, clear or game the list | One-tap attacks → Compromised counterparty |
 | **Phishing / unknown payee**: a look-alike account such as `api-vendor.gw-ernmy.testnet` | `request_payment`: allowlist check returns `BLOCKED_RECIPIENT`, and the attempt is stored by `block` and counted towards the kill-switch | Only `add_payee` changes the allowlist, and it needs the owner's signature and 1 yoctoNEAR | One-tap attacks → Phishing payee |
+
+Before every payment the agent also runs a counterparty check from public chain data
+(`dashboard/src/lib/server/counterparty.ts`, `checkCounterparty`): `BLOCK` if the vault has the
+payee on its blocklist, `WARN` if the account doesn't exist, was created in the last 24 hours, or its
+contract code hash differs from a day ago (read from an archival RPC). It shows up as a step in the
+run; the payment is still sent, so the contract decides and the attempt is recorded.
 
 Outside the contract, the agent code adds two more checks that a compromised agent could skip,
 which is why the contract doesn't rely on them: the SDK refuses a 402 offer above `maxPrice` or to
@@ -351,8 +378,8 @@ agent, `run-agent.ts` calls `requestPayment` and `pay402`). Full API in
 `packages/mcp-server` (`guardian-wallet-mcp`) is a local stdio MCP server around the same SDK. It is
 **not published to npm yet**; run it from this repo. After it is published, the same server will
 start with `npx -y guardian-wallet-mcp`. Tools: `guardian_wallet_status`, `guardian_get_payment`,
-`guardian_request_payment`, `guardian_fetch_402`. Status and `get_payment` need no key; the
-payment tools need a function-call key. The contract still decides whether money moves.
+`guardian_payee_report`, `guardian_request_payment`, `guardian_fetch_402`. The three read tools
+need no key; the payment tools need a function-call key. The contract still decides whether money moves.
 
 ```sh
 cd packages/mcp-server && npm install && npm run build
@@ -401,7 +428,7 @@ Requires Node 24, Rust with [`cargo-near`](https://github.com/near/cargo-near), 
 [`near-cli-rs`](https://github.com/near/near-cli-rs). Testnet NEAR is free from the faucet.
 
 ```sh
-# contract: 42 unit tests, then the wasm
+# contract: 55 unit tests, then the wasm
 cd contract && cargo test && cargo near build non-reproducible-wasm
 
 # factory: 15 unit tests, then the wasm
@@ -446,9 +473,11 @@ the core idea works today, and you can try to break it on the live site.
 | AI agent (can only request) | `gw-emmy-agent.testnet` |
 | Approved payee (demo API vendor) | `api-vendor.gw-emmy.testnet` |
 | Attacker (not approved) | `attacker.gw-emmy.testnet` |
+| Trusted reporter (can add to the blocklist, not clear it) | `security-desk.gw-emmy.testnet` |
+| Reported payee (new account, swapped its code) | `rogue-vendor.gw-emmy.testnet` |
 
 Policy: daily limit 5 NEAR, approval threshold 1 NEAR, velocity 1 NEAR / 3 payments per 10 min,
-breaker after 3 strikes for 10 min. Scripted scenario run with tx links:
+breaker after 3 strikes (the owner has set its cooldown to 3 min on the live demo). Scripted scenario run with tx links:
 [docs/scenario-results.md](docs/scenario-results.md).
 
 ### Contract (`contract/`, Rust + near-sdk 5)
@@ -462,7 +491,8 @@ breaker after 3 strikes for 10 min. Scripted scenario run with tx links:
 | 1 | `request_id` already used | `DUPLICATE` | no |
 | 2 | wallet frozen by owner | `FROZEN` | no |
 | 3 | circuit breaker cooling down | `FROZEN` | no |
-| 4 | receiver not on approved list | `BLOCKED_RECIPIENT` | no |
+| 4 | receiver on the blocklist of reported payees | `BLOCKED_COUNTERPARTY` | no |
+| 4a | receiver not on approved list | `BLOCKED_RECIPIENT` | no |
 | 4b | needs owner approval, and 3 requests already wait (`max_pending`) | `TOO_MANY_PENDING` | no |
 | 5 | spent today + reserved (pending) + amount > daily limit | `BLOCKED_BUDGET` | no |
 | 6 | contract balance (minus storage and 0.1 NEAR reserve) too low | `INSUFFICIENT_FUNDS` | no |
@@ -487,7 +517,8 @@ Two guards catch patterns no single request shows:
 - **Velocity limit.** Automatic payments in a rolling 10 minutes may not add up past the
   approval threshold, and there are at most 3 of them. Splitting a 1.5 NEAR payment into 0.3 NEAR
   pieces stops once the pieces would pass 1 NEAR, so the owner still sees it.
-- **Circuit breaker.** 3 payments to unknown accounts in a row (`BLOCKED_RECIPIENT`) trip it:
+- **Circuit breaker.** 3 payments to unknown or reported accounts in a row (`BLOCKED_RECIPIENT`,
+  `BLOCKED_COUNTERPARTY`) trip it:
   every request is refused for 10 minutes, or until the owner calls `unfreeze`. Budget, balance,
   velocity and duplicate blocks don't count, since honest agents hit those too, and any approved
   or pending request resets the strikes. The pause is timed rather than permanent so a burst of
@@ -512,12 +543,16 @@ resets at the first call of a new day. Pending reservations carry over until app
 | `set_guards({max_auto_payments, velocity_window_minutes, breaker_strikes, breaker_cooldown_minutes})` | owner, 1 yocto | 0 disables a guard |
 | `set_pending_rules({max_pending, pending_ttl_minutes})` | owner, 1 yocto | 0 disables the cap or the expiry |
 | `expire_pending()` | anyone | releases budget held by expired requests; returns how many |
-| `migrate()` | contract itself | one-off upgrade from the previous state layout |
+| `migrate(reporters?)` | contract itself | upgrade from the V3 or V4 state layout; seeds trusted reporters |
+| `report_payee(account_id, reason, evidence_tx?)` | owner or trusted reporter, 1 yocto | adds or updates a blocklist entry; at most 200 |
+| `clear_payee_report(account_id)` | owner, 1 yocto | takes an account off the blocklist |
+| `add_reporter(account_id)` / `remove_reporter(account_id)` | owner, 1 yocto | who may report; never the agent |
 | `set_agent(agent_id)` | owner, 1 yocto | rotate a compromised agent |
 | `set_owner(new_owner)` | owner, 1 yocto | hand ownership to another wallet; must differ from the agent |
 | `withdraw(amount)` | owner, 1 yocto | owner takes funds back |
 | `deposit()` | anyone, payable | top up (plain transfers also work) |
-| `get_wallet_status()` | view | limits, spent, reserved, remaining, balance, payees, counts |
+| `get_wallet_status()` | view | limits, spent, reserved, remaining, balance, payees, counts, blocklist size, reporters |
+| `get_payee_report(account_id)` / `get_reported_payees(from_index?, limit?)` | view | one blocklist entry, or the list |
 | `get_payment_history(from_index?, limit?)` | view | newest first |
 | `get_blocked_attempts(from_index?, limit?)` | view | newest first, last 500 kept |
 | `get_pending()` / `get_payment(record_id)` / `is_request_id_used(request_id)` | view | |
@@ -533,7 +568,7 @@ event one of `wallet_initialized`, `payment_approved`, `payment_pending`, `payme
 `payment_completed`, `payment_failed`, `payment_rejected`, `policy_updated`, `payee_added`,
 `payee_removed`, `wallet_frozen`, `wallet_unfrozen`, `agent_changed`, `owner_changed`,
 `guards_updated`, `pending_rules_updated`, `payment_expired`, `breaker_tripped`, `breaker_reset`,
-`deposit`, `withdraw`.
+`payee_reported`, `payee_report_cleared`, `reporter_added`, `reporter_removed`, `deposit`, `withdraw`.
 
 ### Factory (`factory/`, Rust + near-sdk 5)
 
@@ -564,7 +599,7 @@ Requires Rust, [`cargo-near`](https://github.com/near/cargo-near) and
 [`near-cli-rs`](https://github.com/near/near-cli-rs). Testnet NEAR is free.
 
 ```sh
-# 1. unit tests (42)
+# 1. unit tests (55)
 cd contract && cargo test
 
 # 2. build the wasm
@@ -670,7 +705,7 @@ model reasoning.
   (00:00 UTC, 1:00 AM WAT); "Payments accepted" and "Requests blocked" are all-time totals on the
   shared demo wallet (blocked includes budget and speed limits); the kill-switch reads "2 of 3
   blocked payments to unknown accounts in a row", which is what the contract counts
-  (`contract/src/lib.rs:920`: only `BLOCKED_RECIPIENT` adds a strike; any accepted request clears it, `:450`).
+  (`contract/src/lib.rs:1148`: only `BLOCKED_RECIPIENT` and `BLOCKED_COUNTERPARTY` add a strike; any accepted request clears it, `:568`).
 - `/start` uses the same Connect wallet control, lists the factory's templates, checks the name, shows what
   the deposit covers, sends `create_vault`, and waits until the factory reports the wallet ready
   (it survives the MyNearWallet redirect).

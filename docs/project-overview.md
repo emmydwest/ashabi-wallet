@@ -107,8 +107,8 @@ The vault holds about 17 testnet NEAR. As of writing the contract has recorded 2
 
 ### Components
 
-1. **Contract** (`contract/`, Rust). The only thing that can move funds. 42 unit tests.
-   Upgraded three times on testnet with state migrations.
+1. **Contract** (`contract/`, Rust). The only thing that can move funds. 55 unit tests.
+   Upgraded four times on testnet with state migrations, most recently to add the payee blocklist.
 2. **Agent key.** A function-call key on `gw-emmy-agent.testnet`, limited to `request_payment` on
    the guardian, with a gas allowance (about 3 NEAR). It lives only in a Vercel server-only env
    var, never in the browser.
@@ -552,7 +552,7 @@ Anyone can read the state with no keys:
 
 ### What we trust
 
-- **The contract code and the NEAR protocol.** There has been no audit; there are 42 unit tests
+- **The contract code and the NEAR protocol.** There has been no audit; there are 55 unit tests
   and real testnet scenarios.
 - **The contract account's keys.** Until the full-access key on `guardian.gw-emmy.testnet` is
   deleted, whoever holds it could redeploy the contract. See limitations.
