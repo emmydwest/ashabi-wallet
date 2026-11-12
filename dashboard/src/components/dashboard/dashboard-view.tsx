@@ -7,6 +7,7 @@ import { TimeAgo } from '@/components/time-ago';
 import { AsOf } from '@/components/as-of';
 import type { ActionLog, GuardianSnapshot } from '@/lib/types';
 import { AgentTimeline } from './agent-timeline';
+import { KeyScopeBadge } from '@/components/keys/key-scope-badge';
 import { BlockedAttacks } from './blocked-attacks';
 import { InjectionPanel } from './injection-panel';
 import { BalanceCard, BudgetCard, PolicyCard } from './overview-cards';
@@ -68,9 +69,14 @@ export function DashboardView({ log, initial }: { log: ActionLog; initial: Guard
           <Reveal delay={0.15}>
             <PaymentFeed feed={snapshot.feed} now={new Date(snapshot.fetchedAt).getTime()} />
           </Reveal>
-          <Reveal delay={0.2}>
-            <BlockedAttacks feed={snapshot.feed} now={new Date(snapshot.fetchedAt).getTime()} />
-          </Reveal>
+          <div className="min-w-0 space-y-5">
+            <Reveal delay={0.2}>
+              <BlockedAttacks feed={snapshot.feed} now={new Date(snapshot.fetchedAt).getTime()} />
+            </Reveal>
+            <Reveal delay={0.25}>
+              <KeyScopeBadge />
+            </Reveal>
+          </div>
         </div>
       </>
 

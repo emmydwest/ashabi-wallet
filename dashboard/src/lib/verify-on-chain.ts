@@ -19,7 +19,7 @@ export type LiveCheck = {
 
 export type VerifyResult = { checks: LiveCheck[]; fetchedAt: string };
 
-type AccessKey = {
+export type AccessKey = {
   public_key: string;
   access_key: {
     nonce: number;
@@ -30,9 +30,9 @@ type AccessKey = {
 
 type AccountView = { amount: string; locked: string; storage_usage: number; code_hash: string };
 
-async function rpc<T>(method: string, params: unknown): Promise<T> {
+export async function rpc<T>(method: string, params: unknown, urls = RPCS): Promise<T> {
   let last: unknown;
-  for (const url of RPCS) {
+  for (const url of urls) {
     try {
       const res = await fetch(url, {
         method: 'POST',

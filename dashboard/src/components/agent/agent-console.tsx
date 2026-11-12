@@ -8,6 +8,7 @@ import { ExplorerLink } from '@/components/explorer-link';
 import { useGuardian } from '@/components/use-guardian';
 import { ATTACKER, ATTACKS, CUSTOM_ATTACK_ID, JOBS } from '@/lib/agent/attacks';
 import { LiveChecks } from '@/components/verify/live-checks';
+import { KeyScopeBadge } from '@/components/keys/key-scope-badge';
 import { AsOf } from '@/components/as-of';
 import { CONTRACT_ID } from '@/lib/config';
 import { CUSTOM_MAX, TASK_MAX, type AgentEvent } from '@/lib/agent/types';
@@ -145,7 +146,8 @@ export function AgentConsole({ initial }: { initial: GuardianSnapshot }) {
         <Scoreboard status={status} />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
+        <KeyScopeBadge />
         <LiveChecks compact />
       </div>
 

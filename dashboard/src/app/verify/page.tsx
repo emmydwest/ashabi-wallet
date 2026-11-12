@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { KeyScopeBadge } from '@/components/keys/key-scope-badge';
 import { LiveChecks } from '@/components/verify/live-checks';
 import { accountUrl, AGENT_ID, CONTRACT_ID } from '@/lib/config';
 import { PROOF_GROUPS, PROOFS, proofUrl } from '@/lib/proofs';
@@ -32,7 +33,9 @@ export default function VerifyPage() {
         </a>
       </p>
 
-      <div className="mt-10">
+      <KeyScopeBadge className="mt-10" />
+
+      <div className="mt-6">
         <LiveChecks />
       </div>
 
