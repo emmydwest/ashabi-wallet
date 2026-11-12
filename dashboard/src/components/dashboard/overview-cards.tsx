@@ -1,4 +1,5 @@
 import { Card, CardHeader } from '@/components/card';
+import { CountUp } from '@/components/count-up';
 import { ExplorerLink } from '@/components/explorer-link';
 import { AGENT_ID, CONTRACT_ID } from '@/lib/config';
 import { shortAccount } from '@/lib/format';
@@ -37,7 +38,9 @@ export function BalanceCard({ snapshot }: { snapshot: GuardianSnapshot }) {
 function Stat({ label, value, tone = 'text-white' }: { label: string; value: number; tone?: string }) {
   return (
     <div className="min-w-0 px-3 py-3 sm:px-4">
-      <div className={`tabular font-mono text-xl font-semibold ${tone}`}>{value}</div>
+      <div className={`font-mono text-xl font-semibold ${tone}`}>
+        <CountUp value={value} />
+      </div>
       <div className="text-xs text-zinc-400">{label}</div>
     </div>
   );

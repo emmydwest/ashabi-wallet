@@ -7,7 +7,7 @@ import { toNear } from '@/lib/near';
 import { budgetToday } from '@/lib/stats';
 import type { GuardianSnapshot } from '@/lib/types';
 import { DemoWalletLabel } from '@/components/wallet/demo-wallet-label';
-import { CountUp } from './count-up';
+import { CountUp } from '@/components/count-up';
 
 // The demo wallet's real state, refreshed every few seconds, shaped like the card in the hero.
 export function LiveStatus({ initial }: { initial: GuardianSnapshot }) {

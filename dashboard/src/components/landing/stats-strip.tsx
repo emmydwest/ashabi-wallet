@@ -5,7 +5,7 @@ import { toNear } from '@/lib/near';
 import { budgetToday } from '@/lib/stats';
 import type { GuardianSnapshot } from '@/lib/types';
 import { DemoWalletLabel } from '@/components/wallet/demo-wallet-label';
-import { CountUp } from './count-up';
+import { CountUp } from '@/components/count-up';
 
 // Real numbers only, each with its scope: the shared demo wallet, or every wallet the factory made.
 export function StatsStrip({ initial, wallets }: { initial: GuardianSnapshot; wallets: number | null }) {
