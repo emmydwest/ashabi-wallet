@@ -423,3 +423,76 @@ body:has(.chat-page) .site-footer {
     animation: none;
   }
 }
+
+/* ---- Buttons that give a little under the finger ---- */
+
+.press,
+.btn-brand {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.press:active:not(:disabled),
+.btn-brand:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.lift {
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+@media (hover: hover) {
+  .lift:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+}
+
+/* ---- Page transitions (app/template.tsx) ---- */
+
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(.page-out) {
+  animation: 160ms ease-in both page-out;
+}
+
+::view-transition-new(.page-in) {
+  animation: 340ms cubic-bezier(0.2, 0.8, 0.2, 1) 80ms both page-in;
+}
+
+@keyframes page-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press:active:not(:disabled),
+  .btn-brand:active:not(:disabled),
+  .lift:hover:not(:disabled) {
+    transform: none;
+  }
+
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
