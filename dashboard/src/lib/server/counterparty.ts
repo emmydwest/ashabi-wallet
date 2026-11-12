@@ -70,9 +70,9 @@ async function codeChangedToday(accountId: string, codeNow: string): Promise<boo
   try {
     const before = await viewAccount(accountId, { block_id: await heightADayAgo() }, ARCHIVAL_RPC);
     return before.code_hash !== codeNow;
-  } catch {
-    // Not there a day ago (the age check covers that), or the archival node didn't answer.
-    return null;
+  } catch (e) {
+    // No account a day ago means today's code is new too. Anything else: the node didn't answer.
+    return (e as Error).message === 'UNKNOWN_ACCOUNT' ? true : null;
   }
 }
 
@@ -90,33 +90,31 @@ function hoursAgo(ms: number) {
   return `${hours} hour${hours === 1 ? '' : 's'} ago`;
 }
 
-async function inspect(accountId: string, vaultId: string): Promise<CounterpartyCheck> {
-  const [report, account, created] = await Promise.all([
-    readReport(accountId, vaultId),
+async function warningSigns(accountId: string): Promise<string[]> {
+  const [account, created] = await Promise.all([
     viewAccount(accountId, { finality: 'final' }).catch((e: Error) => e),
     createdAt(accountId).catch(() => null),
   ]);
-  if (report) {
-    return {
-      level: 'BLOCK',
-      report,
-      findings: [`reported by ${report.reported_by}: ${report.reason}`],
-    };
-  }
   if (account instanceof Error) {
-    const missing = account.message === 'UNKNOWN_ACCOUNT';
-    return {
-      level: 'WARN',
-      findings: [
-        missing ? `${accountId} does not exist on testnet` : `couldn't read ${accountId} (${account.message})`,
-      ],
-    };
+    return [
+      account.message === 'UNKNOWN_ACCOUNT'
+        ? `${accountId} does not exist on testnet`
+        : `couldn't read ${accountId} (${account.message})`,
+    ];
   }
-  const findings: string[] = [];
-  if (created && Date.now() - created < DAY_MS) findings.push(`account created ${hoursAgo(created)}`);
+  const signs: string[] = [];
+  if (created && Date.now() - created < DAY_MS) signs.push(`account created ${hoursAgo(created)}`);
   if (account.code_hash !== NO_CODE && (await codeChangedToday(accountId, account.code_hash)))
-    findings.push('contract code changed in the last 24 hours');
-  return { level: findings.length ? 'WARN' : 'ALLOW', findings };
+    signs.push('contract code changed in the last 24 hours');
+  return signs;
+}
+
+async function inspect(accountId: string, vaultId: string): Promise<CounterpartyCheck> {
+  const [report, signs] = await Promise.all([readReport(accountId, vaultId), warningSigns(accountId)]);
+  if (report) {
+    return { level: 'BLOCK', report, findings: [`reported by ${report.reported_by}: ${report.reason}`, ...signs] };
+  }
+  return { level: signs.length ? 'WARN' : 'ALLOW', findings: signs };
 }
 
 export async function checkCounterparty(accountId: string, vaultId: string): Promise<CounterpartyCheck> {
