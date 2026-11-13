@@ -5,7 +5,7 @@ export type Proof = {
   title: string;
   status: string;
   tx: string;
-  group: 'paid' | 'blocked' | 'owner' | 'factory';
+  group: 'lock' | 'paid' | 'blocked' | 'owner' | 'factory';
 };
 
 export const PROOFS: Proof[] = [
@@ -99,11 +99,36 @@ export const PROOFS: Proof[] = [
     status: 'APPROVED, receipt verified',
     tx: '7NBA3Vfw6bUpX8LydZtByArJJSnJYzDTVjNQDgRNbPE2',
   },
+  {
+    group: 'lock',
+    title: 'The vault account’s last full-access key is deleted; its code can never change again',
+    status: 'delete_key, 0 keys left',
+    tx: '4sji6Jsju1RB3Dua7LtBSeVp5p4cztPb1KzGM2shGpWa',
+  },
+  {
+    group: 'lock',
+    title: 'The agent account’s full-access key is deleted; only request_payment keys remain',
+    status: 'delete_key',
+    tx: '4wv9ozaqH47JqFxfbxTeJXAs8QXdZNJu8gMRZBE6yNYZ',
+  },
+  {
+    group: 'lock',
+    title: 'After the lock, a 0.05 NEAR weather purchase over 402 still settles',
+    status: 'APPROVED, receipt verified',
+    tx: 'BXuf9w2bTSHoDUgiiX83jgsQsFSNSWhgMx9eD3ezmyV2',
+  },
+  {
+    group: 'lock',
+    title: 'After the lock, the hijacked agent’s 2 NEAR to the attacker is still refused',
+    status: 'BLOCKED_RECIPIENT',
+    tx: 'FU8MCuWZmUs734CL54McjmH7j75PCWqZZVAaBbHLnnGD',
+  },
 ];
 
 export const proofUrl = (tx: string) => `${EXPLORER}/txns/${tx}`;
 
 export const PROOF_GROUPS: { id: Proof['group']; label: string }[] = [
+  { id: 'lock', label: 'Locked for good' },
   { id: 'paid', label: 'Paid for real' },
   { id: 'blocked', label: 'Attacks that were blocked' },
   { id: 'owner', label: 'Owner approval' },

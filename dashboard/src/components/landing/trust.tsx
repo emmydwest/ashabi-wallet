@@ -8,7 +8,7 @@ const CONTRACTS = [
 const LIMITS = [
   'Testnet only. Nothing here is real money, and you never need any.',
   'The demo wallet is shared by every visitor, so its daily budget can run out; it resets at 00:00 UTC (1:00 AM WAT).',
-  'The two contract accounts still hold an upgrade key while we test. It’s removed before judging.',
+  'The demo vault and its agent have no full-access keys, so the vault’s code can’t be changed, even by us. The factory account still has one, but wallets it made are pinned to their code hash and have no keys.',
   'The weather vendor is a demo built for this project. Payment checks are real; the data is sample data.',
 ];
 
@@ -27,7 +27,7 @@ export function Trust() {
             </li>
           ))}
           <li className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <span className="text-zinc-400">Source code (public at submission)</span>
+            <span className="text-zinc-400">Source code</span>
             <a href={REPO_URL} target="_blank" rel="noreferrer" className="font-mono text-sky-300">
               github.com/emmydwest/ashabi-wallet ↗
             </a>

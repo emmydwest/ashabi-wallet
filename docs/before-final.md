@@ -1,5 +1,16 @@
 # Before the final demo
 
+> **Done on 13 Nov 2026.** Both keys below were deleted with Emmy's go-ahead:
+> the vault's `ed25519:Arhid3xj…` in
+> [4sji6Jsj…](https://testnet.nearblocks.io/txns/4sji6Jsju1RB3Dua7LtBSeVp5p4cztPb1KzGM2shGpWa) and the
+> agent's `ed25519:9gPaehWn…` in
+> [4wv9ozaq…](https://testnet.nearblocks.io/txns/4wv9ozaqH47JqFxfbxTeJXAs8QXdZNJu8gMRZBE6yNYZ).
+> `view_access_key_list` on `guardian.gw-emmy.testnet` now returns no keys, and
+> `gw-emmy-agent.testnet` holds only its two `request_payment` function-call keys. Right after, a
+> paid 402 purchase ([BXuf9w2b…](https://testnet.nearblocks.io/txns/BXuf9w2bTSHoDUgiiX83jgsQsFSNSWhgMx9eD3ezmyV2))
+> settled and a hijack ([FU8MCuWZ…](https://testnet.nearblocks.io/txns/FU8MCuWZmUs734CL54McjmH7j75PCWqZZVAaBbHLnnGD))
+> was refused. The steps are kept below as a record.
+
 ## Lock the contract account
 
 `guardian.gw-emmy.testnet` still has one full-access key

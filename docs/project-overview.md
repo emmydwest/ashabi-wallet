@@ -554,8 +554,8 @@ Anyone can read the state with no keys:
 
 - **The contract code and the NEAR protocol.** There has been no audit; there are 55 unit tests
   and real testnet scenarios.
-- **The contract account's keys.** Until the full-access key on `guardian.gw-emmy.testnet` is
-  deleted, whoever holds it could redeploy the contract. See limitations.
+- **The contract account's keys.** None: the last full-access key on `guardian.gw-emmy.testnet`
+  was deleted on 13 Nov 2026, so nobody can redeploy it.
 - **The owner's wallet.** Whoever controls `realfile1618.testnet` controls policy, by design.
 - **Payees.** An approved payee can still be a bad vendor. The allowlist limits *who* gets paid,
   not whether they deliver. The 402 loop and the vendor-side checks are demo code, not part of
@@ -586,15 +586,12 @@ sometimes gullible models. When one of them falls for an injection, the contract
 
 ## 10. Known limitations and honest weaknesses
 
-- **Full-access key on the contract account.** It is still there during development, so the
-  contract could be redeployed by whoever holds it. It stays on testnet for evaluation stability
-  and will be deleted about 2 hours before the deadline, which makes the deployed code immutable.
-  Production would burn it or put upgrades behind a DAO or multisig timelock. The trade-off is that there are no
-  more upgrades after that.
-- **Full-access key on the demo agent account.** `gw-emmy-agent.testnet` still has a full-access
-  key as well as the scoped function-call keys. `/verify` reports this as a caveat, not a green
-  tick. It will be removed before submission. Owner-only contract methods still need the owner's
-  signature and 1 yoctoNEAR.
+- **No more upgrades.** The vault account's last full-access key was deleted on 13 Nov 2026, so
+  the deployed code is immutable. A bug fix means a new vault and moving the funds with
+  `withdraw`. Production might put upgrades behind a DAO or multisig timelock instead.
+- **Agent gas allowance is fixed.** `gw-emmy-agent.testnet` has no full-access key either, so its
+  function-call keys' allowances can't be topped up. When they run out, the owner sets a new agent
+  with `set_agent`.
 - **"Runs left" is per server instance.** The 5-runs-per-10-minutes limit is kept in memory per
   serverless instance, so it is approximate. A determined visitor could get more runs. The
   contract's limits are the real protection, but the agent key's gas allowance (about 3 NEAR) and
@@ -639,8 +636,8 @@ sometimes gullible models. When one of them falls for an injection, the contract
 - Write and publish the X demo post.
 - Fill in the hackathon submission form.
 - Make the GitHub repo public.
-- Delete the full-access keys on `guardian.gw-emmy.testnet` and `factory.gw-emmy.testnet`, after
-  a final check that no more upgrades are needed.
+- Delete the factory account's full-access key once no factory upgrade is needed (the vault and
+  agent keys are already gone).
 - Final pass: refresh the README proof table and the screenshots.
 
 ### Product build (11 Nov)

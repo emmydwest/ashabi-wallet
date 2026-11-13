@@ -43,7 +43,7 @@ with the agent's own limited key. Open https://ashabi-wallet.vercel.app/agent on
    `/vault/<your wallet>/request/<id>`, which you approve from your phone.
 
 6. **Open `/verify`.** The checks run in your browser against a public testnet RPC: the agent
-   key’s scope, the vault’s full-access key count (currently present, removed at code freeze),
+   key’s scope, the vault’s full-access key count (0 since 13 Nov 2026, so the code can't change),
    owner control (owner methods need the owner’s signature and 1 yoctoNEAR), the contract code
    hash and balance, the velocity limit, the kill-switch, and the latest blocked attempt. Under
    that is every proof transaction with a NearBlocks link.
@@ -77,10 +77,14 @@ Every row is a real transaction from the live demo.
 | Next request while the breaker is on | `FROZEN` | [DoNJY3xx…](https://testnet.nearblocks.io/txns/DoNJY3xxvwr3FRZCeq4ngiWZ7jda6wBzpa3SLuRB7xkZ) |
 | An approved vendor's quote jumps from 0.05 to 1 NEAR right after a normal purchase | `BLOCKED_VELOCITY` | [67nR9apJ…](https://testnet.nearblocks.io/txns/67nR9apJXtrWJaVgwooPc1dFkFBc6HXE2xRK6A9VEi8y) |
 | Agent pays the look-alike `api-vendor.gw-ernmy.testnet` | `BLOCKED_RECIPIENT` | [BmBFDFtM…](https://testnet.nearblocks.io/txns/BmBFDFtMG4CQio3Xh18uCxAtiq3UtjQkNuYJ3sc1Hr3e) |
-| Vault upgraded in place to the blocklist code; budget, records and guards kept | `deploy` + `migrate` | [EHXQs4iz…](https://testnet.nearblocks.io/txns/EHXQs4izxEDWvXVHcmE4mB1D9q5DfsU3MRpb5YwLtc77) |
+| Vault upgraded in place to the blocklist code, the last upgrade before the lock; budget, records and guards kept | `deploy` + `migrate` | [EHXQs4iz…](https://testnet.nearblocks.io/txns/EHXQs4izxEDWvXVHcmE4mB1D9q5DfsU3MRpb5YwLtc77) |
 | A fresh account swaps in new contract code | `deploy` | [8dMgBbVC…](https://testnet.nearblocks.io/txns/8dMgBbVCaVdKtsNosAVDQVMEKrcGrer6incceUUgPUNd) |
 | The security desk reports it, citing that transaction | `payee_reported` | [6WWMRu6A…](https://testnet.nearblocks.io/txns/6WWMRu6Az2Yu8uJBiHyZ7doAUDmVrjZANQoMHFVcaoms) |
 | Agent tries to pay the reported account | `BLOCKED_COUNTERPARTY` | [AEydt7eQ…](https://testnet.nearblocks.io/txns/AEydt7eQR6BSKURaDAi5EXiaKg8jcVRYMLrHn4YBfE1n) |
+| Vault's last full-access key deleted: no one can redeploy or sign for `guardian.gw-emmy.testnet` again | `delete_key`, 0 keys left | [4sji6Jsj…](https://testnet.nearblocks.io/txns/4sji6Jsju1RB3Dua7LtBSeVp5p4cztPb1KzGM2shGpWa) |
+| Agent account's full-access key deleted; only its `request_payment` keys remain | `delete_key` | [4wv9ozaq…](https://testnet.nearblocks.io/txns/4wv9ozaqH47JqFxfbxTeJXAs8QXdZNJu8gMRZBE6yNYZ) |
+| After the lock: a 0.05 NEAR weather purchase over 402 still settles | `APPROVED`, receipt verified | [BXuf9w2b…](https://testnet.nearblocks.io/txns/BXuf9w2bTSHoDUgiiX83jgsQsFSNSWhgMx9eD3ezmyV2) |
+| After the lock: the hijacked agent's 2 NEAR to the attacker is still refused | `BLOCKED_RECIPIENT` | [FU8MCuWZ…](https://testnet.nearblocks.io/txns/FU8MCuWZmUs734CL54McjmH7j75PCWqZZVAaBbHLnnGD) |
 | 1.5 NEAR upgrade waits for the owner | `PENDING_APPROVAL` | [8D6HW9p6…](https://testnet.nearblocks.io/txns/8D6HW9p6eGudHSzNQnThAo7p2D2V3aqmh6KxVvUf46Ye) |
 | Owner approves on a phone (Meteor wallet) | `approve_payment` | [5Egz99Bb…](https://testnet.nearblocks.io/txns/5Egz99BbvHEe7hBkek1JCd6pxZRwGTQch2h9H7ac1iTz) |
 | Vault code published once as a global contract (hash `3Rh6iyiZ…`) | `deploy-as-global` | [AMofamyG…](https://testnet.nearblocks.io/txns/AMofamyGtE7c72ZM6jFzHvMWkhsy8H599owDRXAixYpR) |
@@ -344,13 +348,14 @@ What else to know:
   vendor should keep them in Redis or a KV store with durable writes.
 - **Intent hash:** an audit-trail commitment in the memo, not a signature. Production would sign
   the intent log inside a TEE so the hash also proves which agent code produced it.
-- **Agent account keys:** `gw-emmy-agent.testnet` still has one full-access key from
-  development next to its scoped function-call keys. The server doesn't sign with it, and it
-  can't change the vault's rules, but it goes at code freeze too. The key scope badge shows the
-  live count, so it reads 0 on its own afterwards.
-- **Contract upgrades:** the contract account keeps a full-access key on testnet for evaluation
-  stability; it will be removed about 2 hours before the deadline. In production you would burn
-  it or hand upgrades to a DAO or multisig with a timelock.
+- **Agent account keys:** `gw-emmy-agent.testnet` has no full-access key since 13 Nov 2026,
+  only its two `request_payment` function-call keys. Their gas allowance can't be raised any
+  more; when it runs out, the owner points the vault at a new agent with `set_agent`.
+- **No more upgrades:** the vault account's last full-access key was deleted on 13 Nov 2026
+  ([tx](https://testnet.nearblocks.io/txns/4sji6Jsju1RB3Dua7LtBSeVp5p4cztPb1KzGM2shGpWa)), so the
+  deployed code is final and `migrate` can never run again. A bug fix means a new vault (the
+  factory makes one in a transaction) and moving funds with `withdraw`. In production you might
+  prefer a DAO or multisig with a timelock over a burned key.
 
 ## Sustainability
 
@@ -631,12 +636,12 @@ contract directly (panics: unauthorized), agent trying to add a payee (panics: u
 
 ### Known limitations
 
-- The contract account still has a full-access key during development, so whoever holds it could
-  redeploy the contract. It will be removed about 2 hours before the deadline; exact steps in
-  [docs/before-final.md](docs/before-final.md).
-- The demo agent account `gw-emmy-agent.testnet` still has a full-access key as well as the
-  scoped function-call keys. `/verify` reports this honestly. The full-access key will be
-  removed before submission. Owner-only methods still need the owner’s signature and 1 yoctoNEAR.
+- The demo vault and its agent account have no full-access keys (deleted 13 Nov 2026, steps in
+  [docs/before-final.md](docs/before-final.md)), so the vault's code can't be fixed in place.
+  The factory account still has its full-access key, which only matters for new wallets: existing
+  ones are pinned to their code hash and have no keys.
+- `scripts/testnet-scenarios.sh` signs agent steps from the legacy keychain, so to re-run it the
+  keychain entry for `gw-emmy-agent.testnet` must hold one of its function-call keys.
 - The default kill-switch cooldown in the contract is 10 minutes. The live demo may be shorter
   if the owner changed it (`get_wallet_status` and the verify panel show the live value).
 - No NEAR Intents yet: payments are native NEAR transfers. NEAR Intents has no testnet, so any
