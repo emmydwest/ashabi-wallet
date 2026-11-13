@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { WalletStatus } from '@/lib/types';
-import { CATALOG } from '@/vendor/catalog';
+import { findItem } from '@/vendor/providers';
 
 // Whole NEAR amounts read as "5", prices keep their decimals.
 export function nearLabel(yocto: string) {
@@ -18,7 +18,7 @@ export function paymentMessage(
   const daily = nearLabel(status.daily_limit);
   const remaining = nearLabel(status.remaining_today);
   const threshold = nearLabel(status.approval_threshold);
-  const item = opts?.sku ? (CATALOG.find((i) => i.sku === opts.sku)?.name ?? opts.sku) : undefined;
+  const item = opts?.sku ? (findItem(opts.sku)?.name ?? opts.sku) : undefined;
 
   if (verdict === 'APPROVED') {
     if (item && opts?.amount) return `Done. I paid ${opts.amount} NEAR for the ${item}.`;

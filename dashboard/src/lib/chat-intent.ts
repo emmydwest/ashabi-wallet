@@ -1,4 +1,4 @@
-import { CATALOG, itemFor } from '@/vendor/catalog';
+import { ALL_ITEMS, findItem } from '@/vendor/providers';
 
 // Pure helpers for /chat. Named transfers are forced to the contract if the
 // model does not call request_payment itself; catalog matching fills buy_item.
@@ -7,7 +7,7 @@ export type ChatTopic = 'greeting' | 'identity' | 'budget' | 'catalog' | 'safety
 export type ChatIntent = { kind: 'chat'; topic: ChatTopic } | { kind: 'purchase' };
 
 export type TransferAsk = { receiver_id: string; amount_near: string };
-export type CatalogAsk = { sku: string; price_near: string; name: string };
+export type CatalogAsk = { sku: string; price_near: string; name: string; payee: string };
 
 const ACCOUNT = /\b(?:[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?\.)+(?:testnet|near)\b/gi;
 const AMOUNT = /\b(\d+(?:\.\d+)?)\s*near\b/i;
@@ -43,6 +43,9 @@ export function parseTransfer(text: string): TransferAsk | null {
 }
 
 const ITEM_ALIASES: { sku: string; pattern: RegExp }[] = [
+  { sku: 'fx-usd', pattern: /\b(exchange rates?|fx rates?|currency rates?|dollar rates?|usd rates?)\b/ },
+  { sku: 'air-lagos', pattern: /\b(air quality|aqi|pollution|pm2\.?5)\b/ },
+  { sku: 'quakes-today', pattern: /\b(earthquakes?|quakes?|seismic)\b/ },
   { sku: 'icon-pack', pattern: /\b(icon pack|icons? pack|icon set|icons)\b/ },
   { sku: 'news-digest', pattern: /\b(news digest|morning news|briefing|news)\b/ },
   { sku: 'translate', pattern: /\b(translat(?:e|ion)|yoruba|into french)\b/ },
@@ -55,12 +58,12 @@ const ITEM_ALIASES: { sku: string; pattern: RegExp }[] = [
 
 export function matchCatalog(text: string): CatalogAsk | null {
   const t = norm(text);
-  const bySku = CATALOG.find((i) => t.includes(i.sku));
-  if (bySku) return { sku: bySku.sku, price_near: bySku.price_near, name: bySku.name };
+  const bySku = ALL_ITEMS.find((i) => t.includes(i.sku));
+  if (bySku) return { sku: bySku.sku, price_near: bySku.price_near, name: bySku.name, payee: bySku.payee };
   for (const alias of ITEM_ALIASES) {
     if (alias.pattern.test(t)) {
-      const item = itemFor(alias.sku);
-      if (item) return { sku: item.sku, price_near: item.price_near, name: item.name };
+      const item = findItem(alias.sku);
+      if (item) return { sku: item.sku, price_near: item.price_near, name: item.name, payee: item.payee };
     }
   }
   return null;

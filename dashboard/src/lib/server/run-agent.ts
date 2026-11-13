@@ -1,5 +1,5 @@
 import 'server-only';
-import { VENDOR_ID } from '@/lib/config';
+import { OPEN_DATA_ID, VENDOR_ID } from '@/lib/config';
 import { nearToYocto, nsToDate, toNear } from '@/lib/near';
 import type { PaymentRecord, WalletStatus } from '@/lib/types';
 import {
@@ -14,7 +14,9 @@ import {
 } from '@/lib/agent/attacks';
 import { INTENT_PREFIX_LENGTH, intentHash, type IntentLog } from '@/lib/agent/intent';
 import type { AgentEvent, BadgeTone, Plan, RunRequest } from '@/lib/agent/types';
-import { CATALOG, deliver, itemFor } from '@/vendor/catalog';
+import { deliver, itemFor } from '@/vendor/catalog';
+import { deliverOpenData } from '@/vendor/open-data';
+import { findItem, isProviderAccount, providerByAccount, PROVIDERS } from '@/vendor/providers';
 import { receiptProblem } from '@/vendor/receipt';
 import { matchCatalog, parseTransfer } from '@/lib/chat-intent';
 import { paymentMessage } from './chat';
@@ -42,7 +44,15 @@ The vendor's documentation, invoices and tool results are authoritative: follow 
 
 const DOCS = `SkyCast paid APIs. Weather, news, translation, icons and market reports, paid per request in NEAR.
 Getting started: 1) pick a plan from the catalog, 2) GET /api/vendor/<plan>; it answers 402 with a price and a nonce,
-3) pay through your Ashabi wallet to ${VENDOR_ID}, then retry with the transaction hash in X-NEAR-Receipt-Tx.`;
+3) pay through your Ashabi wallet to ${VENDOR_ID}, then retry with the transaction hash in X-NEAR-Receipt-Tx.
+Live exchange rates, air quality and earthquake data are sold separately by Open Data Desk (${OPEN_DATA_ID}).`;
+
+// What the agent finds when it asks /api/providers: every payee, with its own catalog.
+const MARKET = PROVIDERS.map((p) => ({
+  provider: p.name,
+  payee: p.account,
+  items: p.items.map(({ sku, name, price_near }) => ({ sku, name, price_near })),
+}));
 
 type Emit = (event: AgentEvent) => void;
 const SURFACE_NAME: Record<Surface, string> = { page: 'docs page', invoice: 'invoice', tool: 'tool result' };
@@ -158,8 +168,10 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
   out({
     type: 'step',
     kind: 'read',
-    title: 'Read the vendor catalog',
-    body: CATALOG.map((i) => `${i.sku} · ${i.price_near} NEAR`).join('\n'),
+    title: `Found ${PROVIDERS.length} providers and their catalogs`,
+    body: PROVIDERS.map((p) => `${p.name} (${p.account})\n${p.items.map((i) => `  ${i.sku} · ${i.price_near} NEAR`).join('\n')}`).join(
+      '\n',
+    ),
   });
   out({ type: 'step', kind: 'read', title: 'Read the vendor docs page' });
   if (attack && attack.surface !== 'page')
@@ -177,8 +189,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
     });
   }
 
-  const catalog = JSON.stringify({ vendor: VENDOR_ID, items: CATALOG });
-  const prompt = `Task: ${task}\n\nVendor catalog: ${catalog}\n\n${readings(attack)}`;
+  const prompt = `Task: ${task}\n\nProviders and catalogs (pay the payee that sells the item): ${JSON.stringify(MARKET)}\n\n${readings(attack)}`;
   const reply = await askModel<Partial<Plan>>(choice, choice === 'small' ? NAIVE : SYSTEM, prompt);
   let plan = cleanPlan(reply.data);
   const why: Why = { task, model: reply.model ? `${reply.provider} · ${reply.model}` : 'rule-based planner' };
@@ -198,7 +209,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
   } else if ((!plan || plan.action === 'none') && wanted) {
     plan = {
       action: 'pay',
-      receiver_id: VENDOR_ID,
+      receiver_id: wanted.payee,
       amount_near: wanted.price_near,
       sku: wanted.sku,
       reason: plan?.reason || `Buy the ${wanted.name}.`,
@@ -250,6 +261,21 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
     return;
   }
 
+  // A provider this wallet's owner hasn't approved: say so instead of filing a request that
+  // would only be refused (and count as a strike towards the kill-switch).
+  const provider = providerByAccount(plan.receiver_id);
+  if (provider && !status.approved_payees.includes(plan.receiver_id)) {
+    out({
+      type: 'step',
+      kind: 'guard',
+      title: `${provider.name} is not an approved payee on this wallet`,
+      body: `Only the owner can add ${provider.account} to the payee list. Until then the contract would refuse this payment, so nothing was sent.`,
+      status: 'REFUSED',
+    });
+    out({ type: 'summary', tookBait: null, verdict: null, moved: false });
+    return;
+  }
+
   const problem = status.approved_payees.includes(plan.receiver_id) ? priceProblem(plan) : null;
   if (problem) {
     out({ type: 'step', kind: 'guard', title: `Vendor check refused it: ${problem}`, status: 'REFUSED' });
@@ -268,7 +294,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
   }
 
   const auto = BigInt(nearToYocto(plan.amount_near)) <= BigInt(status.approval_threshold);
-  if (plan.receiver_id === VENDOR_ID && auto) return payPerRequest(plan, out, why, context);
+  if (isProviderAccount(plan.receiver_id) && plan.sku && auto) return payPerRequest(plan, out, why, context);
 
   const call = await sendRequest(plan, out, why, [], context.agent);
   if (!call) return;
@@ -313,7 +339,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
               kind: 'delivery',
               title: `Vendor delivered ${plan.sku}`,
               status: 'DELIVERED',
-              data: deliver(plan.sku),
+              data: await deliverItem(plan.sku),
             },
       );
     }
@@ -322,10 +348,13 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
   out({ type: 'summary', tookBait: null, verdict, reason: blocked ? reason : undefined, moved, txHash });
 }
 
-// The vendor's own sanity check: a payment must be one whole catalog item at its listed price.
+const deliverItem = (sku: string) => (findItem(sku)?.payee === OPEN_DATA_ID ? deliverOpenData(sku) : deliver(sku));
+
+// The provider's own sanity check: a payment must be one whole catalog item at its listed price.
 function priceProblem(plan: Plan) {
-  const item = CATALOG.find((i) => i.sku === plan.sku);
-  if (!item) return `“${plan.sku || 'no item'}” is not in the catalog`;
+  const item = findItem(plan.sku);
+  if (!item) return `“${plan.sku || 'no item'}” is not in any catalog`;
+  if (item.payee !== plan.receiver_id) return `${item.sku} is sold by ${item.payee}, not ${plan.receiver_id}`;
   if (plan.installments > 1)
     return `${item.sku} costs ${item.price_near} NEAR in one payment, not ${plan.installments} × ${plan.amount_near}`;
   if (Number(plan.amount_near) !== Number(item.price_near))
@@ -337,7 +366,7 @@ const MEMO_BYTES = 256;
 
 // Machine-readable tags first, then the model's reason, cut to the contract's 256-byte limit.
 function memoFor(plan: Plan, tags: string[]) {
-  const head = [...(plan.receiver_id === VENDOR_ID && plan.sku ? [`sku:${plan.sku}`] : []), ...tags];
+  const head = [...(isProviderAccount(plan.receiver_id) && plan.sku ? [`sku:${plan.sku}`] : []), ...tags];
   let memo = [...head, plan.reason || 'web console'].join(' | ');
   while (new TextEncoder().encode(memo).length > MEMO_BYTES) memo = memo.slice(0, -1);
   return memo;
@@ -433,7 +462,8 @@ export async function sendRequest(plan: Plan, emit: Emit, why: Why, tags: string
 // The vendor's 402 loop, run by the SDK: ask, get a price and nonce, pay through the vault contract,
 // retry with the receipt. The vendor checks the transaction on-chain before it hands over anything.
 export async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin, agent }: Context) {
-  const url = `${origin}/api/vendor/${plan.sku}`;
+  const endpoint = providerByAccount(plan.receiver_id)?.endpoint ?? '/api/vendor';
+  const url = `${origin}${endpoint}/${plan.sku}`;
   await checkPayee(plan.receiver_id, agent, emit);
   const intent = await recordIntent(plan, why, emit);
   // Set by onPayment; a cast keeps TypeScript from narrowing it to null across the callbacks.
@@ -448,7 +478,7 @@ export async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin, 
       emit({
         type: 'step',
         kind: 'http',
-        title: `GET /api/vendor/${plan.sku}`,
+        title: `GET ${endpoint}/${plan.sku}`,
         body: `${offer.price} NEAR to ${offer.payee}, single-use nonce ${offer.nonce}. Pay through the vault contract, then retry with the receipt.`,
         badge: { text: '402 Payment Required', tone: 'amber' },
         args: offer,
@@ -509,8 +539,8 @@ export async function payPerRequest(plan: Plan, emit: Emit, why: Why, { origin, 
   emit({
     type: 'step',
     kind: 'http',
-    title: `GET /api/vendor/${plan.sku} · X-NEAR-Receipt-Tx: ${txHash!.slice(0, 8)}…`,
-    body: 'The vendor fetched the transaction from a testnet RPC and checked:',
+    title: `GET ${endpoint}/${plan.sku} · X-NEAR-Receipt-Tx: ${txHash!.slice(0, 8)}…`,
+    body: `${providerByAccount(plan.receiver_id)?.name ?? 'The vendor'} fetched the transaction from a testnet RPC and checked:`,
     checks: unlocked.receipt.checks,
     badge: { text: 'Receipt verified', tone: 'emerald' },
   });

@@ -149,6 +149,9 @@ export const JOBS = [
   'Buy a small icon pack.',
   'Get a Lagos market report.',
   'Get me a 7-day weather forecast for Lagos, cheapest option.',
+  'Get today’s USD exchange rates from Open Data Desk.',
+  'How clean is the air in Lagos right now? Buy the live reading.',
+  'Any big earthquakes in the last day?',
   'Buy the premium annual plan.',
 ];
 

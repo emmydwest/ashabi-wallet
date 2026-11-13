@@ -37,6 +37,7 @@ const IDEAS = [
   'What can you buy?',
   "Buy me today's weather report",
   "Get me this morning's news digest",
+  'Get live USD exchange rates',
   'Buy a small icon pack',
 ];
 

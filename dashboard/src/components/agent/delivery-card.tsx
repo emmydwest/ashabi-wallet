@@ -24,8 +24,16 @@ type Report = {
   note?: string;
 };
 
+// Open Data Desk: live answers from public APIs, passed through as the source gave them.
+type Fx = { kind?: string; source?: string; base?: string; rates?: { currency: string; rate: number }[] };
+type Air = { kind?: string; readings?: { label: string; value: number | string; unit: string }[] };
+type Quakes = { kind?: string; count?: number; quakes?: { magnitude: number; place: string; time: string; url: string }[] };
+
 export function DeliveryCard({ data }: { data: unknown }) {
-  const d = data as Forecast & News & Translation & Icons & Report;
+  const d = data as Forecast & News & Translation & Icons & Report & Fx & Air & Quakes;
+  if (d.kind === 'fx') return <FxCard data={d} />;
+  if (d.kind === 'air') return <AirCard data={d} />;
+  if (d.kind === 'quakes') return <QuakeCard data={d} />;
   if (d.kind === 'forecast' || d.days?.length) return <ForecastCard data={d} />;
   if (d.kind === 'news') return <NewsCard data={d} />;
   if (d.kind === 'translation') return <TranslationCard data={d} />;
@@ -133,6 +141,72 @@ function ReportCard({ data }: { data: Report }) {
         ))}
       </ul>
       {data.note && <p className="px-3 pb-3 text-[11px] text-zinc-500">{data.note}</p>}
+    </div>
+  );
+}
+
+function LiveHeader({ title, source, asOf }: { title: string; source?: string; asOf?: string }) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2">
+      <span className="font-mono text-xs uppercase tracking-wider text-sky-300">{title}</span>
+      <span className="text-[11px] text-zinc-500">
+        Live · {source}
+        {asOf ? ` · ${asOf}` : ''}
+      </span>
+    </div>
+  );
+}
+
+function FxCard({ data }: { data: Fx & { as_of?: string } }) {
+  return (
+    <div className="mt-3 overflow-hidden rounded-xl border border-sky-400/20 bg-sky-400/[0.04]">
+      <LiveHeader title={`1 ${data.base ?? 'USD'} is worth`} source={data.source} asOf={data.as_of} />
+      <ul className="grid grid-cols-2 gap-2 px-3 pb-3 sm:grid-cols-3">
+        {(data.rates ?? []).map((r) => (
+          <li key={r.currency} className="rounded-lg border border-white/[0.06] bg-black/30 px-3 py-2">
+            <div className="font-mono text-[11px] text-zinc-400">{r.currency}</div>
+            <div className="text-sm font-semibold tabular-nums text-white">{r.rate}</div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function AirCard({ data }: { data: Air & { source?: string; city?: string; as_of?: string } }) {
+  return (
+    <div className="mt-3 overflow-hidden rounded-xl border border-sky-400/20 bg-sky-400/[0.04]">
+      <LiveHeader title={`${data.city ?? 'Lagos'} air quality`} source={data.source} asOf={data.as_of} />
+      <ul className="grid grid-cols-2 gap-2 px-3 pb-3 sm:grid-cols-4">
+        {(data.readings ?? []).map((r) => (
+          <li key={r.label} className="rounded-lg border border-white/[0.06] bg-black/30 px-3 py-2">
+            <div className="text-[11px] text-zinc-400">{r.label}</div>
+            <div className="text-sm font-semibold tabular-nums text-white">
+              {r.value} <span className="text-[11px] font-normal text-zinc-500">{r.unit}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function QuakeCard({ data }: { data: Quakes & { source?: string } }) {
+  const quakes = data.quakes ?? [];
+  return (
+    <div className="mt-3 overflow-hidden rounded-xl border border-sky-400/20 bg-sky-400/[0.04]">
+      <LiveHeader title={`${data.count ?? quakes.length} quakes, M4.5+, past day`} source={data.source} />
+      <ul className="divide-y divide-white/[0.06] px-1 pb-1">
+        {quakes.map((q) => (
+          <li key={q.url} className="flex items-baseline gap-3 px-3 py-2">
+            <span className="w-9 shrink-0 font-mono text-sm font-semibold text-amber-200">{q.magnitude.toFixed(1)}</span>
+            <a href={q.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 break-words text-sm text-zinc-200 hover:text-white">
+              {q.place}
+            </a>
+            <span className="shrink-0 font-mono text-[11px] text-zinc-500">{q.time.slice(11, 16)} UTC</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

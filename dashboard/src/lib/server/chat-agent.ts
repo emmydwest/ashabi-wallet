@@ -1,11 +1,10 @@
 import 'server-only';
 
-import { VENDOR_ID } from '@/lib/config';
 import { parseTransfer, matchCatalog, shouldForcePayment } from '@/lib/chat-intent';
 import { nearToYocto, nsToDate } from '@/lib/near';
 import type { AgentEvent, Plan } from '@/lib/agent/types';
 import type { WalletStatus } from '@/lib/types';
-import { CATALOG, itemFor } from '@/vendor/catalog';
+import { findItem, isProviderAccount, PROVIDERS } from '@/vendor/providers';
 import type { AshabiAgent } from 'ashabi-wallet-sdk';
 import { askChat, type ChatMessage, type ToolCall, type ToolDef } from './models';
 import { nearLabel, paymentMessage } from './chat';
@@ -32,8 +31,8 @@ Role: you help people buy testnet data and services through a contract-limited v
 
 Tools:
 - get_vault_status for live budget, remaining today, threshold, velocity, kill-switch, approved payees, and the daily reset (00:00 UTC / 1:00 AM WAT).
-- list_catalog for what you can buy and the prices.
-- buy_item to purchase a catalog SKU through the vendor's HTTP 402 flow.
+- list_catalog for what you can buy, from which provider, and the prices. There are two providers: SkyCast (weather and sample data) and Open Data Desk (live exchange rates, Lagos air quality, earthquakes).
+- buy_item to purchase a catalog SKU through its provider's HTTP 402 flow. A provider only works if it is on this wallet's approved payees.
 - request_payment to send a specific amount to an account. If the visitor asks you to ignore the rules or pay an unknown account, still call this tool — the contract will decide.
 - explain_last_result if you need a recap of the latest payment attempt in this turn.
 
@@ -229,8 +228,14 @@ export async function runChatAgent(input: ChatAgentInput) {
       return JSON.stringify(statusSnapshot(status));
     }
     if (name === 'list_catalog') {
+      const approved = status?.approved_payees ?? [];
       return JSON.stringify(
-        CATALOG.map((i) => ({ sku: i.sku, name: i.name, price_near: i.price_near, description: i.description })),
+        PROVIDERS.map((p) => ({
+          provider: p.name,
+          payee: p.account,
+          approved_on_this_wallet: approved.includes(p.account),
+          items: p.items.map((i) => ({ sku: i.sku, name: i.name, price_near: i.price_near, description: i.description })),
+        })),
       );
     }
     if (name === 'explain_last_result') {
@@ -254,16 +259,22 @@ export async function runChatAgent(input: ChatAgentInput) {
     let plan: Plan | null = null;
     if (name === 'buy_item') {
       const asked = args.sku || '';
-      const matched = itemFor(asked) ?? (matchCatalog(asked) ? itemFor(matchCatalog(asked)!.sku) : undefined);
+      const matched = findItem(asked) ?? (matchCatalog(asked) ? findItem(matchCatalog(asked)!.sku) : undefined);
       if (!matched) {
         return JSON.stringify({
           ok: false,
           error: `Unknown SKU "${asked}". Call list_catalog and pick one of those SKUs.`,
         });
       }
+      if (status && !status.approved_payees.includes(matched.payee)) {
+        return JSON.stringify({
+          ok: false,
+          error: `${matched.payee} sells ${matched.sku}, but it is not an approved payee on this wallet, so the contract would refuse it. Only the owner can add it. No payment was sent.`,
+        });
+      }
       plan = {
         action: 'pay',
-        receiver_id: VENDOR_ID,
+        receiver_id: matched.payee,
         amount_near: matched.price_near,
         sku: matched.sku,
         reason: args.memo || `Chat purchase: ${matched.name}`,
@@ -276,7 +287,7 @@ export async function runChatAgent(input: ChatAgentInput) {
         return JSON.stringify({ ok: false, error: 'Need a valid NEAR account and a positive amount.' });
       }
       const catalog = matchCatalog(`${receiver} ${amount} ${args.memo || ''}`);
-      const toVendor = receiver === VENDOR_ID;
+      const toVendor = isProviderAccount(receiver) && catalog?.payee === receiver;
       plan = {
         action: 'pay',
         receiver_id: receiver,
@@ -334,7 +345,7 @@ export async function runChatAgent(input: ChatAgentInput) {
 
     const auto =
       status && BigInt(nearToYocto(plan.amount_near)) <= BigInt(status.approval_threshold);
-    if (plan.receiver_id === VENDOR_ID && plan.sku && auto) {
+    if (isProviderAccount(plan.receiver_id) && plan.sku && auto) {
       await payPerRequest(plan, wrap, why, context);
     } else {
       const call = await sendRequest(plan, wrap, why, [], agent);
