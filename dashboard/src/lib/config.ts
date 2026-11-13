@@ -4,6 +4,8 @@ export const EXPLORER = 'https://testnet.nearblocks.io';
 export const CONTRACT_ID = process.env.NEXT_PUBLIC_GUARDIAN_CONTRACT ?? 'guardian.gw-emmy.testnet';
 export const AGENT_ID = 'gw-emmy-agent.testnet';
 export const VENDOR_ID = 'api-vendor.gw-emmy.testnet';
+/** A second provider with its own account and catalog, wrapping free public data APIs. */
+export const OPEN_DATA_ID = 'opendata.gw-emmy.testnet';
 /** Creates a wallet per user; each runs the vault contract code as a global contract. */
 export const FACTORY_ID = process.env.NEXT_PUBLIC_GUARDIAN_FACTORY ?? 'factory.gw-emmy.testnet';
 export const FAUCET_URL = 'https://near-faucet.io/';

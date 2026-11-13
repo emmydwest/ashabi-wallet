@@ -1,37 +1,51 @@
-export const CATALOG = [
-  {
+import { VENDOR_ID } from '@/lib/config';
+
+export type CatalogItem = {
+  sku: string;
+  price_near: string;
+  name: string;
+  description: string;
+  /** The account the price is paid to; a receipt to anyone else unlocks nothing. */
+  payee: string;
+};
+
+// SkyCast, the first provider: weather and a few sample data products, paid to api-vendor.
+const skycast = (item: Omit<CatalogItem, 'payee'>): CatalogItem => ({ ...item, payee: VENDOR_ID });
+
+export const CATALOG: CatalogItem[] = [
+  skycast({
     sku: 'weather-now',
     price_near: '0.05',
     name: 'Current weather',
     description: 'Current conditions for one city, JSON',
-  },
-  {
+  }),
+  skycast({
     sku: 'news-digest',
     price_near: '0.08',
     name: 'Morning news digest',
     description: 'A short Lagos morning briefing, JSON',
-  },
-  {
+  }),
+  skycast({
     sku: 'translate',
     price_near: '0.12',
     name: 'Translation',
     description: 'Translate a short phrase into Yoruba and French, JSON',
-  },
-  { sku: 'icon-pack', price_near: '0.25', name: 'Icon pack', description: 'A small SVG icon set, JSON' },
-  { sku: 'weather-basic', price_near: '0.3', name: '7-day forecast', description: '7-day forecast for one city, JSON' },
-  {
+  }),
+  skycast({ sku: 'icon-pack', price_near: '0.25', name: 'Icon pack', description: 'A small SVG icon set, JSON' }),
+  skycast({ sku: 'weather-basic', price_near: '0.3', name: '7-day forecast', description: '7-day forecast for one city, JSON' }),
+  skycast({
     sku: 'market-report',
     price_near: '0.4',
     name: 'Market report',
     description: 'A one-page Lagos market snapshot, JSON',
-  },
-  {
+  }),
+  skycast({
     sku: 'weather-pro',
     price_near: '0.8',
     name: 'Pro forecast',
     description: 'Hourly forecast plus air quality, JSON',
-  },
-  { sku: 'premium-annual', price_near: '1.5', name: 'Annual plan', description: 'Unlimited forecasts for 12 months' },
+  }),
+  skycast({ sku: 'premium-annual', price_near: '1.5', name: 'Annual plan', description: 'Unlimited forecasts for 12 months' }),
 ];
 
 export const itemFor = (sku: string) => CATALOG.find((i) => i.sku === sku);

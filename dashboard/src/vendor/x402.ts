@@ -1,15 +1,16 @@
 import 'server-only';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { AGENT_ID, CONTRACT_ID, FACTORY_ID, isVaultId, RPC_URL, VENDOR_ID } from '@/lib/config';
+import { AGENT_ID, CONTRACT_ID, FACTORY_ID, isVaultId, RPC_URL } from '@/lib/config';
 import { nearToYocto, viewCall } from '@/lib/near';
 import { claim, get } from '@/lib/server/store';
-import type { CATALOG } from './catalog';
+import type { CatalogItem } from './catalog';
 
 // HTTP 402 for agents: the vendor answers an unpaid request with a price and a one-time
 // nonce, the agent pays through its Ashabi wallet with that nonce in the memo, then
 // retries with the transaction hash. The vendor checks the transaction itself on-chain.
+// Every provider uses this with its own catalog; an item's payee says who must be paid.
 
-type Item = (typeof CATALOG)[number];
+type Item = CatalogItem;
 
 export const RECEIPT_HEADER = 'x-near-receipt-tx';
 /** Who signed the receipt; only a lookup hint for the RPC, the signer is checked on-chain. */
@@ -22,30 +23,31 @@ const TX_HASH = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
 const secret = process.env.VENDOR_SECRET?.trim() || randomBytes(32).toString('hex');
 const mac = (text: string) => createHmac('sha256', secret).update(text).digest('hex').slice(0, 16);
 
-function newNonce(sku: string) {
+// The payee is part of the signed text, so one provider's nonce never verifies at another.
+function newNonce(item: Item) {
   const expires = Math.floor(Date.now() / 1000 + NONCE_TTL_SEC).toString(36);
   const salt = randomBytes(5).toString('hex');
-  return `${expires}-${salt}-${mac(`${sku}:${expires}:${salt}`)}`;
+  return `${expires}-${salt}-${mac(`${item.payee}:${item.sku}:${expires}:${salt}`)}`;
 }
 
-function nonceProblem(nonce: string, sku: string) {
+function nonceProblem(nonce: string, item: Item) {
   const [expires, salt, tag] = nonce.split('-');
   if (!expires || !salt || !tag) return 'nonce is malformed';
-  const expected = Buffer.from(mac(`${sku}:${expires}:${salt}`));
+  const expected = Buffer.from(mac(`${item.payee}:${item.sku}:${expires}:${salt}`));
   if (expected.length !== tag.length || !timingSafeEqual(expected, Buffer.from(tag)))
-    return `nonce was not issued by this vendor for ${sku}`;
+    return `nonce was not issued by ${item.payee} for ${item.sku}`;
   if (parseInt(expires, 36) * 1000 < Date.now()) return 'nonce has expired; ask for a new price';
   return null;
 }
 
 export function challenge(item: Item) {
-  const nonce = newNonce(item.sku);
+  const nonce = newNonce(item);
   return {
     error: 'payment_required',
     sku: item.sku,
     price: item.price_near,
     price_yocto: nearToYocto(item.price_near).toString(),
-    payee: VENDOR_ID,
+    payee: item.payee,
     nonce,
     expires_in_sec: NONCE_TTL_SEC,
     pay_with: {
@@ -129,13 +131,13 @@ export async function verifyReceipt(hash: string, item: Item, signerHint?: strin
     return fail('transaction is not a single request_payment call');
   const args = JSON.parse(decode(call.args)) as { receiver_id: string; amount: string; memo?: string };
   const price = nearToYocto(item.price_near);
-  if (args.receiver_id !== VENDOR_ID || BigInt(args.amount) !== price)
-    return fail(`request was not ${item.price_near} NEAR to ${VENDOR_ID}`);
+  if (args.receiver_id !== item.payee || BigInt(args.amount) !== price)
+    return fail(`request was not ${item.price_near} NEAR to ${item.payee}`);
 
   const memo = args.memo ?? '';
   const nonce = memo.match(/nonce:([\w-]+)/)?.[1];
   if (!memo.includes(`sku:${item.sku}`) || !nonce) return fail(`memo does not name sku:${item.sku} and a nonce`);
-  const bad = nonceProblem(nonce, item.sku);
+  const bad = nonceProblem(nonce, item);
   if (bad) return fail(bad);
   checks.push(`request_payment for sku:${item.sku} with this vendor's nonce`);
 
@@ -148,12 +150,12 @@ export async function verifyReceipt(hash: string, item: Item, signerHint?: strin
   const transfer = tx.receipts.find(
     (r) =>
       r.predecessor_id === vault &&
-      r.receiver_id === VENDOR_ID &&
+      r.receiver_id === item.payee &&
       r.receipt.Action?.actions.some((a) => a.Transfer && BigInt(a.Transfer.deposit) === price),
   );
   const landed = transfer && tx.receipts_outcome.find((o) => o.id === transfer.receipt_id);
   if (!landed || landed.outcome.status.Failure) return fail('no successful transfer to the vendor in this transaction');
-  checks.push(`${item.price_near} NEAR transferred to ${VENDOR_ID}`);
+  checks.push(`${item.price_near} NEAR transferred to ${item.payee}`);
 
   // One nonce, one receipt, one unlock.
   if (!(await claim(`nonce:${nonce}`, USED_TTL_SEC))) return fail('this nonce was already redeemed', 409);
