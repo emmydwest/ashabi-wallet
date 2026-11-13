@@ -31,6 +31,6 @@ step "MCP server: install, typecheck, build"
 (cd packages/mcp-server && npm ci --silent && npm run --silent typecheck && npm run --silent build)
 
 step "Dashboard: install, lint, typecheck, build"
-(cd dashboard && npm ci --silent && npm run --silent lint && npx tsc --noEmit && npm run --silent build >/dev/null)
+(cd dashboard && npm ci --silent && npm run --silent lint && npm run --silent typecheck && npm run --silent build >/dev/null)
 
 step "All checks passed from a fresh clone"
