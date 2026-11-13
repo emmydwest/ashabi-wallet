@@ -1,5 +1,7 @@
 # Ashabi Wallet
 
+[![CI](https://github.com/emmydwest/ashabi-wallet/actions/workflows/ci.yml/badge.svg)](https://github.com/emmydwest/ashabi-wallet/actions/workflows/ci.yml)
+
 **An AI agent with its own NEAR wallet that really thinks and spends on pay-per-request APIs, but a NEAR
 contract decides what it can spend, so it can't be talked into draining itself.**
 
