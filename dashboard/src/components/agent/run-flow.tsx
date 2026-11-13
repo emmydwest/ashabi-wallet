@@ -3,9 +3,9 @@
 import { FlowLabels } from '@/components/art/flow-labels';
 import { PaymentFlow, type FlowState } from '@/components/art/payment-flow';
 import type { AgentEvent } from '@/lib/agent/types';
-import { VENDOR_ID } from '@/lib/config';
 import { shortAccount } from '@/lib/format';
 import type { WalletStatus } from '@/lib/types';
+import { isProviderAccount } from '@/vendor/providers';
 
 type Step = Extract<AgentEvent, { type: 'step' }>;
 type Summary = Extract<AgentEvent, { type: 'summary' }>;
@@ -59,8 +59,8 @@ export function RunFlow({ runs, ...props }: Props) {
   const flow = flowFor(props);
   if (!flow) return null;
   const receiver = requestedPayee(props.steps);
-  // The demo vault approves exactly one payee, so anyone else the agent tries to pay is the attack.
-  const payee = receiver && receiver !== VENDOR_ID ? 'attacker' : 'vendor';
+  // Anyone other than a known provider that the agent tries to pay is the attack.
+  const payee = receiver && !isProviderAccount(receiver) ? 'attacker' : 'vendor';
   return (
     <figure className="animate-in mb-6 rounded-2xl border border-white/[0.06] bg-black/30 px-3 pb-3 pt-4 sm:px-5">
       <PaymentFlow state={flow.state} payee={payee} playKey={runs} />
@@ -82,7 +82,7 @@ export function ChatRunFlow({ steps, summary, running }: { steps: Step[]; summar
       {/* Your own vault may allow other payees, so only a refused stranger is drawn as an attacker. */}
       <PaymentFlow
         state={flow.state}
-        payee={receiver !== VENDOR_ID && flow.state === 'blocked' ? 'attacker' : 'vendor'}
+        payee={!isProviderAccount(receiver) && flow.state === 'blocked' ? 'attacker' : 'vendor'}
       />
       <FlowLabels agent="Ashabi" contract="Contract" payee={shortAccount(receiver)} />
       <figcaption className="mt-1 text-center text-xs text-zinc-400">{flow.caption}</figcaption>

@@ -1,6 +1,6 @@
-import { ATTACKS, CUSTOM_ATTACK_ID } from '@/lib/agent/attacks';
+import { ATTACKS, CUSTOM_ATTACK_ID, isScripted } from '@/lib/agent/attacks';
 import { CUSTOM_MAX, TASK_MAX, type AgentEvent, type RunRequest } from '@/lib/agent/types';
-import { CONTRACT_ID, isVaultId } from '@/lib/config';
+import { CONTRACT_ID, isSandboxVault, isVaultId } from '@/lib/config';
 import { runChatAgent } from '@/lib/server/chat-agent';
 import { agentConfigured, agentFor } from '@/lib/server/agent-key';
 import { clientIp, RUNS_PER_WINDOW, runsLeft, takeChat, takeRun } from '@/lib/server/rate-limit';
@@ -78,11 +78,18 @@ export async function POST(request: Request) {
   if (typeof input === 'string') return Response.json({ error: input }, { status: 400 });
   if (!agentConfigured()) return Response.json({ error: 'The agent is not configured here.' }, { status: 503 });
 
-  // Real jobs can run against any Ashabi wallet; attacks only ever target the demo wallet.
+  // Real jobs can run against any Ashabi wallet. Attacks target the demo wallet, or a sandbox
+  // wallet this project owns; the scripted ones (which buy real filler items) stay on the demo.
   const vault = String((body as { vault?: unknown })?.vault ?? CONTRACT_ID).trim();
   if (!isVaultId(vault)) return Response.json({ error: 'That is not an Ashabi wallet.' }, { status: 400 });
-  if (vault !== CONTRACT_ID && input.mode !== 'task')
-    return Response.json({ error: 'Attacks only run against the demo wallet.' }, { status: 400 });
+  if (vault !== CONTRACT_ID && input.mode !== 'task') {
+    const scripted = input.mode === 'attack' && isScripted(input.attackId);
+    if (!isSandboxVault(vault) || scripted)
+      return Response.json(
+        { error: scripted ? 'Scripted attacks only run against the demo wallet.' : 'Attacks only run against the demo wallet or a sandbox wallet.' },
+        { status: 400 },
+      );
+  }
   let agent;
   try {
     agent = await agentFor(vault);

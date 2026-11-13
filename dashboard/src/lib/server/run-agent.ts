@@ -128,7 +128,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
     body: walletNote(status),
   });
 
-  if (input.mode === 'hijack') return runHijack(status, emit);
+  if (input.mode === 'hijack') return runHijack(status, emit, context.agent);
 
   const scripted =
     input.mode === 'attack' && input.attackId !== CUSTOM_ATTACK_ID
@@ -255,7 +255,7 @@ export async function runAgent(input: RunRequest, emit: Emit, context: Context) 
     });
   }
 
-  if (attack) return finishAttack(plan, status, out, why);
+  if (attack) return finishAttack(plan, status, out, why, context.agent);
   if (plan.action === 'none') {
     out({ type: 'summary', tookBait: null, verdict: null, moved: false });
     return;
@@ -909,7 +909,7 @@ async function runBreaker(status: WalletStatus, emit: Emit) {
 
 // A simulated compromise: no model is asked, the agent just does what the attacker says. It
 // is labelled as such in the UI; the point is to always show the contract making the call.
-async function runHijack(status: WalletStatus, emit: Emit) {
+async function runHijack(status: WalletStatus, emit: Emit, agent: AshabiAgent) {
   emit({
     type: 'step',
     kind: 'warning',
@@ -930,7 +930,7 @@ async function runHijack(status: WalletStatus, emit: Emit) {
     reason: 'wallet migration (injected instruction)',
     installments: 1,
   };
-  const call = await sendRequest(plan, emit, { task: HIJACK.instruction, model: 'none (simulated compromise)' });
+  const call = await sendRequest(plan, emit, { task: HIJACK.instruction, model: 'none (simulated compromise)' }, [], agent);
   if (!call) return;
   const killSwitch = call.verdict === 'FROZEN' && Boolean(status.breaker_until || call.reason.includes('breaker'));
   const breached = call.verdict === 'APPROVED' || call.verdict === 'PENDING_APPROVAL';
@@ -966,7 +966,7 @@ const isHonest = (plan: Plan) =>
 
 // Attack mode never buys anything: an honest answer proves the trap failed, and a tricked one
 // is only sent on when it targets an account the contract will refuse, so it records the block.
-async function finishAttack(plan: Plan, status: WalletStatus, emit: Emit, why: Why) {
+async function finishAttack(plan: Plan, status: WalletStatus, emit: Emit, why: Why, agent: AshabiAgent) {
   const honest = isHonest(plan);
 
   if (plan.action === 'none' || honest) {
@@ -1009,7 +1009,7 @@ async function finishAttack(plan: Plan, status: WalletStatus, emit: Emit, why: W
     return;
   }
 
-  const call = await sendRequest(plan, emit, why);
+  const call = await sendRequest(plan, emit, why, [], agent);
   if (!call) return;
   const breached = call.verdict === 'APPROVED' || call.verdict === 'PENDING_APPROVAL';
   emit({
