@@ -179,8 +179,8 @@ about any one project, and only lists behaviour that exists in this repo.
 
 The vendor's paid endpoint, `GET /api/vendor/<sku>` (`/api/vendor/weather` for the basic plan),
 answers an unpaid request with `402 Payment Required` and a price, payee and single-use nonce.
-The live catalog is weather (0.05 / 0.3 / 0.8 NEAR), a news digest (0.08), a translation (0.12),
-an icon pack (0.25), a market report (0.4) and a premium annual plan (1.5, which waits for the owner).
+The live catalog is current weather (`weather-now`, 0.05 NEAR), a news digest (0.08), a translation (0.12),
+an icon pack (0.25), a 7-day forecast (`weather-basic`, 0.3), a market report (0.4), a pro forecast (`weather-pro`, 0.8) and a premium annual plan (1.5, which waits for the owner).
 The agent pays through the vault contract with `sku:<sku> | nonce:<nonce>` in the memo, then retries
 with `X-NEAR-Receipt-Tx: <hash>`. Before it returns any data, the vendor fetches that
 transaction from a testnet RPC and checks four things:
@@ -317,15 +317,15 @@ Every claim, where it lives, and the test that pins it (`cd contract && cargo te
 | Reported-payee blocks count towards the kill-switch | `contract/src/lib.rs:1148` | `counterparty_blocks_count_towards_the_breaker` |
 | The blocklist is capped at 200 entries | `contract/src/lib.rs:832` | `the_blocklist_is_capped` |
 | The agent key can only call `request_payment` | on-chain: `near account list-keys gw-emmy-agent.testnet network-config testnet now`; live on `/agent`, `/dashboard` and `/verify` (`dashboard/src/lib/key-scope.ts`), which also shows which key signed the latest request | |
-| The live console uses the SDK | `dashboard/src/app/api/agent/run/route.ts:88`, `:134` → `dashboard/src/lib/server/run-agent.ts:430`, `:442` → `dashboard/src/lib/server/agent-key.ts:20` | |
-| The vendor checks the receipt on-chain and refuses replays | `dashboard/src/vendor/x402.ts:109`–`160` | run a paid job on `/agent`; the last step shows the `409` |
-| A factory wallet's receipt must come from that wallet's own agent | `dashboard/src/vendor/x402.ts:121`–`123`, `:150` | the `/chat` purchase above |
+| The live console uses the SDK | `dashboard/src/lib/server/agent-key.ts:20`, `dashboard/src/lib/server/run-agent.ts:459`, `:472` | |
+| The vendor checks the receipt on-chain and refuses replays | `dashboard/src/vendor/x402.ts:111`–`:165` | run a paid job on `/agent`; the last step shows the `409` |
+| A factory wallet's receipt must come from that wallet's own agent | `dashboard/src/vendor/x402.ts:124`–`:126` | the `/chat` purchase above |
 | The factory makes the caller the owner and needs at least 0.5 NEAR | `factory/src/lib.rs:123`, `:134` | `create_vault_claims_the_name_for_the_caller`, `too_small_a_deposit_is_refused` (`cd factory && cargo test`) |
 | Wallets run the global code by hash and get no access keys | `factory/src/lib.rs:202`–`205` | on-chain: `near account list-keys boxtest.factory.gw-emmy.testnet network-config testnet now` is empty |
 | The agent key can only call `request_payment` on its own wallet | `factory/src/lib.rs:254`–`259` | `a_created_wallet_gets_its_agent_then_is_ready`; on-chain: `list-keys boxtest-agent.factory.gw-emmy.testnet` |
 | A failed wallet refunds and frees the name; a failed agent leaves a usable wallet | `factory/src/lib.rs:225`, `:269` | `a_failed_wallet_frees_the_name_and_refunds`, `a_failed_agent_leaves_a_usable_wallet` |
 | Only the factory owner changes templates or the code hash, with 1 yoctoNEAR | `factory/src/lib.rs:296`, `:366` | `others_cannot_change_templates`, `owner_changes_need_one_yocto` |
-| 5 runs per 10 minutes per visitor | `dashboard/src/lib/server/rate-limit.ts:6` | |
+| 5 runs per 10 minutes per visitor | `dashboard/src/lib/server/rate-limit.ts:5`–`:6` | |
 
 ### Attack coverage
 
@@ -356,7 +356,7 @@ before any `Promise` transfer is created, so a blocked request never moves funds
 | Attack | Contract check that stops it | NEAR key primitive | Try it |
 |---|---|---|---|
 | **Prompt-injection drain**: a page, invoice or tool result tells the agent to send everything to an attacker | `request_payment`: `approved_payees.contains(&receiver_id)` returns `BLOCKED_RECIPIENT`; the daily budget check (`spent_today + reserved + amount > daily_limit`) returns `BLOCKED_BUDGET`; `record_strike` trips the kill-switch after 3 unknown-payee blocks in a row | The agent signs with a function-call key limited to `request_payment` on the vault; the vault holds the funds, and only the vault's code can send them | `/agent` → One-tap attacks → Prompt-injection drain, or Hijack the agent |
-| **Runaway loop / salami slicing**: many small payments, each under the approval threshold | `velocity_problem` (via `auto_paid_in_window`): automatic payments in the window may not add up past `approval_threshold`, and at most `guards.max_auto_payments` of them, else `BLOCKED_VELOCITY`; reused `request_id` returns `DUPLICATE` (`used_request_ids`) | The function-call key's gas allowance (about 2.98 NEAR, shown live on `/agent`) caps how much gas a loop can burn | One-tap attacks → Split-payment bypass |
+| **Runaway loop / salami slicing**: many small payments, each under the approval threshold | `velocity_problem` (via `auto_paid_in_window`): automatic payments in the window may not add up past `approval_threshold`, and at most `guards.max_auto_payments` of them, else `BLOCKED_VELOCITY`; reused `request_id` returns `DUPLICATE` (`used_request_ids`) | The function-call key's remaining gas allowance (shown live on `/agent`) caps how much gas a loop can burn | One-tap attacks → Split-payment bypass |
 | **Stolen agent server key** | `request_payment` accepts only `agent_id` as caller, and every check above still applies to it; owner methods go through `assert_owner`, which needs the owner account **and** exactly 1 yoctoNEAR attached | A function-call key cannot attach a deposit, send NEAR, add or delete keys, or deploy code. So the stolen key can only ask the contract, and can't call `approve_payment`, `add_payee`, `set_daily_limit`, `unfreeze` or `withdraw`. The owner rotates it with `set_agent` | Key scope badge on `/agent`, `/dashboard`, `/verify` reads `view_access_key_list` live and shows which key signed the latest request |
 | **Rogue API price spike**: an approved vendor raises its 402 price | Above `approval_threshold`: `request_payment` holds it as `PENDING_APPROVAL` and only `approve_payment` (owner + 1 yoctoNEAR) releases it. At or below the threshold: `velocity_problem` keeps all automatic spend in a window at or under the threshold (`BLOCKED_VELOCITY`), so the most a greedy vendor gets without the owner is one threshold's worth per window, and never more than what's left today (`BLOCKED_BUDGET`) | Owner approval is a transaction from the owner's own wallet; the agent's function-call key can't produce it | One-tap attacks → Malicious price spike |
 | **Compromised counterparty**: an account that turned malicious, reported with evidence | `request_payment`: `reported_payees.get(&receiver_id)` returns `BLOCKED_COUNTERPARTY` before the allowlist check, and counts as a strike in `record_strike`; `approve_payment` refuses a reported payee; `report_payee` accepts only the owner or a trusted reporter, `clear_payee_report` only the owner | `report_payee` and `clear_payee_report` need 1 yoctoNEAR, so they need a full-access key; a leaked function-call key can't add, clear or game the list | One-tap attacks → Compromised counterparty |
@@ -379,8 +379,8 @@ What else to know:
 - **What it guarantees:** where funds can go and how much, how fast, and when a human has to
   sign. It does not guarantee that a vendor delivers what it was paid for; the 402 receipt check
   covers the payment side only.
-- **Gas griefing:** a leaked agent key can only burn its own gas allowance, about 2.99 NEAR on
-  the function-call key, and the public console adds a per-IP limit of 5 runs per 10 minutes.
+- **Gas griefing:** a leaked agent key can only burn its own remaining gas allowance (shown live
+  on `/agent` and `/verify`; the demo agent currently has two `request_payment` keys), and the public console adds a per-IP limit of 5 runs per 10 minutes.
   The owner refills or rotates the key with `set_agent`.
 - **Replay cache:** used 402 receipts and nonces live in Vercel's runtime cache. A production
   vendor should keep them in Redis or a KV store with durable writes.

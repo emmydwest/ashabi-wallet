@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Creates a guarded wallet per user, running the Guardian Wallet code as a NEAR global contract"
 license = "MIT"
-repository = "https://github.com/emmydwest/guardian-wallet"
+repository = "https://github.com/emmydwest/ashabi-wallet"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
