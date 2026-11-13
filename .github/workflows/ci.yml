@@ -59,7 +59,7 @@ jobs:
         run: npm run lint
       - name: Typecheck
         working-directory: dashboard
-        run: npx tsc --noEmit
+        run: npm run typecheck
       - name: Build
         working-directory: dashboard
         run: npm run build
