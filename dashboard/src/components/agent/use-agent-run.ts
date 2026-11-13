@@ -23,8 +23,9 @@ export function useAgentRun(onFinish?: () => void) {
       .catch(() => {});
   }, []);
 
-  const run = useCallback(
-    async (input: RunRequest) => {
+  // Streams any endpoint that answers with the agent's NDJSON events (/api/agent/run, /api/challenge).
+  const send = useCallback(
+    async (url: string, payload: unknown) => {
       if (busy.current) return;
       busy.current = true;
       setRunning(true);
@@ -33,10 +34,10 @@ export function useAgentRun(onFinish?: () => void) {
       setIntent(null);
       setError(null);
       try {
-        const res = await fetch('/api/agent/run', {
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(input),
+          body: JSON.stringify(payload),
         });
         if (!res.ok || !res.body) {
           const body = await res.json().catch(() => ({}));
@@ -72,5 +73,10 @@ export function useAgentRun(onFinish?: () => void) {
     [onFinish],
   );
 
-  return { steps, summary, intent, running, error, quota, run };
+  const run = useCallback(
+    (input: RunRequest, vault?: string) => send('/api/agent/run', vault ? { ...input, vault } : input),
+    [send],
+  );
+
+  return { steps, summary, intent, running, error, quota, run, send };
 }
