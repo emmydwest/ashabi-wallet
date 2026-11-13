@@ -5,6 +5,46 @@
 **An AI agent with its own NEAR wallet that really thinks and spends on pay-per-request APIs, but a NEAR
 contract decides what it can spend, so it can't be talked into draining itself.**
 
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/readme/try-paid-402.jpg" alt="The sandbox agent pays 0.05 NEAR for Lagos air quality over HTTP 402" width="100%" />
+      <br />
+      <sub>The sandbox agent pays 0.05 NEAR for Lagos air quality, over HTTP 402.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/readme/try-hijack-refused.jpg" alt="A hijacked agent tries to send 2 NEAR to an attacker; the contract refuses and the funds stay in the vault" width="100%" />
+      <br />
+      <sub>A hijacked agent tries to send 2 NEAR to an attacker. The contract refuses, and the funds stay in the vault.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/readme/chat-pending-approval.jpg" alt="A 1.5 NEAR premium plan sits above the approval threshold, so the contract holds it for the owner" width="100%" />
+      <br />
+      <sub>A 1.5 NEAR premium plan sits above the approval threshold, so the contract holds it for the owner. No funds have moved.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/readme/dashboard-budgets.jpg" alt="The owner dashboard, live from the contract: vault balance, daily budget, and a 1.50 NEAR payment waiting for approval" width="100%" />
+      <br />
+      <sub>The owner dashboard, live from the contract: vault balance, daily budget, and a 1.50 NEAR payment waiting for approval.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/readme/challenge-refused.jpg" alt="On the open challenge, the model follows the injection and the contract blocks the payment" width="100%" />
+      <br />
+      <sub>On /challenge, the model follows the injection. The contract blocks the payment, and no funds leave the vault.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/readme/verify-locked.jpg" alt="The verify page reads the chain live and shows the demo vault is locked with 0 full-access keys" width="100%" />
+      <br />
+      <sub>/verify reads the chain live: the demo vault is locked with 0 full-access keys.</sub>
+    </td>
+  </tr>
+</table>
+
 - **Problem:** AI agents that hold a wallet can be talked into paying anyone. One poisoned web page, invoice or tool result is enough, and a better prompt is a promise, not a lock.
 - **Solution:** the agent can only *ask* for payments. A NEAR contract holds the funds and checks every request against the owner's rules (approved payees, daily budget, human approval above a threshold, velocity limit, kill-switch), and records every refusal on-chain.
 - **Try it in 60 seconds, no wallet:** https://ashabi-wallet.vercel.app/try gives you a sandbox wallet in one tap; its agent buys live data, then gets hijacked and the contract refuses
@@ -827,10 +867,6 @@ model reasoning.
 - `/approve` is the owner's phone view: pending payments with Approve and Reject, a Freeze
   button, and the rules (daily limit, guards including the kill-switch cooldown, approved payees). It signs through the same Connect wallet button as the rest of the app (MyNearWallet, Meteor, HERE or Intear) with 1 yoctoNEAR
   attached; the app never holds the owner's key.
-
-| Dashboard | Owner approvals (mobile) |
-|---|---|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Approve](docs/screenshots/approve-mobile.png) |
 
 ### Built with
 
