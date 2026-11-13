@@ -1,108 +1,81 @@
 # Demo video script (~2:00–2:15)
 
-Record from the live production site, https://ashabi-wallet.vercel.app, **on desktop**
-(1440×900 or 1920×1080). Use large captions. Keep the mascot in frame on the home, heist,
-verify, and close shots.
-
-This version is honest about a spent shared demo budget. Do **not** launch a live hijack, 402
-purchase, or premium request if "Budget left today" is 0 NEAR, and do **not** trip the shared
-demo's kill-switch. Show a real on-chain payment, a blocked-payee receipt, and an
-above-threshold approval from the dashboard / live feed / verify proofs instead. The daily
-budget resets at 00:00 UTC (1:00 AM Lagos). If the shared demo and the boxtest factory vault
-are both spent, wait, or use those existing proof transactions.
+Record on desktop (1440×900 or 1920×1080) from the live site, https://ashabi-wallet.vercel.app.
+Use large captions and keep the mascot in frame on the home, /try and /verify shots.
 
 Spoken lines are in quotes. On-screen action is in **bold**.
 
-## 0:00 – 0:20 · Hook
+Before recording:
+- Open `/try` in a fresh browser profile so you get a sandbox wallet with budget left. Each
+  sandbox wallet has 0.25 NEAR a day, which is enough for a few purchases.
+- `/challenge` allows 3 attempts per visitor every 10 minutes. Leave one spare for the take.
+- The demo vault (`guardian.gw-emmy.testnet`) has not approved Open Data Desk yet. Show the
+  second provider from the sandbox wallet, not the demo vault.
 
-Screen: landing page `/`, mascot in frame. The live feed and the Built on NEAR badge can appear
-as you scroll a little.
+## 0:00 – 0:12 · Hook
 
-> "Give your AI an allowance, not your bank password. This is Ashabi Wallet."
+Screen: `/challenge`, with a finished attempt on screen showing the red **Refused by the
+contract** verdict and its tx link.
 
-> "AI agents are starting to pay for things on our behalf. A poisoned page can tell an agent
-> to drain the wallet. We assume the agent will be hijacked, and make that not matter."
+> "This AI tried to drain itself, and the chain said no."
 
-## 0:20 – 0:50 · The public heist, blocked on-chain
+> "This is Ashabi Wallet. Your agent gets an allowance, not your bank password."
 
-Screen: `/agent`, the **Public heist challenge** banner (live vault balance from the contract,
-not a baked-in number).
+## 0:12 – 0:45 · A wallet in one tap (`/try`)
 
-> "Here is the public heist challenge. The number is the live balance in the demo vault, on
-> NEAR testnet. Try to make the agent steal it. The agent can only ask. The contract decides."
+**Click** "Try it in 60s" in the header, then **Give me a wallet**.
 
-**Show** the Attacks list, with each preset labelled for what it tests: hidden webpage
-injection, look-alike payee spoofing (`gw-ernmy` vs `gw-emmy`), payment splitting, the
-kill-switch (don't confirm it), over-budget drain, a fake owner instruction. **Do not** launch
-the kill-switch on the shared demo.
+> "One tap gives you your own wallet on NEAR testnet. It was made by our factory, it has a
+> tiny daily budget, and its rules live in the contract."
 
-Cut to a real blocked-payee receipt (the in-app "Refused · 2.00 NEAR" card, the live feed, or
-the public explorer). A known proof is `AVTza2m9fpq6KWvUkUpu7Y2dAfoWqRYys4VA64aaLftb`.
+**Click** "Buy live Lagos air quality". Let the timeline play: the 402, `request_payment`,
+the contract verdict, the receipt, the data card.
 
-> "A hijacked agent tries to send two NEAR to someone who isn't on the approved list. The
-> contract refuses, and stores the attempt. No model sits between that request and that refusal."
+> "The agent pays per request. The provider asks for 0.05 NEAR, the contract checks the
+> payee and the budget, and the receipt unlocks the data. The same receipt can't be used twice."
 
-If budget is 0, do not tap "Hijack the agent" — the contract would return `BLOCKED_BUDGET`
-first, which is the wrong story.
+## 0:45 – 1:15 · Hijack it
 
-## 0:50 – 1:10 · A real purchase over HTTP 402
+**Click** "Hijack the agent". Let the injected page and the agent's plan show.
 
-Screen: `/chat` or the live feed on `/` / `/dashboard`, showing a completed 0.05 NEAR
-`weather-now` payment, for example `9mJuqaKETPvgvc5ZdUagJPmp2jopZx7YAQCtAZZ1d491`.
+> "Now a poisoned page tells the agent to send 2 NEAR to an attacker. The agent falls for it,
+> but it can only ask. The contract refuses, because the attacker isn't an approved payee."
 
-> "A provider agent sells data over HTTP 402. A buyer agent pays through the vault — five
-> hundredths of a NEAR — and only then does the data unlock. Today's shared demo budget may
-> already be used; it resets at midnight UTC, so show a real payment that's already on-chain."
+**Click** "View tx" on the refused card to open NearBlocks and show the failed transfer.
 
-If budget remains, run the weather job live and **Verify intent**. That check is a
-16-character prefix of the SHA-256 of the run log, written into the payment memo — not a
-separate commitment scheme. The hidden-injection toggle on Attacks is "Reveal hidden
-injection"; do not call it an X-Ray viewer.
+## 1:15 – 1:40 · Your own attack (`/challenge`)
 
-## 1:10 – 1:25 · Above the threshold, the owner decides
+**Paste** an injection or pick a starter, keep **Naive** on, and **Launch it**.
 
-Screen: `/approve`, or a 1.5 NEAR payment the owner already approved
-(`5Egz99BbvHEe7hBkek1JCd6pxZRwGTQch2h9H7ac1iTz`, or the in-app "Approved by the owner, then
-paid" row).
+> "Anyone can write their own attack. You see the model's reasoning, the verdict, and the
+> transaction. The scoreboard counts what the chain refused and what was ever paid to an
+> unapproved account. That second number is zero."
 
-> "Anything over one NEAR waits for the owner. You approve from your phone, in your own
-> wallet. The app never sees your key."
+Point at **Paid to unapproved: 0** on the scoreboard.
 
-Do not complete an Approve in this recording unless the owner's wallet is actually signed in
-and a pending request exists.
+## 1:40 – 1:55 · A second provider
 
-## 1:25 – 1:50 · Verify-live
+Screen: `/chat?vault=<your sandbox wallet>`.
 
-Screen: `/verify`. Wait for the live checks, then scroll through the agent key scope, the
-vault full-access key count (honestly "still present, removed at code freeze" until it is
-zero), owner control, code hash and balance, velocity, and kill-switch.
+**Type** "Get live USD exchange rates".
 
-> "You don't have to trust this UI. These checks query a public testnet RPC from your
-> browser. The agent's key is limited to request_payment. Owner methods need the owner's
-> signature and one yoctoNEAR. We will not trip the kill-switch on the shared demo today."
+> "Agents can shop across providers. Open Data Desk is a second provider we run, wrapping free
+> public data, with the same pay-per-request flow and its own receipts."
 
-Do not delete any keys during the recording.
+## 1:55 – 2:15 · Verify it yourself (`/verify`)
 
-## 1:50 – 2:15 · Settlement layer, then close
+Screen: `/verify`, the **Locked: 0 full-access keys** card.
 
-Screen: the homepage "safe settlement layer for the agent economy" section, then `/docs` or
-the MCP snippet, then `/` with the URL.
+> "Don't trust us, check the chain. The vault has zero full-access keys, so nobody can change
+> its code or sign for it, including us. The agent only holds limited keys. Copy this command
+> and ask a public RPC yourself."
 
-> "A provider sells, a buyer pays through the vault. There's an SDK, and a local MCP server
-> you run from the repo today. Give AI the freedom to act, never the freedom to overspend.
-> Try it at ashabi-wallet.vercel.app."
+**Click** the copy button on the RPC command, then scroll to **Latest refusals**.
 
-## Short cut (30–45s, for X)
+> "Ashabi Wallet. Let your AI spend, and keep the rules on chain."
 
-Hook on `/`, the heist banner and a blocked-payee receipt, then the URL.
+## Do not
 
-> "Give your AI an allowance, not your bank password. Ashabi Wallet assumes the agent will
-> be hijacked, and makes that not matter. A NEAR contract holds the funds and blocks a stolen
-> payment on-chain. Try it at ashabi-wallet.vercel.app."
-
-## If something goes wrong while recording
-
-- An amber "as of HH:MM" pill: the testnet RPC is slow. Keep going; it refreshes on its own.
-- Shared demo budget is 0, or the breaker is on: use the proofs above. Do not reset or freeze
-  the shared demo from a public recording.
-- Out of public agent runs (5 per 10 minutes): wait, or cut to proofs.
+- Don't show any key, seed phrase or `.env` file.
+- Don't call the second provider third-party; we run it.
+- Don't say the factory has no keys. The factory account still has its full-access key.
