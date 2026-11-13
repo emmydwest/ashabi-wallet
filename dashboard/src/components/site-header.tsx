@@ -11,6 +11,7 @@ const LINKS = [
   { href: '/', label: 'Home', match: [] },
   { href: '/chat', label: 'Live Agent', match: ['/chat'] },
   { href: '/agent', label: 'Attack Demo', match: ['/agent', '/dashboard'] },
+  { href: '/challenge', label: 'Challenge', match: ['/challenge'] },
   { href: '/wallet', label: 'Wallet', match: ['/wallet', '/vault', '/start', '/approve'] },
   { href: '/verify', label: 'Verify', match: ['/verify'] },
   { href: '/docs', label: 'Docs', match: ['/docs'] },
@@ -70,10 +71,10 @@ function Header({ pathname }: { pathname: string | null }) {
           <span className="hidden lg:inline-flex"><NearBadge /></span>
           <ConnectWalletButton variant="nav" />
           <Link
-            href="/chat"
+            href="/try"
             className="btn-brand hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-shadow lg:inline-flex"
           >
-            Try the Agent
+            Try it in 60s
             <ArrowRight className="size-4" aria-hidden />
           </Link>
           <button
@@ -117,11 +118,11 @@ function Header({ pathname }: { pathname: string | null }) {
           </ul>
           <div className="mt-3 flex items-center justify-end gap-3 px-1">
             <Link
-              href="/chat"
+              href="/try"
               onClick={() => setOpenOn(false)}
               className="btn-brand inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold"
             >
-              Try the Agent
+              Try it in 60s
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>

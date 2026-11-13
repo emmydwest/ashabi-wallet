@@ -107,10 +107,10 @@ export default async function Home() {
           </ul>
           <div className="mt-8 grid gap-3 sm:flex sm:flex-wrap sm:items-center">
             <Link
-              href="/start"
+              href="/try"
               className="btn-brand inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 text-base font-semibold transition-shadow"
             >
-              Create your Ashabi wallet
+              Get a wallet in one tap
               <ArrowRight className="size-4" aria-hidden />
             </Link>
             <Link
@@ -125,11 +125,11 @@ export default async function Home() {
             </Link>
           </div>
           <p className="mt-4 text-sm text-zinc-500">
-            Or{' '}
-            <Link href="/chat" className="text-zinc-300 underline-offset-4 hover:underline">
-              ask the live agent to buy something
+            No wallet app needed. Or{' '}
+            <Link href="/challenge" className="text-zinc-300 underline-offset-4 hover:underline">
+              write your own injection
             </Link>{' '}
-            first.
+            and try to make it pay you.
           </p>
         </div>
 
@@ -354,10 +354,16 @@ export default async function Home() {
             Create your Ashabi wallet
           </Link>
           <Link
-            href="/agent"
+            href="/try"
             className="whitespace-nowrap rounded-full border border-white/15 px-5 py-2.5 text-sm text-zinc-100 transition hover:border-white/25"
           >
-            Attack the demo agent
+            Try without a wallet
+          </Link>
+          <Link
+            href="/challenge"
+            className="whitespace-nowrap rounded-full border border-white/15 px-5 py-2.5 text-sm text-zinc-100 transition hover:border-white/25"
+          >
+            Open challenge
           </Link>
           <Link
             href="/verify"
