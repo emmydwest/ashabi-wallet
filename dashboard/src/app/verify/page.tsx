@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { KeyScopeBadge } from '@/components/keys/key-scope-badge';
 import { LiveChecks } from '@/components/verify/live-checks';
+import { LockStatus } from '@/components/verify/lock-status';
+import { cachedSnapshot } from '@/lib/server/cached-snapshot';
 import { accountUrl, AGENT_ID, CONTRACT_ID } from '@/lib/config';
 import { PROOF_GROUPS, PROOFS, proofUrl } from '@/lib/proofs';
 
@@ -10,7 +12,8 @@ export const metadata: Metadata = {
   description: 'Live NEAR RPC checks and every on-chain proof transaction for Ashabi Wallet.',
 };
 
-export default function VerifyPage() {
+export default async function VerifyPage() {
+  const initial = await cachedSnapshot();
   return (
     <main className="mx-auto min-w-0 max-w-4xl px-5 pb-24 pt-10 sm:px-8 sm:pt-16">
       <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand/80">Verify</p>
@@ -33,7 +36,11 @@ export default function VerifyPage() {
         </a>
       </p>
 
-      <KeyScopeBadge className="mt-10" />
+      <div className="mt-10">
+        <LockStatus initial={initial} />
+      </div>
+
+      <KeyScopeBadge className="mt-6" />
 
       <div className="mt-6">
         <LiveChecks />
