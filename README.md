@@ -5,6 +5,8 @@ contract decides what it can spend, so it can't be talked into draining itself.*
 
 - **Problem:** AI agents that hold a wallet can be talked into paying anyone. One poisoned web page, invoice or tool result is enough, and a better prompt is a promise, not a lock.
 - **Solution:** the agent can only *ask* for payments. A NEAR contract holds the funds and checks every request against the owner's rules (approved payees, daily budget, human approval above a threshold, velocity limit, kill-switch), and records every refusal on-chain.
+- **Try it in 60 seconds, no wallet:** https://ashabi-wallet.vercel.app/try gives you a sandbox wallet in one tap; its agent buys live data, then gets hijacked and the contract refuses
+- **Open challenge:** https://ashabi-wallet.vercel.app/challenge, write any prompt injection and watch the contract's verdict
 - **Live demo:** https://ashabi-wallet.vercel.app/agent · **Contract:** [`guardian.gw-emmy.testnet`](https://testnet.nearblocks.io/address/guardian.gw-emmy.testnet) (NEAR testnet)
 - **Your own wallet:** https://ashabi-wallet.vercel.app/start creates one per user through [`factory.gw-emmy.testnet`](https://testnet.nearblocks.io/address/factory.gw-emmy.testnet) from a NEP-591 global contract; https://ashabi-wallet.vercel.app/chat is an assistant that buys through it
 - **Track:** AI Security & Defense (primary) · Agent Economy (secondary)
@@ -21,28 +23,42 @@ plug in with the [`ashabi-wallet-sdk`](packages/sdk) package (not on npm yet; in
 
 ## For judges: try it in 2 minutes
 
-No wallet, no sign-up, no testnet NEAR. Everything runs on the project's own testnet vault,
-with the agent's own limited key. Open https://ashabi-wallet.vercel.app/agent on any phone or laptop.
+No wallet, no sign-up, no testnet NEAR. Everything runs on the project's own testnet wallets,
+with each agent's own limited key.
 
-1. **The public heist challenge** at the top of `/agent` shows the live vault balance from the
+0. **Start at https://ashabi-wallet.vercel.app/try and tap "Give me a wallet".** You get one of 16
+   sandbox wallets the factory created ahead of time (`try-01` … `try-16.factory.gw-emmy.testnet`,
+   0.3 NEAR a day, asks over 0.1, two approved providers) for 24 hours. Tap **"Buy live Lagos air
+   quality"**: the agent pays 0.05 NEAR to the second provider over 402 and gets a live reading.
+   Tap **"Hijack the agent"**: it tries to send 2 NEAR to an attacker and the contract answers
+   `BLOCKED_RECIPIENT`. Both have a NearBlocks link. Then chat with the same wallet on `/chat`.
+1. **Write your own attack on https://ashabi-wallet.vercel.app/challenge.** Any text goes into the
+   docs page the agent reads; you see its decision, the contract's verdict and the tx, and a
+   scoreboard whose refusal and payout counts are read from the chain.
+
+The rest runs on the demo vault. Open https://ashabi-wallet.vercel.app/agent on any phone or laptop.
+
+2. **The public heist challenge** at the top of `/agent` shows the live vault balance from the
    contract (not a baked-in figure). **Tap B, "Hijack the agent".** The agent sends 2 NEAR to the
    attacker; the contract refuses it on-chain. Tap "View tx" for the NearBlocks record. A live
    feed on `/` and below the arena lists recent purchases and blocked attempts from the same vault.
-2. **Real jobs tab → "What is the weather in Lagos right now?" → Run.** The vendor answers
+3. **Real jobs tab → "What is the weather in Lagos right now?" → Run.** The vendor answers
    402, the agent pays 0.05 NEAR through the vault contract, retries with the receipt, and the data
    unlocks. Then tap **Verify intent**: your browser recomputes the hash and matches the memo on-chain.
-3. **Attacks tab → pick a preset → Reveal hidden injection.** That's the text only the agent
+4. **Attacks tab → pick a preset → Reveal hidden injection.** That's the text only the agent
    reads. Choose Naive or Careful agent and launch; if the model falls for it, the step is
    outlined in red and the contract blocks the payment.
-4. **Real jobs → "Buy the premium annual plan."** At 1.5 NEAR it's over the 1 NEAR threshold,
+5. **Real jobs → "Buy the premium annual plan."** At 1.5 NEAR it's over the 1 NEAR threshold,
    so it waits as pending on `/approve`. Only the owner's wallet can approve it; you can watch it wait.
-5. **Optional, with a testnet wallet: `/start`.** Connect from the nav (MyNearWallet, Meteor, HERE or Intear),
+6. **Optional, with a testnet wallet: `/start`.** Connect from the nav (MyNearWallet, Meteor, HERE or Intear),
    pick a template, name it, attach 2 testnet NEAR ([free from the faucet](https://near-faucet.io/)).
    One transaction creates your own Ashabi wallet and its agent. Then `/chat` →
    "Renew my API plan for a year" files a 1.5 NEAR request that waits on a card at
    `/vault/<your wallet>/request/<id>`, which you approve from your phone.
 
-6. **Open `/verify`.** The checks run in your browser against a public testnet RPC: the agent
+7. **Open `/verify`.** The top card reads `view_access_key_list` live and says "Locked: 0
+   full-access keys" for the vault (with the agent and factory counts and a copy-paste `curl`),
+   then the live rules from `get_wallet_status` and the latest refusals with tx links. Under that, the checks run in your browser against a public testnet RPC: the agent
    key’s scope, the vault’s full-access key count (0 since 13 Nov 2026, so the code can't change),
    owner control (owner methods need the owner’s signature and 1 yoctoNEAR), the contract code
    hash and balance, the velocity limit, the kill-switch, and the latest blocked attempt. Under
@@ -176,6 +192,26 @@ transaction from a testnet RPC and checks four things:
 There's no database: the chain is the payment record, and used receipts are kept in Vercel's
 runtime cache. Every paid run on `/agent` replays its own receipt at the end to show the `409`.
 Payments above the approval threshold skip the 402 loop and wait for the owner as before.
+
+### A second provider: Open Data Desk
+
+`opendata.gw-emmy.testnet` is a second payee with its own catalog and endpoint, run by this
+project on a separate account. It wraps free, keyless public APIs and returns their live answer:
+
+| SKU | Price | Source |
+|---|---|---|
+| `fx-usd` | 0.04 NEAR | Frankfurter (ECB reference rates) |
+| `air-lagos` | 0.05 NEAR | Open-Meteo air quality |
+| `quakes-today` | 0.06 NEAR | USGS earthquake feed (M4.5+, past day) |
+
+`GET /api/providers` lists both providers with their payee and catalog, and the agent and `/chat`
+read that list before they pick what to buy. `GET /api/open-data/<sku>` runs the same 402 loop
+(`dashboard/src/vendor/x402.ts`), but the receipt must pay *this* provider's account, and its
+nonces are signed with the payee in the text, so one provider's nonce never verifies at the other.
+It fetches the data before checking the receipt, so if a source is down the receipt isn't used up.
+Each wallet still decides: the sandbox and challenge wallets approve both providers; on the demo
+vault `opendata.gw-emmy.testnet` is not an approved payee until its owner adds it, so the agent
+says so and sends nothing instead of filing a request that would only be refused.
 
 ### Intent hashes
 
@@ -406,7 +442,9 @@ More in [packages/mcp-server/README.md](packages/mcp-server/README.md).
 
 ### The agent economy, as this repo actually implements it
 
-`api-vendor.gw-emmy.testnet` is a provider that sells testnet data and services over HTTP 402.
+`api-vendor.gw-emmy.testnet` (SkyCast, sample data) and `opendata.gw-emmy.testnet` (Open Data
+Desk, live public data) are two providers, on separate accounts with separate catalogs, that sell
+over HTTP 402. Both are run by this project; neither is a third party.
 `gw-emmy-agent.testnet` is a buyer agent that can only ask the vault to pay. The vendor does not
 unlock a payload until it sees a matching on-chain payment. Ashabi Wallet is the settlement
 layer between them: the contract still enforces the owner’s rules.
@@ -438,6 +476,10 @@ any model and the guarantees above hold, because the contract never asks the mod
 
 Requires Node 24, Rust with [`cargo-near`](https://github.com/near/cargo-near), and
 [`near-cli-rs`](https://github.com/near/near-cli-rs). Testnet NEAR is free from the faucet.
+
+To check that everything builds and passes from scratch, `scripts/verify-fresh-clone.sh` clones
+the repo into a temp folder and runs both contracts' tests and wasm builds, then the SDK, the MCP
+server and the dashboard (lint, typecheck, production build). It needs no keys.
 
 ```sh
 # contract: 55 unit tests, then the wasm
@@ -484,6 +526,9 @@ the core idea works today, and you can try to break it on the live site.
 | Owner (sets policy, approves) | `realfile1618.testnet` (Meteor wallet; [handover tx](https://testnet.nearblocks.io/txns/GS3WYYApFdR1HeqEd31HxRg1BQuFYdaokE3a9RC2hwbE)) |
 | AI agent (can only request) | `gw-emmy-agent.testnet` |
 | Approved payee (demo API vendor) | `api-vendor.gw-emmy.testnet` |
+| Second provider (Open Data Desk) | [`opendata.gw-emmy.testnet`](https://testnet.nearblocks.io/address/opendata.gw-emmy.testnet) |
+| Sandbox wallets for `/try` | `try-01.factory.gw-emmy.testnet` … `try-16.factory.gw-emmy.testnet`, owner `ashabi-sandbox.testnet` |
+| Open challenge wallet | [`challenge.factory.gw-emmy.testnet`](https://testnet.nearblocks.io/address/challenge.factory.gw-emmy.testnet), owner `ashabi-sandbox.testnet`, kill-switch cooldown 3 min |
 | Attacker (not approved) | `attacker.gw-emmy.testnet` |
 | Trusted reporter (can add to the blocklist, not clear it) | `security-desk.gw-emmy.testnet` |
 | Reported payee (new account, swapped its code) | `rogue-vendor.gw-emmy.testnet` |
@@ -704,7 +749,21 @@ model reasoning.
   come from the shared demo wallet are labelled "Public demo wallet · guardian.gw-emmy.testnet"
   with a NearBlocks link; if you are connected and already have a vault, the same label offers
   "View your vault". Every number is read from the chain and says what it counts.
-- The nav is Home, Live Agent (`/chat`), Attack Demo (`/agent`), Wallet, Verify (`/verify`) and Docs (`/docs`, a
+- `/try` is the main call to action: one tap claims a sandbox wallet (`POST /api/try`,
+  `dashboard/src/lib/server/sandbox.ts`). A cookie and the visitor's IP bring the same wallet back
+  for 24 hours, new claims are capped at 3 per IP per hour, and a wallet that is frozen or below
+  0.1 NEAR spendable is skipped. Its two buttons run a real 402 purchase from Open Data Desk and the
+  hijack on that wallet; the contract's 0.3 NEAR daily limit is the hard cap.
+- `/challenge` takes any injection text (`POST /api/challenge`), puts it in the docs page the agent
+  reads, and runs it on `challenge.factory.gw-emmy.testnet` so the demo wallet's kill-switch is
+  untouched. Attack mode never buys anything. Limits: 3 attempts per IP per 10 minutes, 40 per
+  server instance, 300 a day overall. The scoreboard's "refused on-chain" (`blocked_count`) and
+  "paid to an attacker" (completed payments to accounts the wallet never approved) are read from
+  the chain; attempt and "model tricked" counts are kept in Vercel's runtime cache and are
+  approximate. When three tricked attempts trip the kill-switch, the page says so; attempts keep
+  being refused as `FROZEN` until the 3-minute cooldown ends or the owner resets it. There is no
+  public reset. Submitted text isn't stored or shown to others.
+- The nav is Home, Live Agent (`/chat`), Attack Demo (`/agent`), Challenge (`/challenge`), Wallet, Verify (`/verify`) and Docs (`/docs`, a
   short guide to the rules, the SDK and the accounts), plus a Connect wallet button (desktop and
   the mobile menu). It opens a themed modal with MyNearWallet (browser redirect, including iPhone
   Safari), Meteor, HERE, and Intear. Once connected, the button becomes an account pill with
@@ -732,9 +791,13 @@ model reasoning.
   item over HTTP 402, and `request_payment`. It must not claim a payment succeeded unless the
   tool said so. Small talk does not spend a purchase-run slot; only a real payment tool call
   does. A request to send funds still goes to the contract, even if the model would rather
-  refuse in text. The catalog is weather, a news digest, a translation, an icon pack, a market
-  report, and a 1.5 NEAR annual plan that waits for the owner.
-- `/verify` runs live RPC checks in the visitor’s browser (agent key scope, vault full-access
+  refuse in text. `list_catalog` returns both providers and whether each is approved on the
+  current wallet: SkyCast's weather, news digest, translation, icon pack, market report and 1.5
+  NEAR annual plan (which waits for the owner), and Open Data Desk's live exchange rates, Lagos
+  air quality and earthquakes.
+- `/verify` opens with the live lock card (full-access key counts for the vault, the agent and the
+  factory, read with `view_access_key_list`, plus a copy-paste `curl`), the vault's live rules and
+  its latest refusals with tx links. Then it runs live RPC checks in the visitor’s browser (agent key scope, vault full-access
   key count, owner control, contract code hash and balance, velocity limit, kill-switch, latest blocked attempt) and lists every
   published proof transaction with a NearBlocks link. The same checks sit on `/` and `/agent`.
   A check that cannot reach the RPC, or that does not hold, is shown as a failure or a caveat,
