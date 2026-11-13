@@ -51,7 +51,7 @@ the contract verdict, the receipt, the data card.
 > transaction. The scoreboard counts what the chain refused and what was ever paid to an
 > unapproved account. That second number is zero."
 
-Point at **Paid to unapproved: 0** on the scoreboard.
+Point at **Paid to an attacker: 0** on the scoreboard.
 
 ## 1:40 – 1:55 · A second provider
 
