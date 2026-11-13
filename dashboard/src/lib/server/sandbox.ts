@@ -32,9 +32,14 @@ async function usable(vault: string) {
 }
 
 /** The visitor's sandbox wallet: the one they already have, else a free one, else the least recently handed out. */
-export async function sandboxFor(visitor: string): Promise<Sandbox | null> {
+export async function sandboxFor(visitor: string, remembered?: string): Promise<Sandbox | null> {
   const mine = await get<Sandbox>(`sandbox-of:${visitor}`);
   if (mine) return mine;
+  // The cookie from an earlier visit, if that hold hasn't run out.
+  if (remembered && TRIAL_VAULTS.includes(remembered)) {
+    const since = await get<number>(`sandbox:${remembered}`);
+    if (since !== undefined) return { vault: remembered, since, shared: false };
+  }
 
   const holds = await Promise.all(TRIAL_VAULTS.map(async (vault) => ({ vault, since: await get<number>(`sandbox:${vault}`) })));
   const free = holds.filter((h) => h.since === undefined);
