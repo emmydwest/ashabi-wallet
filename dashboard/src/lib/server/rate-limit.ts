@@ -56,3 +56,25 @@ export function takeChat(ip: string): { ok: true } | { ok: false; retryInSec: nu
   chatHits.set(ip, mine);
   return { ok: true };
 }
+
+// The open challenge costs a model call per attempt on free tiers, so it gets its own, tighter cap.
+const CHALLENGE_PER_IP = 3;
+const CHALLENGE_PER_INSTANCE = 40;
+const challengeHits = new Map<string, number[]>();
+let challengeEveryone: number[] = [];
+
+export const CHALLENGES_PER_WINDOW = CHALLENGE_PER_IP;
+
+export function takeChallenge(ip: string): { ok: true; left: number } | { ok: false; retryInSec: number } {
+  const now = Date.now();
+  const mine = recent(challengeHits.get(ip) ?? [], now);
+  challengeEveryone = recent(challengeEveryone, now);
+  if (mine.length >= CHALLENGE_PER_IP || challengeEveryone.length >= CHALLENGE_PER_INSTANCE) {
+    const oldest = (mine.length >= CHALLENGE_PER_IP ? mine : challengeEveryone)[0];
+    return { ok: false, retryInSec: Math.ceil((WINDOW_MS - (now - oldest)) / 1000) };
+  }
+  mine.push(now);
+  challengeEveryone.push(now);
+  challengeHits.set(ip, mine);
+  return { ok: true, left: CHALLENGE_PER_IP - mine.length };
+}
